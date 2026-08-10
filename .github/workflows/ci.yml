@@ -17,6 +17,14 @@ jobs:
         with:
           node-version: ${{ matrix.version }}
           cache: npm
+      # The npm version bundled with a Node install differs by major version
+      # (e.g. Node 24 ships npm 11, Node 22 ships npm 10), and `npm ci`'s
+      # lockfile validation isn't guaranteed cross-compatible between npm
+      # majors for one committed lockfile — pin explicitly so every matrix
+      # leg (and local devs) validate against the same npm. Keep in sync
+      # with the version used to generate package-lock.json.
+      - name: Pin npm version
+        run: npm install -g npm@11.16.0
       - name: Install
         run: npm ci
       - name: Generate Prisma client

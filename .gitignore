@@ -27,3 +27,6 @@ pnpm-lock.yaml
 
 # vitest --coverage output
 /coverage
+
+# React Router's generated route types
+/.react-router/
