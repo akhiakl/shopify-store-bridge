@@ -14,7 +14,8 @@ database.sqlite
 .env
 .env.*
 
-package-lock.json
+# This project uses npm — package-lock.json is intentionally committed.
+# Other package managers' lockfiles stay ignored since we don't use them.
 yarn.lock
 pnpm-lock.yaml
 
@@ -23,3 +24,6 @@ pnpm-lock.yaml
 # Ignore shopify files created during app dev
 .shopify/*
 .shopify.lock
+
+# vitest --coverage output
+/coverage
