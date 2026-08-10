@@ -1,0 +1,8 @@
+echo "Type checking..."
+npm run typecheck || exit 1
+
+echo "Building..."
+npm run build || exit 1
+
+echo "Running tests with coverage (min 80%)..."
+npm run test:coverage || exit 1
