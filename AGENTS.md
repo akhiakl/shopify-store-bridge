@@ -43,7 +43,7 @@ Use the official generator when one exists, then tune its output to match §5–
 | Max function parameters   | 3 (4+ → single options object)                                                           |
 | Test coverage             | ≥80% branches/functions/lines/statements, **on files touched by tests** (see note below) |
 
-Approaching 300 lines → split by responsibility (SRP), don't reach for `eslint-disable`. Disabling a limit is itself a "when in doubt, ask" moment (§1) — flag it, don't silently bypass. (One accepted exception exists today: `app/entry.server.tsx`'s `handleRequest` has a framework-mandated 4-arg signature from Remix itself.)
+Approaching 300 lines → split by responsibility (SRP), don't reach for `eslint-disable`. Disabling a limit is itself a "when in doubt, ask" moment (§1) — flag it, don't silently bypass. (One accepted exception exists today: `app/entry.server.tsx`'s `handleRequest` has a framework-mandated 4-arg signature from React Router itself.)
 
 **Open decision — coverage scope:** `vitest.config.ts` currently uses the default `coverage.all: false`, so the 80% floor only applies to files a test actually imports; untested new files simply don't appear in the report instead of dragging the number down. This was fine for the initial scaffold (nothing built yet) but stops being fine once real feature routes exist untested. Revisit: set `coverage.all: true` and decide the real threshold once there's enough tested surface area to not immediately fail the pre-push hook.
 
