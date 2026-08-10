@@ -1,0 +1,38 @@
+# This file stores configurations for your Shopify app.
+
+client_id = ""
+name = "storebridge"
+
+[access_scopes]
+# TODO(unverified): confirm exact scope names for metaobjects/metafields via Shopify Dev MCP
+# before first deploy — e.g. write_metaobjects, write_metaobject_definitions.
+scopes = ""
+
+[webhooks]
+# Pinned 2026-07 (latest stable as of Aug 2026). Re-check quarterly per AGENTS.md §2.
+api_version = "2026-07"
+
+  # Handled by: /app/routes/webhooks.app.uninstalled.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = ["app/uninstalled"]
+
+  # Handled by: /app/routes/webhooks.app.scopes_update.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+  # TODO: mandatory for public apps, required before App Store submission (not before —
+  # route handlers don't exist yet; build alongside install/uninstall flows, per YAGNI).
+  # See: https://shopify.dev/docs/apps/build/privacy-law-compliance
+  # [[webhooks.subscriptions]]
+  # uri = "/webhooks/customers/data_request"
+  # compliance_topics = ["customers/data_request"]
+
+  # [[webhooks.subscriptions]]
+  # uri = "/webhooks/customers/redact"
+  # compliance_topics = ["customers/redact"]
+
+  # [[webhooks.subscriptions]]
+  # uri = "/webhooks/shop/redact"
+  # compliance_topics = ["shop/redact"]
