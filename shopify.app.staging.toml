@@ -1,0 +1,35 @@
+# Staging environment config. This is a separate Shopify app registration
+# from the one in shopify.app.toml (production) — Shopify's own multi-env
+# guidance is two distinct Partner/Dev Dashboard apps, not one app reused
+# across environments. Link it with:
+#
+#   shopify app config link --config staging
+#
+# which fills in client_id below and points application_url /
+# redirect_urls at the staging deployment.
+#
+# Deploy with:  npm run deploy -- --config staging
+# Dev with:     npm run dev -- --config staging
+
+client_id = ""
+name = "storebridge (staging)"
+
+[access_scopes]
+# Keep in sync with shopify.app.toml — same access needs, different app.
+# TODO(unverified): confirm exact scope names for metaobjects/metafields via Shopify Dev MCP
+# before first deploy — e.g. write_metaobjects, write_metaobject_definitions.
+scopes = ""
+
+[webhooks]
+# Keep in sync with shopify.app.toml's api_version.
+api_version = "2026-07"
+
+  # Handled by: /app/routes/webhooks.app.uninstalled.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = ["app/uninstalled"]
+
+  # Handled by: /app/routes/webhooks.app.scopes_update.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
