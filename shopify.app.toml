@@ -1,4 +1,12 @@
 # This file stores configurations for your Shopify app.
+#
+# This is the PRODUCTION environment config — a separate Shopify app
+# registration from shopify.app.staging.toml. Deploy with:
+#
+#   npm run deploy -- --config production
+#
+# (this is also the default config, so plain `npm run deploy` / `shopify
+# app dev` uses this file unless --config is passed)
 
 client_id = ""
 name = "storebridge"
