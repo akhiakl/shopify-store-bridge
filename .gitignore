@@ -30,3 +30,6 @@ pnpm-lock.yaml
 
 # React Router's generated route types
 /.react-router/
+
+# Vercel CLI / build output
+/.vercel
