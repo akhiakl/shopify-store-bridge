@@ -20,7 +20,12 @@ module.exports = {
     commonjs: true,
     es6: true,
   },
-  ignorePatterns: ["!**/.server", "!**/.client"],
+  // ESLint 8 ignores dotfiles by default. That's silent when linting a glob
+  // (`npm run lint`), but lint-staged passes exact staged paths and ESLint
+  // then *warns* "File ignored by default" for any dotfile among them —
+  // which --max-warnings=0 in .lintstagedrc.json treats as a failure. Negate
+  // the ones we actually want linted.
+  ignorePatterns: ["!**/.server", "!**/.client", "!.graphqlrc.ts"],
 
   // Base config
   extends: ["eslint:recommended", "prettier"],
