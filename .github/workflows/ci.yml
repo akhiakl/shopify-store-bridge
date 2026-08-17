@@ -27,8 +27,9 @@ jobs:
         run: npm install -g npm@11.16.0
       - name: Install
         run: npm ci
-      - name: Generate Prisma client
-        run: npx prisma generate
+      # Prisma client generation is wired into turbo's task graph (lint,
+      # typecheck, test, build all `dependsOn: ["db:generate"]` where
+      # needed via turbo.json), so there's no separate step for it here.
       - name: Lint
         run: npm run lint
       - name: Typecheck
