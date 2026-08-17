@@ -16,11 +16,49 @@ Full detail lives in `AGENTS.md` at the repo root — read it once per session b
 
 ## While writing code
 
-- File ≤ 300 lines (source) / ≤ 500 lines (tests) — split by responsibility before disabling the rule.
-- Functions ≤ 3 parameters — 4+ becomes a single options object.
-- SOLID pragmatically, YAGNI strictly — don't build for phases not yet in scope.
+- File ≤ 300 lines (source) / ≤ 500 lines (tests) — enforced by ESLint's
+  `max-lines` (`packages/eslint-config/index.cjs`), not just documented.
+  Split by responsibility before reaching for `eslint-disable`.
+- Functions ≤ 3 parameters — 4+ becomes a single options object. Enforced
+  the same way (`max-params`).
 - JSDoc on exported symbols and non-obvious logic only; comments explain _why_.
 - Polaris for UI; every async action has loading/error/empty states.
+
+### SOLID, applied to this codebase — not ceremony
+
+- **S**ingle responsibility: a route module's `loader`/`action` orchestrates;
+  it doesn't also contain the GraphQL query string, the business rule, _and_
+  the presentation logic inline. Pull a named function (or a `.server.ts`
+  sibling) out once a loader/action does more than "fetch, validate,
+  respond."
+- **O**pen/closed: `packages/eslint-config`, `typescript-config`,
+  `vitest-config` exist so new workspace members extend them via
+  `overrides`/`extends`, not by forking the base file. Same idea inside the
+  app — e.g. `createVitestConfig(overrides)` takes an object apps merge
+  into, not a version apps copy-paste and edit.
+- **L**iskov: don't give a narrower implementation of a shared interface
+  (e.g. a webhook handler, a session-storage adapter) surprising
+  preconditions the type doesn't advertise — callers should be able to swap
+  one Shopify webhook route for another without reading its internals first.
+- **I**nterface segregation: a component or function takes the fields it
+  actually uses, not the whole `Shop`/`Session` object "in case." Makes
+  props easy to test and mock.
+- **D**ependency inversion: routes depend on `app/shopify.server.ts`'s
+  exported `authenticate`/`sessionStorage`, never construct a new
+  `shopifyApp(...)` instance inline — one seam, one place to swap for tests.
+
+### YAGNI — strictly, not just as a slogan
+
+Don't add: a config knob nothing reads yet, a resource type or extension
+point for a "phase 2" that isn't scheduled, an abstraction layer over a
+single implementation "in case we need a second one." One concrete
+precedent already in this repo: `AGENTS.md` §5 explicitly defers turning on
+`coverage.all: true` until there's enough tested surface area to not
+immediately fail the pre-push hook — the flag exists, but flipping it is
+deferred until it's actually useful, and that's written down as an open
+decision rather than silently done "for completeness." Follow that pattern:
+when you're tempted to build ahead of current scope, either don't, or write
+down the open decision the way that one is written down.
 
 ## Before committing
 
@@ -30,9 +68,13 @@ Full detail lives in `AGENTS.md` at the repo root — read it once per session b
 
 ## Before pushing
 
-- Type-check, build, and full test suite (≥80% coverage on touched files) all pass — these run automatically via Husky `pre-push`.
+- Type-check, build, and full test suite (≥80% coverage on touched files) all pass — these run automatically via Husky `pre-push`, fanned out across the monorepo via `turbo run <task>`.
 - Note: coverage currently only counts files a test imports (`coverage.all: false`) — see AGENTS.md §5 for when to revisit this.
+- Unit tests (Vitest + RTL) and e2e tests (Playwright) are separate suites — `npm run test:coverage` runs unit only; `npm run test:e2e` (from `apps/storebridge`) runs e2e. Both must pass, but only unit tests gate the 80% coverage floor.
 
-## Config file locations (already scaffolded)
+## Repo layout (Turborepo monorepo)
 
-`.eslintrc.cjs`, `vitest.config.ts`, `vitest.setup.ts`, `commitlint.config.cjs`, `.lintstagedrc.json`, `.husky/pre-commit`, `.husky/commit-msg`, `.husky/pre-push`, `prisma/schema.prisma` (Supabase Postgres).
+- `apps/storebridge` — the Shopify app: `app/`, `prisma/`, `e2e/`, its own `package.json`/`tsconfig.json`/`.eslintrc.cjs`/`vitest.config.ts`/`playwright.config.ts`.
+- `packages/eslint-config`, `packages/typescript-config`, `packages/vitest-config` — shared config, consumed via `"@repo/<name>": "*"`.
+- Root — `turbo.json`, `.npmrc`, `commitlint.config.cjs`, `.lintstagedrc.json`, `.husky/*` (Husky/commitlint/lint-staged stay root-level; they run repo-wide, not per-app).
+- `apps/storebridge/prisma/schema.prisma` — session/token store only (Supabase Postgres); no app data here.
