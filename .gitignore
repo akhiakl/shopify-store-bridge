@@ -31,6 +31,11 @@ extensions/*/dist
 # vitest --coverage output
 coverage
 
+# Playwright e2e output
+playwright-report
+test-results
+blob-report
+
 # React Router's generated route types
 .react-router/
 
