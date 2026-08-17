@@ -5,10 +5,10 @@
   "type": "module",
   "main": "index.ts",
   "dependencies": {
-    "@testing-library/jest-dom": "^7.0.0"
+    "@testing-library/jest-dom": "^7.0.0",
+    "vite-tsconfig-paths": "^5.0.1"
   },
   "peerDependencies": {
-    "vite-tsconfig-paths": "*",
     "vitest": "^4.1.10"
   }
 }

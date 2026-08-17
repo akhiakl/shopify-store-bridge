@@ -12,8 +12,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY package.json package-lock.json* turbo.json ./
-COPY packages ./packages
 COPY apps/storebridge/package.json ./apps/storebridge/package.json
+# One line per packages/* workspace member — keep in sync with that
+# directory so `npm ci` sees every manifest before the source copy below,
+# without invalidating this layer's cache on every source-only change.
+COPY packages/eslint-config/package.json ./packages/eslint-config/package.json
+COPY packages/typescript-config/package.json ./packages/typescript-config/package.json
+COPY packages/vitest-config/package.json ./packages/vitest-config/package.json
 
 RUN npm ci --omit=dev && npm cache clean --force
 
