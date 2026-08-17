@@ -1,0 +1,8 @@
+{
+  "extends": "@repo/typescript-config/react-router-app.json",
+  "include": ["env.d.ts", "**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "rootDirs": [".", "./.react-router/types"]
+  }
+}

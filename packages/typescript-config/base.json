@@ -1,7 +1,6 @@
 {
-  "include": ["env.d.ts", "**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "strict": true,
     "skipLibCheck": true,
     "isolatedModules": true,
@@ -11,12 +10,8 @@
     "noEmit": true,
     "allowJs": true,
     "resolveJsonModule": true,
-    "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "target": "ES2022",
-    "baseUrl": ".",
-    "types": ["@react-router/node", "vite/client", "@shopify/polaris-types"],
-    "rootDirs": [".", "./.react-router/types"]
+    "target": "ES2022"
   }
 }

@@ -1,35 +1,38 @@
 node_modules
 .DS_Store
 
-/.cache
-/build
-/app/build
-/public/build/
-/public/_dev
-/app/public/build
-/prisma/dev.sqlite
-/prisma/dev.sqlite-journal
+# Turborepo's local cache
+.turbo
+
+.cache
+build
+prisma/dev.sqlite
+prisma/dev.sqlite-journal
 database.sqlite
 
 .env
 .env.*
+# ...except the committed template — the pattern above is broad on purpose
+# (catches .env, .env.local, .env.production, etc.) so this has to be a
+# separate negation, not folded into it.
+!.env.example
 
 # This project uses npm — package-lock.json is intentionally committed.
 # Other package managers' lockfiles stay ignored since we don't use them.
 yarn.lock
 pnpm-lock.yaml
 
-/extensions/*/dist
+extensions/*/dist
 
 # Ignore shopify files created during app dev
 .shopify/*
 .shopify.lock
 
 # vitest --coverage output
-/coverage
+coverage
 
 # React Router's generated route types
-/.react-router/
+.react-router/
 
 # Vercel CLI / build output
-/.vercel
+.vercel
