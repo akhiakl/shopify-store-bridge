@@ -19,15 +19,25 @@ test.describe("public landing route", () => {
     await expect(page.getByRole("button", { name: /log in/i })).toBeVisible();
   });
 
-  test("redirects to /app when a shop param is present", async ({ page }) => {
-    const response = await page.goto(
+  test("redirects to /app when a shop param is present", async ({
+    request,
+  }) => {
+    // Uses the API-only `request` fixture, not `page.goto`, and stops at
+    // the first hop: a real browser continuing past /app's 200 "bounce
+    // page" response actually *executes* its inline app-bridge.js script,
+    // which performs its own further client-side redirect to Shopify's
+    // real (external) admin login for the shop — behavior that depends on
+    // whether cdn.shopify.com is reachable from the test runner, which
+    // differs by environment. What this test claims to verify is our own
+    // loader's server-side redirect, so stop there.
+    const response = await request.get(
       "/?shop=storebridge-e2e-test.myshopify.com",
+      { maxRedirects: 0 },
     );
 
-    // The redirect target (/app) itself requires a session and will bounce
-    // further — the loader-level redirect from "/" is what this test
-    // verifies, not the full embedded-auth flow (see embedded-app.spec.ts).
-    expect(new URL(page.url()).pathname).toBe("/app");
-    expect(response?.ok()).toBe(true);
+    expect(response.status()).toBe(302);
+    expect(response.headers()["location"]).toBe(
+      "/app?shop=storebridge-e2e-test.myshopify.com",
+    );
   });
 });
