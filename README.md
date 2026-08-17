@@ -6,6 +6,19 @@ Rather than cloning this repo, follow the [Quick Start steps](https://github.com
 
 Visit the [`shopify.dev` documentation](https://shopify.dev/docs/api/shopify-app-react-router) for more details on the React Router app package.
 
+## Monorepo layout
+
+This repo is a [Turborepo](https://turborepo.com/) monorepo:
+
+- `apps/storebridge` — the Shopify app itself (everything described below lives here).
+- `packages/*` — shared, reusable config (`@repo/eslint-config`, `@repo/typescript-config`,
+  `@repo/vitest-config`) consumed by workspace members.
+
+Root-level scripts (`npm run build`, `npm run lint`, `npm run typecheck`, `npm run test`,
+`npm run test:coverage`) fan out to every workspace via `turbo run <task>`. To target just
+the app, add `--workspace=storebridge` (e.g. `npm run dev --workspace=storebridge`), or `cd
+apps/storebridge` and use its own `package.json` scripts directly.
+
 ## Upgrading from Remix
 
 If you have an existing Remix app that you want to upgrade to React Router, please follow the [upgrade guide](https://github.com/Shopify/shopify-app-template-react-router/wiki/Upgrading-from-Remix). Otherwise, please follow the quick start guide below.
