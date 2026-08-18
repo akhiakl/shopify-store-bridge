@@ -53,7 +53,11 @@ jobs:
       - name: Install Shopify CLI
         run: npm install -g @shopify/cli@^4.0.0
 
+      # The Shopify app (shopify.app.*.toml, extensions/) now lives in
+      # apps/storebridge under the Turborepo monorepo layout — run the CLI
+      # from there so it finds the right config.
       - name: Deploy app config
+        working-directory: apps/storebridge
         env:
           SHOPIFY_APP_AUTOMATION_TOKEN: ${{ secrets.SHOPIFY_APP_AUTOMATION_TOKEN }}
         run: |

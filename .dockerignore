@@ -1,3 +1,15 @@
+# Docker's build context is the monorepo root (see apps/storebridge/Dockerfile's
+# header comment) — .dockerignore is only honored from the context root, not
+# from the Dockerfile's own directory, so this file lives here rather than
+# under apps/storebridge/.
+.git
+.turbo
+node_modules
+**/node_modules
 .cache
 build
-node_modules
+**/build
+coverage
+.env
+.env.*
+!.env.example

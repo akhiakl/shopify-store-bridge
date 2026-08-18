@@ -1,0 +1,47 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "tasks": {
+    "db:generate": {
+      "cache": true,
+      "outputs": ["node_modules/.prisma/**", "node_modules/@prisma/client/**"]
+    },
+    "build": {
+      "dependsOn": ["^build", "db:generate"],
+      "env": ["SHOPIFY_API_KEY", "SHOPIFY_APP_URL", "VERCEL"],
+      "outputs": ["build/**", ".react-router/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "outputs": []
+    },
+    "typecheck": {
+      "dependsOn": ["db:generate"],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["db:generate"],
+      "outputs": []
+    },
+    "test:coverage": {
+      "dependsOn": ["db:generate"],
+      "outputs": ["coverage/**"]
+    },
+    "test:e2e": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "env": [
+        "DATABASE_URL",
+        "SHOPIFY_API_KEY",
+        "SHOPIFY_API_SECRET",
+        "SCOPES",
+        "SHOPIFY_APP_URL",
+        "PORT",
+        "CI"
+      ],
+      "outputs": ["playwright-report/**"]
+    }
+  }
+}

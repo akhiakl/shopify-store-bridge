@@ -27,8 +27,9 @@ jobs:
         run: npm install -g npm@11.16.0
       - name: Install
         run: npm ci
-      - name: Generate Prisma client
-        run: npx prisma generate
+      # Prisma client generation is wired into turbo's task graph (lint,
+      # typecheck, test, build all `dependsOn: ["db:generate"]` where
+      # needed via turbo.json), so there's no separate step for it here.
       - name: Lint
         run: npm run lint
       - name: Typecheck
@@ -40,3 +41,61 @@ jobs:
         env:
           SHOPIFY_API_KEY: ci-placeholder
           SHOPIFY_APP_URL: https://ci-placeholder.example.com
+
+  E2E:
+    name: E2E
+    runs-on: ubuntu-latest
+    services:
+      # Session storage in production is Supabase Postgres (see
+      # apps/storebridge/prisma/schema.prisma) — e2e runs against a real
+      # Postgres for the same reason, not sqlite, so a schema mismatch like
+      # the one this migration once had (DATETIME instead of TIMESTAMP)
+      # can't slip through unnoticed again.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: storebridge_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/storebridge_e2e
+      # Any values work — nothing in the e2e suite calls the real Shopify
+      # API, it forges its own session token locally. See
+      # apps/storebridge/e2e/support/embedded-fixture.ts.
+      SHOPIFY_API_KEY: ci-e2e-api-key
+      SHOPIFY_API_SECRET: ci-e2e-api-secret
+      SCOPES: read_products
+      SHOPIFY_APP_URL: http://localhost:3000
+      PORT: "3000"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Pin npm version
+        run: npm install -g npm@11.16.0
+      - name: Install
+        run: npm ci
+      - name: Install Playwright browsers
+        working-directory: apps/storebridge
+        run: npx playwright install --with-deps chromium
+      - name: Run database migrations
+        working-directory: apps/storebridge
+        run: npx prisma migrate deploy
+      - name: E2E
+        run: npm run test:e2e
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: apps/storebridge/playwright-report/
+          retention-days: 7

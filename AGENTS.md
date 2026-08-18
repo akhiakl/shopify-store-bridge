@@ -1,6 +1,9 @@
 # Shopify app development
 
-This app is scaffolded from a Shopify app template. See the README for framework-specific details.
+This is a Turborepo monorepo. The Shopify app itself lives in `apps/storebridge`
+(scaffolded from a Shopify app template — see its README for framework-specific
+details); `packages/*` holds shared, reusable config (ESLint, TypeScript, Vitest)
+consumed by workspace members via `"@repo/<name>": "*"`.
 
 Use the [Shopify AI Toolkit](https://shopify.dev/docs/apps/build/ai-toolkit) for all Shopify API and platform work. If missing, install it in the agent host per that page (or `npx skills add Shopify/shopify-ai-toolkit --list` for skill-compatible hosts) — do not add tooling to this repo.
 
@@ -43,9 +46,9 @@ Use the official generator when one exists, then tune its output to match §5–
 | Max function parameters   | 3 (4+ → single options object)                                                           |
 | Test coverage             | ≥80% branches/functions/lines/statements, **on files touched by tests** (see note below) |
 
-Approaching 300 lines → split by responsibility (SRP), don't reach for `eslint-disable`. Disabling a limit is itself a "when in doubt, ask" moment (§1) — flag it, don't silently bypass. (One accepted exception exists today: `app/entry.server.tsx`'s `handleRequest` has a framework-mandated 4-arg signature from React Router itself.)
+Approaching 300 lines → split by responsibility (SRP), don't reach for `eslint-disable`. Disabling a limit is itself a "when in doubt, ask" moment (§1) — flag it, don't silently bypass. (One accepted exception exists today: `apps/storebridge/app/entry.server.tsx`'s `handleRequest` has a framework-mandated 4-arg signature from React Router itself.)
 
-**Open decision — coverage scope:** `vitest.config.ts` currently uses the default `coverage.all: false`, so the 80% floor only applies to files a test actually imports; untested new files simply don't appear in the report instead of dragging the number down. This was fine for the initial scaffold (nothing built yet) but stops being fine once real feature routes exist untested. Revisit: set `coverage.all: true` and decide the real threshold once there's enough tested surface area to not immediately fail the pre-push hook.
+**Open decision — coverage scope:** the shared Vitest config (`packages/vitest-config`) currently uses the default `coverage.all: false`, so the 80% floor only applies to files a test actually imports; untested new files simply don't appear in the report instead of dragging the number down. This was fine for the initial scaffold (nothing built yet) but stops being fine once real feature routes exist untested. Revisit: set `coverage.all: true` and decide the real threshold once there's enough tested surface area to not immediately fail the pre-push hook.
 
 ## 6. Design principles
 
@@ -54,8 +57,8 @@ Approaching 300 lines → split by responsibility (SRP), don't reach for `eslint
 
 ## 7. Tooling stack (already wired up)
 
-- TypeScript, strict mode. **Testing:** Vitest + React Testing Library (no Jest).
-- **Git hooks (Husky):** `pre-commit` → lint-staged (ESLint --fix + Prettier); `commit-msg` → commitlint; `pre-push` → typecheck → build → `test:coverage`.
+- TypeScript, strict mode. **Unit/component testing:** Vitest + React Testing Library (no Jest). **E2E:** Playwright (`apps/storebridge/e2e`) — runs against a real, migrated Postgres and a forged Shopify session token rather than a live store; see `e2e/support/embedded-fixture.ts`'s doc comment for exactly what's mocked and what isn't.
+- **Git hooks (Husky):** `pre-commit` → lint-staged (ESLint --fix + Prettier); `commit-msg` → commitlint; `pre-push` → typecheck → build → `test:coverage`. Hooks and root-level configs (Husky, commitlint, lint-staged) live at the monorepo root and run via Turborepo (`turbo run <task>`) across all workspaces, not per-app.
 - **Sessions/tokens:** Prisma → Supabase Postgres (`DATABASE_URL`), via `@shopify/shopify-app-session-storage-prisma`. No app data here — that's all Shopify metaobjects/metafields (`$app:` namespace).
 - **GraphQL:** wire `@shopify/api-codegen-preset` + `graphql-config` once real operations exist; every operation passes codegen _and_ `validate_graphql_codeblocks` (MCP) before commit.
 

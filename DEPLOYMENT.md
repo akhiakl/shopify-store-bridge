@@ -17,8 +17,10 @@ production. Don't reuse a single app across environments; that's not how Shopify
 multi-env tooling is designed (see `shopify.app.staging.toml`'s header comment).
 
 ```bash
-npm run config:link:staging      # interactive — links shopify.app.staging.toml
-npm run config:link:production   # interactive — links shopify.app.toml
+# Run from the repo root — npm workspaces route these to apps/storebridge,
+# where shopify.app.staging.toml / shopify.app.toml actually live.
+npm run config:link:staging --workspace=storebridge      # interactive — links shopify.app.staging.toml
+npm run config:link:production --workspace=storebridge   # interactive — links shopify.app.toml
 ```
 
 Each command fills in that config file's `client_id` and points `application_url` /
@@ -37,7 +39,10 @@ This app deploys to Vercel via `@vercel/react-router`'s `vercelPreset()`
 (`react-router.config.ts`) — it only activates when Vercel's own build sets the `VERCEL`
 env var, so local dev and the Docker/`react-router-serve` path are unaffected.
 
-1. Import the repo into a Vercel project (Vercel dashboard → Add New → Project).
+1. Import the repo into a Vercel project (Vercel dashboard → Add New → Project). This is a
+   Turborepo monorepo, so set the project's **Root Directory** to `apps/storebridge` —
+   Vercel's framework detection and `vercelPreset()` both expect to run from there, not
+   the repo root.
 2. Set the **Production Branch** to `main` in the Vercel project's Git settings — pushes to
    `staging` then land as Preview deployments, which is Vercel's native equivalent of a
    staging environment.
@@ -47,9 +52,9 @@ env var, so local dev and the Docker/`react-router-serve` path are unaffected.
      app config (step 1)
    - `SHOPIFY_APP_URL` — the environment's Vercel URL
    - `DATABASE_URL` — Supabase Postgres pooled/pgbouncer connection string (see
-     `prisma/schema.prisma`'s comment and `.env.example`). **Use a separate Supabase
-     project (or at least a separate database) per environment** — staging and production
-     must not share session storage.
+     `apps/storebridge/prisma/schema.prisma`'s comment and `apps/storebridge/.env.example`).
+     **Use a separate Supabase project (or at least a separate database) per environment** —
+     staging and production must not share session storage.
 4. Vercel Functions run on the Node.js runtime by default, which is what
    `@shopify/shopify-app-remix`'s (now `shopify-app-react-router`'s) Node adapter and
    Prisma need — no runtime config to change.
@@ -66,5 +71,6 @@ env var, so local dev and the Docker/`react-router-serve` path are unaffected.
   session since it requires interactive browser auth or dashboard clicks.
 - **Manual, ongoing**: `prisma migrate deploy` runs automatically in the Docker path
   (`npm run docker-start` → `npm run setup`), but Vercel's build doesn't run a migration
-  step — run `npm run setup` (or just `npx prisma migrate deploy`) against each
-  environment's `DATABASE_URL` after a schema change, before or alongside the deploy.
+  step — run `npm run setup --workspace=storebridge` (or `npx prisma migrate deploy` from
+  `apps/storebridge`) against each environment's `DATABASE_URL` after a schema change,
+  before or alongside the deploy.

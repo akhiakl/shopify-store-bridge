@@ -1,0 +1,14 @@
+{
+  "name": "@repo/vitest-config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.ts",
+  "dependencies": {
+    "@testing-library/jest-dom": "^7.0.0",
+    "vite-tsconfig-paths": "^5.0.1"
+  },
+  "peerDependencies": {
+    "vitest": "^4.1.10"
+  }
+}
