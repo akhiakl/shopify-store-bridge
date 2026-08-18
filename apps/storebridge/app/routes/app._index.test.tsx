@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import Index, { loader } from "../app._index";
+import Index, { loader } from "./app._index";
 
 // The loader in this file imports shopify.server -> db.server (Prisma). The
 // component test only exercises the default export, so stub the server-only
@@ -9,7 +9,7 @@ import Index, { loader } from "../app._index";
 const { authenticateAdmin } = vi.hoisted(() => ({
   authenticateAdmin: vi.fn(),
 }));
-vi.mock("../../shopify.server", () => ({
+vi.mock("../shopify.server", () => ({
   authenticate: { admin: authenticateAdmin },
 }));
 

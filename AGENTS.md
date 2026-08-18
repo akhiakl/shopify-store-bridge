@@ -55,6 +55,18 @@ Approaching 300 lines → split by responsibility (SRP), don't reach for `eslint
 - **SOLID**, applied pragmatically — not ceremony. **YAGNI** — build only for current scope; don't add config knobs or resource-type support for future phases already tracked in the KB's research list.
 - Composition over inheritance; small pure functions over large stateful classes where practical.
 
+### Folder structure — colocate, then promote
+
+`apps/storebridge/app/` uses React Router's file-based routing (`@react-router/fs-routes`) for `routes/`; everything else follows one rule: **build next to what uses it, move it up only once something else needs it too.**
+
+- A route with only a loader/action/component stays a single flat file — `routes/app.foo.tsx`. Don't pre-create empty folders for it.
+- A route that needs its own components/hooks/utils becomes a folder — `routes/app.foo/route.tsx`, with `components/`, `hooks/`, `utils/` subfolders inside as needed (only the ones actually used — no empty scaffolding). `@react-router/fs-routes` only looks one level into `routes/`, and for a folder only checks for a `route.*`/`index.*` file directly inside it — it never recurses into `components/`/`hooks/`/`utils/`, so anything nested there can't be mistaken for a route (verified against the installed package's source; see `app/routes.ts`'s comment).
+- Used by a second route? Promote it: `git mv` the file from the route's folder to the shared `app/components/`, `app/hooks/`, or `app/utils/`, update imports. Don't promote pre-emptively "in case" — that's the YAGNI violation this rule exists to prevent.
+- One export per file, named to match — a hook file exports one hook (`useThing.ts` → `useThing`), a component file exports one component. Keeps files naturally under the 300-line ESLint limit (§5) instead of fighting it after the fact.
+- Tests sit beside the thing they test — `useThing.ts` + `useThing.test.ts`, `route.tsx` + `route.test.tsx` — not in a separate `__tests__/` bucket. `app/routes.ts` explicitly excludes `**/*.test.{ts,tsx}` from route generation so this is safe for flat route files too, not just folder ones.
+- Server-only code keeps the existing `*.server.ts` suffix convention (`shopify.server.ts`, `db.server.ts`) — React Router strips these from the client bundle. Applies to shared `app/utils/*.server.ts` the same way.
+- Import with `~/` for anything outside the current folder (`~/components/Foo`, `~/hooks/useThing`) — aliased to `app/` in `tsconfig.json`. A single `../` to a colocated sibling (e.g. a route's `components/Foo.tsx` importing its own `../route`) is fine; `../../` or deeper is an ESLint error (`no-restricted-imports`) — that's the signal a file should either move or the import should go through `~/`.
+
 ## 7. Tooling stack (already wired up)
 
 - TypeScript, strict mode. **Unit/component testing:** Vitest + React Testing Library (no Jest). **E2E:** Playwright (`apps/storebridge/e2e`) — runs against a real, migrated Postgres and a forged Shopify session token rather than a live store; see `e2e/support/embedded-fixture.ts`'s doc comment for exactly what's mocked and what isn't.

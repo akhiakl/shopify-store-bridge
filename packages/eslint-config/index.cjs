@@ -94,6 +94,13 @@ module.exports = {
           },
           typescript: {
             alwaysTryTypes: true,
+            // Without an explicit project, this resolver looks for
+            // <cwd>/tsconfig.json — which finds apps/storebridge/tsconfig.json
+            // when a workspace script runs with cwd=apps/storebridge (e.g.
+            // turbo's per-workspace `npm run lint`), but not when lint-staged
+            // invokes ESLint from the monorepo root. List both shapes so
+            // path-alias (~/) resolution works from either cwd.
+            project: ["tsconfig.json", "apps/*/tsconfig.json"],
           },
         },
       },
@@ -102,6 +109,24 @@ module.exports = {
         "plugin:import/recommended",
         "plugin:import/typescript",
       ],
+      rules: {
+        // Push cross-folder imports onto the ~/ alias (-> app/) instead of
+        // fragile ../../ chains that break the moment a file moves. A
+        // single ../ (colocated sibling, e.g. a route folder's
+        // components/Foo.tsx importing its own ../route) is still fine.
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: ["../../*"],
+                message:
+                  "Use the '~/' alias for anything outside the current folder (e.g. '~/components/Foo'), not '../../'. A single '../' to a colocated sibling is fine.",
+              },
+            ],
+          },
+        ],
+      },
     },
 
     // Node
