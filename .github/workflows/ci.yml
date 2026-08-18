@@ -64,6 +64,11 @@ jobs:
   e2e:
     name: End-to-End Tests
     runs-on: ubuntu-latest
+    # A cold Playwright install + the suite itself normally finishes well
+    # under 10 minutes — cap it so a hung install/download (observed once:
+    # a run sat "in progress" for 40+ minutes) fails fast instead of tying
+    # up the runner and blocking the Quality Gate indefinitely.
+    timeout-minutes: 15
     services:
       # Session storage in production is Supabase Postgres (see
       # apps/storebridge/prisma/schema.prisma) — e2e runs against a real
@@ -103,9 +108,31 @@ jobs:
         run: npm install -g npm@11.16.0
       - name: Install
         run: npm ci
+      # The Chromium binary download (~100MB) is what makes "install
+      # Playwright" slow, not the OS package install — cache it keyed on
+      # the actually-installed @playwright/test version so a version bump
+      # invalidates the cache automatically. OS-level deps still have to
+      # install every run regardless of cache-hit: GitHub-hosted runners
+      # are a fresh VM each time, and actions/cache can't persist system
+      # packages, only files under the given path.
+      - name: Resolve Playwright version
+        id: playwright-version
+        working-directory: apps/storebridge
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: apps/storebridge
         run: npx playwright install --with-deps chromium
+      - name: Install Playwright OS dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: apps/storebridge
+        run: npx playwright install-deps chromium
       - name: Run database migrations
         working-directory: apps/storebridge
         run: npx prisma migrate deploy
