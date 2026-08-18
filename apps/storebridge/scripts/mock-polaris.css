@@ -1,0 +1,176 @@
+/**
+ * Mocked Polaris styling for documentation screenshots ONLY.
+ *
+ * Real Polaris Web Components load their definitions + styling from
+ * https://cdn.shopify.com/shopifycloud/polaris.js at runtime — unreachable
+ * from this environment's network policy (403, not a live-store problem).
+ * This is a rough visual approximation via plain CSS (tag + attribute
+ * selectors, `content: attr(...)` for props like `heading`/`label` that
+ * Polaris would otherwise render internally) so screenshots stay legible:
+ * structure, spacing, and flow, NOT production-accurate color/typography.
+ * See scripts/screenshot-app.mjs for how this gets loaded.
+ */
+
+html,
+body {
+  margin: 0;
+  background: #f1f1f1;
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #1a1a1a;
+  font-size: 14px;
+}
+
+s-page {
+  display: block;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+}
+s-page::before {
+  content: attr(heading);
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+s-app-nav {
+  display: flex;
+  gap: 20px;
+  background: #fff;
+  border-bottom: 1px solid #e1e1e1;
+  padding: 12px 24px;
+}
+
+s-section {
+  display: block;
+  background: #fff;
+  border: 1px solid #e1e1e1;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+s-section::before {
+  content: attr(heading);
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+s-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+s-stack[direction="inline"] {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+s-box {
+  display: block;
+  border: 1px solid #e1e1e1;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+s-heading {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+s-paragraph {
+  display: block;
+  font-size: 13px;
+  color: #4a4a4a;
+}
+
+s-link {
+  color: #005bd3;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+s-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #e4e5e7;
+  color: #202223;
+}
+s-badge[tone="success"] {
+  background: #aee9d1;
+  color: #0c5132;
+}
+s-badge[tone="warning"] {
+  background: #ffe6ac;
+  color: #8a6116;
+}
+s-badge[tone="critical"] {
+  background: #fed3d1;
+  color: #8e1f0b;
+}
+
+s-banner {
+  display: block;
+  border: 1px solid #f5c6c0;
+  background: #fdf1ef;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+s-banner::before {
+  content: attr(heading);
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+s-button {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid #c9cccf;
+  background: #fff;
+  cursor: pointer;
+  margin-right: 8px;
+}
+s-button[variant="primary"] {
+  background: #008060;
+  border-color: #008060;
+  color: #fff;
+}
+s-button[tone="critical"] {
+  border-color: #d82c0d;
+  color: #d82c0d;
+}
+
+s-text-field {
+  display: block;
+  border: 1px solid #c9cccf;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  min-height: 20px;
+}
+s-text-field::before {
+  content: attr(label);
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+s-text-field::after {
+  content: attr(details);
+  display: block;
+  font-size: 11px;
+  color: #6d7175;
+  margin-top: 4px;
+}
