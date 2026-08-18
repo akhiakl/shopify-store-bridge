@@ -109,9 +109,11 @@ module.exports = {
       files: [
         ".eslintrc.cjs",
         "vite.config.{js,ts}",
+        "playwright.config.{js,ts}",
         ".graphqlrc.{js,ts}",
         "shopify.server.{js,ts}",
         "**/*.server.{js,ts}",
+        "e2e/**/*.{js,ts}",
       ],
       env: {
         node: true,
@@ -126,6 +128,17 @@ module.exports = {
           "error",
           { max: 500, skipBlankLines: true, skipComments: true },
         ],
+      },
+    },
+
+    // Playwright e2e — its fixture API's `use(...)` callback parameter
+    // matches react-hooks/rules-of-hooks' "use"-prefix heuristic even
+    // though it has nothing to do with React hooks; that rule doesn't
+    // apply here.
+    {
+      files: ["e2e/**/*.{ts,tsx}"],
+      rules: {
+        "react-hooks/rules-of-hooks": "off",
       },
     },
   ],

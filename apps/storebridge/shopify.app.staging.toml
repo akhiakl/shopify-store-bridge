@@ -11,7 +11,7 @@
 # Deploy with:  npm run deploy -- --config staging
 # Dev with:     npm run dev -- --config staging
 
-client_id = ""
+client_id = "4e756fbacff648a4dcf28ed39cd7075e"
 name = "storebridge (staging)"
 
 [access_scopes]

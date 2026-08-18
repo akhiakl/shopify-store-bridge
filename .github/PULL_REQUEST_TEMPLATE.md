@@ -1,34 +1,29 @@
 <!--
-  ☝️How to write a good PR title:
-  - Prefix it with [Feature] (if applicable)
-  - Start with a verb, for example: Add, Delete, Improve, Fix…
+  How to write a good PR title:
+  - Start with a verb, e.g. Add, Fix, Remove, Update
+  - Match the Conventional Commit type of the underlying commit(s) where it helps
   - Give as much context as necessary and as little as possible
-  - Prefix it with [WIP] while it’s a work in progress
 -->
 
 ### WHY are these changes introduced?
 
-Fixes #0000 <!-- link to issue if one exists -->
-
-<!--
-  Context about the problem that’s being addressed.
--->
+<!-- Context about the problem being addressed. Link an issue if one exists. -->
 
 ### WHAT is this pull request doing?
 
-<!--
-  Summary of the changes committed.
-  Before / after screenshots appreciated for UI changes.
--->
+<!-- Summary of the changes. Before/after screenshots for UI changes. -->
 
 ### Test this PR
 
 ```bash
-shopify app init --template=https://github.com/Shopify/shopify-app-template-react-router#<your-branch-name>
+npm ci
+npm run lint
+npm run typecheck
+npm run test:coverage
+npm run build
 ```
 
 ### Checklist
 
-- [ ] I have made changes to the `README.md` file and other related documentation, if applicable
-- [ ] I have added an entry to `CHANGELOG.md`
-- [ ] I'm aware I need to create a new release when this PR is merged
+- [ ] Updated `README.md` / `apps/storebridge/README.md` / `AGENTS.md` / `DEPLOYMENT.md` if this changes how the project is run, deployed, or its standards
+- [ ] Commits follow Conventional Commits (enforced by commitlint) and are one logical change each

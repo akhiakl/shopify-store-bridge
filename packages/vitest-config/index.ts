@@ -1,4 +1,9 @@
-import { defineConfig, mergeConfig, type ViteUserConfig } from "vitest/config";
+import {
+  configDefaults,
+  defineConfig,
+  mergeConfig,
+  type ViteUserConfig,
+} from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 /**
@@ -18,6 +23,10 @@ export function createVitestConfig(
       test: {
         environment: "jsdom",
         globals: true,
+        // e2e/** holds Playwright specs, run by `playwright test`, not
+        // vitest — vitest's default *.spec.ts glob would otherwise try
+        // (and fail) to run them too.
+        exclude: [...configDefaults.exclude, "e2e/**"],
         coverage: {
           provider: "v8",
           reporter: ["text", "html", "lcov"],
@@ -34,6 +43,7 @@ export function createVitestConfig(
             "**/*.d.ts",
             "prisma/**",
             "extensions/**",
+            "e2e/**",
           ],
         },
       },

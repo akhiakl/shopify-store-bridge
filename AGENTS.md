@@ -57,7 +57,7 @@ Approaching 300 lines → split by responsibility (SRP), don't reach for `eslint
 
 ## 7. Tooling stack (already wired up)
 
-- TypeScript, strict mode. **Testing:** Vitest + React Testing Library (no Jest).
+- TypeScript, strict mode. **Unit/component testing:** Vitest + React Testing Library (no Jest). **E2E:** Playwright (`apps/storebridge/e2e`) — runs against a real, migrated Postgres and a forged Shopify session token rather than a live store; see `e2e/support/embedded-fixture.ts`'s doc comment for exactly what's mocked and what isn't.
 - **Git hooks (Husky):** `pre-commit` → lint-staged (ESLint --fix + Prettier); `commit-msg` → commitlint; `pre-push` → typecheck → build → `test:coverage`. Hooks and root-level configs (Husky, commitlint, lint-staged) live at the monorepo root and run via Turborepo (`turbo run <task>`) across all workspaces, not per-app.
 - **Sessions/tokens:** Prisma → Supabase Postgres (`DATABASE_URL`), via `@shopify/shopify-app-session-storage-prisma`. No app data here — that's all Shopify metaobjects/metafields (`$app:` namespace).
 - **GraphQL:** wire `@shopify/api-codegen-preset` + `graphql-config` once real operations exist; every operation passes codegen _and_ `validate_graphql_codeblocks` (MCP) before commit.
