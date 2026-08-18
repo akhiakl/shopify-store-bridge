@@ -1,6 +1,10 @@
 import { test as base, expect } from "@playwright/test";
 import { signSessionToken } from "./session-token";
-import { seedOfflineSession, deleteSession } from "./shopify-session";
+import {
+  seedOfflineSession,
+  deleteSession,
+  disconnectSessionStore,
+} from "./shopify-session";
 
 /**
  * A fake, e2e-only shop domain — never a real store. Seeded and torn down
@@ -41,6 +45,14 @@ export const test = base.extend<EmbeddedFixtures>({
   authHeaders: async ({ sessionToken }, use) => {
     await use({ Authorization: `Bearer ${sessionToken}` });
   },
+});
+
+// One PrismaClient is shared across every test in this worker (module-level
+// singleton in shopify-session.ts) — close it once after the last test runs
+// instead of per-test, or a still-open handle can make `playwright test`
+// hang/flap on exit.
+test.afterAll(async () => {
+  await disconnectSessionStore();
 });
 
 export { expect };
