@@ -1,4 +1,12 @@
-on: [push, pull_request]
+# `push` and `pull_request` both fire for a same-repo PR branch (push
+# because you pushed a commit, pull_request:synchronize because that branch
+# has an open PR) — scoping `push` to just the trunk branches means a PR
+# branch only triggers once, via `pull_request`, instead of running every
+# job twice for the identical commit.
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
 
 name: CI
 
@@ -41,6 +49,17 @@ jobs:
         env:
           SHOPIFY_API_KEY: ci-placeholder
           SHOPIFY_APP_URL: https://ci-placeholder.example.com
+      # One leg's coverage is enough for the Quality Gate job's PR summary
+      # — always() so it still uploads (or harmlessly warns "no files
+      # found") if a later step like Build fails after Test succeeded.
+      - name: Upload coverage summary
+        if: matrix.version == 24 && always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-summary
+          path: apps/storebridge/coverage/coverage-summary.json
+          retention-days: 7
+          if-no-files-found: warn
 
   E2E:
     name: E2E
@@ -99,3 +118,92 @@ jobs:
           name: playwright-report
           path: apps/storebridge/playwright-report/
           retention-days: 7
+
+  # Single aggregate status — the one check to require in branch protection
+  # instead of naming every CI/E2E matrix leg individually — plus the PR
+  # summary comment. `always()` so it runs (and reports) even when CI/E2E
+  # failed; it fails itself at the end based on their actual results.
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [CI, E2E]
+    if: always() && github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Download coverage summary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        continue-on-error: true # absent when CI failed before the Test step ever ran
+        with:
+          name: coverage-summary
+          path: coverage
+
+      - name: Post summary comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+
+            const ciResult = '${{ needs.CI.result }}';
+            const e2eResult = '${{ needs.E2E.result }}';
+            const icon = (r) => (r === 'success' ? '✅' : r === 'skipped' ? '⚪' : '❌');
+
+            let coverageSection = '_Coverage report unavailable (CI likely failed before tests ran)._';
+            try {
+              const { total } = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+              const pct = (m) => `${m.pct}% (${m.covered}/${m.total})`;
+              coverageSection = [
+                '| Metric | Coverage |',
+                '| --- | --- |',
+                `| Statements | ${pct(total.statements)} |`,
+                `| Branches | ${pct(total.branches)} |`,
+                `| Functions | ${pct(total.functions)} |`,
+                `| Lines | ${pct(total.lines)} |`,
+              ].join('\n');
+            } catch {}
+
+            const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+            const marker = '<!-- storebridge-quality-gate -->';
+            const body = [
+              marker,
+              '## Quality Gate',
+              '',
+              '| Check | Result |',
+              '| --- | --- |',
+              `| CI — lint, typecheck, unit tests, build (Node 22 & 24) | ${icon(ciResult)} |`,
+              `| E2E | ${icon(e2eResult)} |`,
+              '',
+              '### Unit test coverage (Node 24)',
+              '',
+              coverageSection,
+              '',
+              `[Full run](${runUrl})`,
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) => c.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail if CI or E2E failed
+        if: needs.CI.result != 'success' || needs.E2E.result != 'success'
+        run: exit 1
