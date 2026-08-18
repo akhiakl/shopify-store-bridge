@@ -84,4 +84,34 @@ describe("IncomingRequestsList", () => {
     expect(formData.get("intent")).toBe("decline");
     expect(formData.get("targetId")).toBe("target-1");
   });
+
+  it("keeps approve and decline loading state independent", async () => {
+    let resolveAction: (value: { ok: true }) => void = () => {};
+    const action = vi.fn(
+      () => new Promise((resolve) => (resolveAction = resolve)),
+    );
+    const Stub = createRoutesStub([
+      {
+        path: "/",
+        Component: () => <IncomingRequestsList requests={requests} />,
+        action,
+      },
+    ]);
+    render(<Stub initialEntries={["/"]} />);
+
+    const [approveForm, declineForm] = document.querySelectorAll("form");
+    fireEvent.submit(approveForm);
+    await waitFor(() => expect(action).toHaveBeenCalled());
+
+    expect(approveForm.querySelector("s-button")).toHaveAttribute(
+      "loading",
+      "true",
+    );
+    expect(declineForm.querySelector("s-button")).not.toHaveAttribute(
+      "loading",
+      "true",
+    );
+
+    resolveAction({ ok: true });
+  });
 });

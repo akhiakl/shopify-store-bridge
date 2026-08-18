@@ -26,8 +26,14 @@ function RequestRow({
 }: {
   request: DashboardData["incomingRequests"][number];
 }) {
-  const fetcher = useFetcher();
-  const isSubmitting = fetcher.state !== "idle";
+  // Separate fetchers per action - sharing one would put both buttons into
+  // the loading state on any submit, and a second click while the first is
+  // still in flight would clobber it (one fetcher can only track one
+  // in-flight submission at a time).
+  const approveFetcher = useFetcher();
+  const declineFetcher = useFetcher();
+  const isApproving = approveFetcher.state !== "idle";
+  const isDeclining = declineFetcher.state !== "idle";
 
   return (
     <s-box padding="base" border="base" borderRadius="base">
@@ -36,20 +42,20 @@ function RequestRow({
           {request.group.source.shop}
           {request.group.name ? ` — ${request.group.name}` : ""}
         </s-paragraph>
-        <fetcher.Form method="post">
+        <approveFetcher.Form method="post">
           <input type="hidden" name="intent" value="approve" />
           <input type="hidden" name="targetId" value={request.id} />
-          <s-button type="submit" variant="primary" loading={isSubmitting}>
+          <s-button type="submit" variant="primary" loading={isApproving}>
             Approve
           </s-button>
-        </fetcher.Form>
-        <fetcher.Form method="post">
+        </approveFetcher.Form>
+        <declineFetcher.Form method="post">
           <input type="hidden" name="intent" value="decline" />
           <input type="hidden" name="targetId" value={request.id} />
-          <s-button type="submit" tone="critical" loading={isSubmitting}>
+          <s-button type="submit" tone="critical" loading={isDeclining}>
             Decline
           </s-button>
-        </fetcher.Form>
+        </declineFetcher.Form>
       </s-stack>
     </s-box>
   );
