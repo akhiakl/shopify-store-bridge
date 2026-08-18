@@ -47,6 +47,10 @@ describe("OwnedGroupsList", () => {
     const badge = document.querySelector("s-badge");
     expect(badge).toHaveAttribute("tone", "warning");
     expect(badge).toHaveTextContent("PENDING");
+    expect(screen.getByText("Sync definitions")).toHaveAttribute(
+      "href",
+      "/app/groups/group-1/definitions",
+    );
   });
 
   it("shows a placeholder when a group has no targets yet", () => {

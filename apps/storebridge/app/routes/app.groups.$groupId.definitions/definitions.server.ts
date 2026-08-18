@@ -1,0 +1,146 @@
+import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
+
+import prisma from "~/db.server";
+
+/**
+ * UNVERIFIED — confirm via Shopify Dev MCP before merge (unavailable this
+ * session, see AGENTS.md §2). Metafield definitions are queried per
+ * `MetafieldOwnerType`, not as one flat list — this is a reduced set of the
+ * most common owner types, not the full enum. Extend as needed; each entry
+ * is one extra query, not a schema change.
+ */
+const METAFIELD_OWNER_TYPES = [
+  "PRODUCT",
+  "PRODUCTVARIANT",
+  "COLLECTION",
+  "CUSTOMER",
+  "ORDER",
+  "PAGE",
+  "BLOG",
+  "ARTICLE",
+  "SHOP",
+] as const;
+
+/** UNVERIFIED — confirm via Shopify Dev MCP before merge. */
+const METAFIELD_DEFINITIONS_QUERY = `#graphql
+  query MetafieldDefinitionsByOwner($ownerType: MetafieldOwnerType!) {
+    metafieldDefinitions(ownerType: $ownerType, first: 250) {
+      nodes {
+        id
+        name
+        namespace
+        key
+        description
+        type { name }
+      }
+    }
+  }
+`;
+
+/** UNVERIFIED — confirm via Shopify Dev MCP before merge. */
+const METAOBJECT_DEFINITIONS_QUERY = `#graphql
+  query MetaobjectDefinitionsList {
+    metaobjectDefinitions(first: 250) {
+      nodes {
+        id
+        type
+        name
+        fieldDefinitions {
+          name
+          key
+          type { name }
+        }
+      }
+    }
+  }
+`;
+
+export interface MetafieldDefinitionRow {
+  id: string;
+  name: string;
+  namespace: string;
+  key: string;
+  description: string | null;
+  type: string;
+  ownerType: (typeof METAFIELD_OWNER_TYPES)[number];
+}
+
+export interface MetaobjectDefinitionRow {
+  id: string;
+  type: string;
+  name: string;
+  fieldCount: number;
+}
+
+/** One `metafieldDefinitions` call per owner type — the API has no single
+ * "all owner types" query (see the UNVERIFIED note above `METAFIELD_*`). */
+async function fetchMetafieldDefinitions(
+  admin: AdminApiContext,
+): Promise<MetafieldDefinitionRow[]> {
+  const results = await Promise.all(
+    METAFIELD_OWNER_TYPES.map(async (ownerType) => {
+      const response = await admin.graphql(METAFIELD_DEFINITIONS_QUERY, {
+        variables: { ownerType },
+      });
+      const { data } = await response.json();
+      const nodes = data?.metafieldDefinitions?.nodes ?? [];
+      return nodes.map(
+        (node: {
+          id: string;
+          name: string;
+          namespace: string;
+          key: string;
+          description: string | null;
+          type: { name: string };
+        }) => ({
+          id: node.id,
+          name: node.name,
+          namespace: node.namespace,
+          key: node.key,
+          description: node.description,
+          type: node.type.name,
+          ownerType,
+        }),
+      );
+    }),
+  );
+  return results.flat();
+}
+
+async function fetchMetaobjectDefinitions(
+  admin: AdminApiContext,
+): Promise<MetaobjectDefinitionRow[]> {
+  const response = await admin.graphql(METAOBJECT_DEFINITIONS_QUERY);
+  const { data } = await response.json();
+  const nodes = data?.metaobjectDefinitions?.nodes ?? [];
+  return nodes.map(
+    (node: {
+      id: string;
+      type: string;
+      name: string;
+      fieldDefinitions: unknown[];
+    }) => ({
+      id: node.id,
+      type: node.type,
+      name: node.name,
+      fieldCount: node.fieldDefinitions.length,
+    }),
+  );
+}
+
+/** Confirms `groupId` is a sync group the current shop actually owns as
+ * source, before letting it browse (and later, migrate into) that group. */
+export async function getOwnedGroup(groupId: string, shop: string) {
+  return prisma.syncGroup.findFirst({
+    where: { id: groupId, source: { shop } },
+    include: { source: true, targets: { include: { store: true } } },
+  });
+}
+
+export async function getDefinitionCatalog(admin: AdminApiContext) {
+  const [metafieldDefinitions, metaobjectDefinitions] = await Promise.all([
+    fetchMetafieldDefinitions(admin),
+    fetchMetaobjectDefinitions(admin),
+  ]);
+  return { metafieldDefinitions, metaobjectDefinitions };
+}
