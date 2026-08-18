@@ -29,7 +29,10 @@ export function createVitestConfig(
         exclude: [...configDefaults.exclude, "e2e/**"],
         coverage: {
           provider: "v8",
-          reporter: ["text", "html", "lcov"],
+          // json-summary feeds the CI "Quality Gate" job's PR summary
+          // comment (.github/workflows/ci.yml) — it reads
+          // coverage/coverage-summary.json for the totals table.
+          reporter: ["text", "html", "lcov", "json-summary"],
           thresholds: {
             branches: 80,
             functions: 80,
