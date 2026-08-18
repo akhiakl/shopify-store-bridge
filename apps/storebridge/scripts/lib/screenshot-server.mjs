@@ -38,6 +38,22 @@ export function startServer({ port, env, timeoutMs = 60_000 }) {
   return {
     baseUrl,
     ready,
-    stop: () => child.kill("SIGTERM"),
+    // Awaited by callers before resetting DB fixtures - a fire-and-forget
+    // SIGTERM would let resetScenarios() race the server's own in-flight
+    // Prisma queries. SIGKILL after a grace period covers a child that
+    // ignores SIGTERM instead of leaving it orphaned.
+    stop: () =>
+      new Promise((resolve) => {
+        if (child.exitCode !== null || child.signalCode !== null) {
+          resolve();
+          return;
+        }
+        const forceKill = setTimeout(() => child.kill("SIGKILL"), 5_000);
+        child.once("exit", () => {
+          clearTimeout(forceKill);
+          resolve();
+        });
+        child.kill("SIGTERM");
+      }),
   };
 }

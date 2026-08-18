@@ -103,7 +103,7 @@ async function main() {
     await browser.close();
     console.log(`Screenshots written to ${OUT_DIR}`);
   } finally {
-    server.stop();
+    await server.stop();
     await resetScenarios();
     await teardown();
   }
