@@ -49,6 +49,14 @@ describe("normalizeShopDomain", () => {
   it("rejects an empty string", () => {
     expect(normalizeShopDomain("")).toBeNull();
   });
+
+  it("rejects a subdomain ending in a hyphen", () => {
+    expect(normalizeShopDomain("bad-.myshopify.com")).toBeNull();
+  });
+
+  it("accepts a single-character subdomain", () => {
+    expect(normalizeShopDomain("a.myshopify.com")).toBe("a.myshopify.com");
+  });
 });
 
 describe("requestPairing", () => {

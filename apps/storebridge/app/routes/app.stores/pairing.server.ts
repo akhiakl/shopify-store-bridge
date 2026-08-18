@@ -10,7 +10,11 @@ import prisma from "~/db.server";
 export function normalizeShopDomain(input: string): string | null {
   const trimmed = input.trim().toLowerCase();
   const shop = trimmed.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-  return /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop) ? shop : null;
+  // Labels can't start OR end with a hyphen (RFC 1035) - the trailing
+  // alnum is required separately since a bare `*` would let "bad-" through.
+  return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?\.myshopify\.com$/.test(shop)
+    ? shop
+    : null;
 }
 
 /** Installed = has a stored offline session, same check authenticate.admin relies on. */
