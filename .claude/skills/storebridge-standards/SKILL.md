@@ -60,6 +60,20 @@ decision rather than silently done "for completeness." Follow that pattern:
 when you're tempted to build ahead of current scope, either don't, or write
 down the open decision the way that one is written down.
 
+### Folder structure — colocate, then promote (AGENTS.md §6)
+
+- `app/routes/` is file-based (`@react-router/fs-routes`). A route with no
+  helpers of its own stays a flat file; once it needs
+  components/hooks/utils, it becomes a folder (`route.tsx` + `components/`,
+  `hooks/`, `utils/` as actually needed — no empty scaffolding).
+- Used by a second route? Promote — `git mv` to shared `app/components/`,
+  `app/hooks/`, or `app/utils/`. Never promote pre-emptively.
+- One export per file, named to match. Tests sit beside the file they test
+  (`useThing.ts` + `useThing.test.ts`), not in a `__tests__/` folder.
+- `~/` (→ `app/`) for anything outside the current folder; a single `../`
+  to a colocated sibling is fine, `../../`+ is an ESLint error
+  (`no-restricted-imports`) — move the file or use `~/` instead.
+
 ## Before committing
 
 - Run through `pre-commit` (lint-staged: ESLint --fix + Prettier) mentally — code should already pass it.
