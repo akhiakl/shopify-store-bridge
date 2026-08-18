@@ -9,10 +9,15 @@ generator client {
 // enough when changing adapters.
 // See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
-  // Supabase free-tier Postgres — used only as the durable session/token store
-  // (offline access + refresh tokens). No app data lives here; that's all in
-  // Shopify metaobjects/metafields. Set DATABASE_URL to the Supabase connection
-  // string (use the pooled/pgbouncer URL for serverless, direct URL for migrations).
+  // Supabase free-tier Postgres — the durable session/token store (offline
+  // access + refresh tokens) *and* StoreBridge's own cross-shop business
+  // data (store pairings, sync groups). Shop-local data that Shopify's own
+  // admin can represent stays in Shopify metaobjects/metafields instead —
+  // but a pairing inherently spans two shops' worth of state (a request
+  // pending approval before either side has agreed to trust the other),
+  // which can't live as a single shop's metaobject. Set DATABASE_URL to
+  // the Supabase connection string (pooled/pgbouncer for serverless,
+  // direct for migrations).
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
@@ -35,4 +40,55 @@ model Session {
   emailVerified       Boolean?  @default(false)
   refreshToken        String?
   refreshTokenExpires DateTime?
+}
+
+/// A Shopify shop that has StoreBridge installed. Kept separate from
+/// Session (owned by @shopify/shopify-app-session-storage-prisma, holds
+/// auth/token state only) — this is where StoreBridge's own business data
+/// about a shop anchors.
+model Store {
+  id        String   @id @default(cuid())
+  shop      String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  sourcedGroups     SyncGroup[]       @relation("SyncGroupSource")
+  targetMemberships SyncGroupTarget[] @relation("SyncGroupTargetStore")
+}
+
+/// A source store's collection of paired target stores. The store the
+/// merchant is currently in when they create a group is always the
+/// source — there's no source picker; you can't set a different store as
+/// source without being in it.
+model SyncGroup {
+  id        String   @id @default(cuid())
+  name      String?
+  sourceId  String
+  source    Store    @relation("SyncGroupSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  targets SyncGroupTarget[]
+}
+
+enum SyncGroupTargetStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+/// One target store's membership in a sync group — the pairing "invite."
+/// Requested from the source side, only takes effect once approved from
+/// inside the target store's own authenticated StoreBridge session (that's
+/// the proof of control, not a copy-pasted code).
+model SyncGroupTarget {
+  id          String                @id @default(cuid())
+  groupId     String
+  group       SyncGroup             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  storeId     String
+  store       Store                 @relation("SyncGroupTargetStore", fields: [storeId], references: [id], onDelete: Cascade)
+  status      SyncGroupTargetStatus @default(PENDING)
+  requestedAt DateTime              @default(now())
+  respondedAt DateTime?
+
+  @@unique([groupId, storeId])
 }
