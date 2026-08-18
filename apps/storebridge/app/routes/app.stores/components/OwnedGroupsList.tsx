@@ -23,7 +23,12 @@ export function OwnedGroupsList({ groups }: OwnedGroupsListProps) {
       {groups.map((group) => (
         <s-box key={group.id} padding="base" border="base" borderRadius="base">
           <s-stack gap="small-100">
-            <s-heading>{group.name || "Untitled group"}</s-heading>
+            <s-stack direction="inline" gap="small-100" alignItems="center">
+              <s-heading>{group.name || "Untitled group"}</s-heading>
+              <s-link href={`/app/groups/${group.id}/definitions`}>
+                Sync definitions
+              </s-link>
+            </s-stack>
             {group.targets.length === 0 ? (
               <s-paragraph>No target stores invited yet.</s-paragraph>
             ) : (
