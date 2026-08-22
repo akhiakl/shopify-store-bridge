@@ -22,11 +22,11 @@ session would normally provide:
 ## Usage
 
 ```bash
-npm run build
+pnpm run build
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/storebridge_e2e \
-  npx prisma migrate deploy
+  pnpm exec prisma migrate deploy
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/storebridge_e2e \
-  npm run screenshot
+  pnpm run screenshot
 ```
 
 Writes `docs/screenshots/stores-empty.png` and `stores-populated.png`

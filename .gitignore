@@ -17,10 +17,10 @@ database.sqlite
 # separate negation, not folded into it.
 !.env.example
 
-# This project uses npm — package-lock.json is intentionally committed.
+# This project uses pnpm — pnpm-lock.yaml is intentionally committed.
 # Other package managers' lockfiles stay ignored since we don't use them.
 yarn.lock
-pnpm-lock.yaml
+package-lock.json
 
 extensions/*/dist
 

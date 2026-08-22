@@ -23,7 +23,7 @@ Everything below governs how any coding agent works in _this_ repo specifically,
 
 - Any Shopify GraphQL work → use the **Shopify Dev MCP** first (`search_docs_chunks`/`fetch_full_docs`, `introspect_graphql_schema`, `validate_graphql_codeblocks`). Training data on Shopify APIs is assumed stale.
 - MCP unavailable this session → say so explicitly, mark the code `// UNVERIFIED — confirm via Shopify Dev MCP before merge`.
-- Before adding any dependency, check its actual latest stable version (`npm view <pkg> version`) — don't reuse a version number from memory.
+- Before adding any dependency, check its actual latest stable version (`pnpm view <pkg> version`) — don't reuse a version number from memory.
 - Pin the Admin API version to the latest **stable** release (not `unstable`, not a release candidate) in `shopify.app.toml` and all clients; re-check each new session — Shopify ships quarterly.
 
 ## 3. Prefer CLI scaffolding over hand-written config

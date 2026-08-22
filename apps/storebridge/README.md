@@ -60,7 +60,7 @@ wrong API (e.g. Storefront instead of Admin), check `.graphqlrc.ts`.
 ## Troubleshooting
 
 **`The table "Session" does not exist`** — the database hasn't been migrated. Run
-`npx prisma migrate deploy` (or `npm run setup`, which also does this) against `DATABASE_URL`.
+`pnpm exec prisma migrate deploy` (or `pnpm run setup`, which also does this) against `DATABASE_URL`.
 
 **Embedded app navigation breaks the session** — inside the admin iframe: use `Link` from
 `react-router` or Polaris, not `<a>`; use the `redirect` returned from `authenticate.admin`,

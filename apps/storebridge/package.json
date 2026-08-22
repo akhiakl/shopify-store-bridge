@@ -14,7 +14,7 @@
     "config:use": "shopify app config use",
     "env": "shopify app env",
     "start": "react-router-serve ./build/server/index.js",
-    "docker-start": "npm run setup && npm run start",
+    "docker-start": "pnpm run setup && pnpm run start",
     "setup": "prisma generate && prisma migrate deploy",
     "db:generate": "prisma generate",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
@@ -50,9 +50,9 @@
     "vite-tsconfig-paths": "^5.0.1"
   },
   "devDependencies": {
-    "@repo/eslint-config": "*",
-    "@repo/typescript-config": "*",
-    "@repo/vitest-config": "*",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@repo/vitest-config": "workspace:*",
     "@playwright/test": "^1.62.1",
     "@shopify/api-codegen-preset": "^1.1.1",
     "@shopify/polaris-types": "^1.0.7",

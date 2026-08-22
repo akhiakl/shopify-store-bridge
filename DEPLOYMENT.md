@@ -17,10 +17,10 @@ production. Don't reuse a single app across environments; that's not how Shopify
 multi-env tooling is designed (see `shopify.app.staging.toml`'s header comment).
 
 ```bash
-# Run from the repo root — npm workspaces route these to apps/storebridge,
+# Run from the repo root — the pnpm workspace routes these to apps/storebridge,
 # where shopify.app.staging.toml / shopify.app.toml actually live.
-npm run config:link:staging --workspace=storebridge      # interactive — links shopify.app.staging.toml
-npm run config:link:production --workspace=storebridge   # interactive — links shopify.app.toml
+pnpm --filter storebridge run config:link:staging      # interactive — links shopify.app.staging.toml
+pnpm --filter storebridge run config:link:production   # interactive — links shopify.app.toml
 ```
 
 Each command fills in that config file's `client_id` and points `application_url` /
@@ -70,7 +70,7 @@ env var, so local dev and the Docker/`react-router-serve` path are unaffected.
   linking, secrets, Vercel project setup) — none of it can be done from an unattended
   session since it requires interactive browser auth or dashboard clicks.
 - **Manual, ongoing**: `prisma migrate deploy` runs automatically in the Docker path
-  (`npm run docker-start` → `npm run setup`), but Vercel's build doesn't run a migration
-  step — run `npm run setup --workspace=storebridge` (or `npx prisma migrate deploy` from
+  (`pnpm run docker-start` → `pnpm run setup`), but Vercel's build doesn't run a migration
+  step — run `pnpm --filter storebridge run setup` (or `pnpm exec prisma migrate deploy` from
   `apps/storebridge`) against each environment's `DATABASE_URL` after a schema change,
   before or alongside the deploy.

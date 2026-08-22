@@ -12,10 +12,11 @@
  * ESLint 8 (eslintrc) resolves plugins referenced by a shareable config
  * relative to the *consuming project*, not relative to this package —
  * see https://eslint.org/docs/latest/extend/shareable-configs#publishing-a-shareable-config.
- * Combined with this repo's `--install-strategy=nested` (needed to avoid an
- * npm resolver hang across workspaces), that means every plugin below must
- * also be a devDependency of each app that extends this config, not just of
- * this package. Keep both lists in sync when adding/removing a plugin.
+ * Combined with pnpm's default isolated node_modules (each workspace member
+ * only sees its own declared deps, not other members' transitively), that
+ * means every plugin below must also be a devDependency of each app that
+ * extends this config, not just of this package. Keep both lists in sync
+ * when adding/removing a plugin.
  */
 
 /** @type {import('eslint').Linter.Config} */
@@ -34,7 +35,7 @@ module.exports = {
     es6: true,
   },
   // ESLint 8 ignores dotfiles by default. That's silent when linting a glob
-  // (`npm run lint`), but lint-staged passes exact staged paths and ESLint
+  // (`pnpm run lint`), but lint-staged passes exact staged paths and ESLint
   // then *warns* "File ignored by default" for any dotfile among them —
   // which --max-warnings=0 in .lintstagedrc.json treats as a failure. Negate
   // the ones consuming apps commonly want linted.
@@ -97,7 +98,7 @@ module.exports = {
             // Without an explicit project, this resolver looks for
             // <cwd>/tsconfig.json — which finds apps/storebridge/tsconfig.json
             // when a workspace script runs with cwd=apps/storebridge (e.g.
-            // turbo's per-workspace `npm run lint`), but not when lint-staged
+            // turbo's per-workspace `pnpm run lint`), but not when lint-staged
             // invokes ESLint from the monorepo root. List both shapes so
             // path-alias (~/) resolution works from either cwd.
             project: ["tsconfig.json", "apps/*/tsconfig.json"],
