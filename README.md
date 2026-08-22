@@ -12,9 +12,9 @@ A Shopify embedded admin app. This repo is a [Turborepo](https://turborepo.com/)
 New to this repo? See **[`CONTRIBUTING.md`](CONTRIBUTING.md)** for cloning, environment
 setup, running the app locally, and the git/PR workflow.
 
-Root-level scripts (`npm run build`, `lint`, `typecheck`, `test`, `test:coverage`,
+Root-level scripts (`pnpm run build`, `lint`, `typecheck`, `test`, `test:coverage`,
 `test:e2e`) fan out to every workspace via `turbo run <task>`. To target just the app, add
-`--workspace=storebridge` (e.g. `npm run dev --workspace=storebridge`), or `cd
+`--filter storebridge` (e.g. `pnpm --filter storebridge run dev`), or `cd
 apps/storebridge` and use its own `package.json` scripts directly.
 
 ## More docs

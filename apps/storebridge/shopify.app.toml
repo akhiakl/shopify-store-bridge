@@ -3,9 +3,9 @@
 # This is the PRODUCTION environment config — a separate Shopify app
 # registration from shopify.app.staging.toml. Deploy with:
 #
-#   npm run deploy -- --config production
+#   pnpm run deploy -- --config production
 #
-# (this is also the default config, so plain `npm run deploy` / `shopify
+# (this is also the default config, so plain `pnpm run deploy` / `shopify
 # app dev` uses this file unless --config is passed)
 
 client_id = ""

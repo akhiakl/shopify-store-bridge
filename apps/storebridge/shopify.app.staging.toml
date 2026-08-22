@@ -8,8 +8,8 @@
 # which fills in client_id below and points application_url /
 # redirect_urls at the staging deployment.
 #
-# Deploy with:  npm run deploy -- --config staging
-# Dev with:     npm run dev -- --config staging
+# Deploy with:  pnpm run deploy -- --config staging
+# Dev with:     pnpm run dev -- --config staging
 
 client_id = "4e756fbacff648a4dcf28ed39cd7075e"
 name = "storebridge (staging)"
