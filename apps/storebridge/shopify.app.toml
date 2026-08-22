@@ -10,11 +10,16 @@
 
 client_id = ""
 name = "storebridge"
+# TODO(unverified): confirm/replace once `shopify app config link` runs against
+# the real production app — this is scaffold-standard, not a verified value.
+application_url = "https://example.com"
+embedded = true
 
 [access_scopes]
 # TODO(unverified): confirm exact scope names for metaobjects/metafields via Shopify Dev MCP
 # before first deploy — e.g. write_metaobjects, write_metaobject_definitions.
 scopes = ""
+use_legacy_install_flow = false
 
 [webhooks]
 # Pinned 2026-07 (latest stable as of Aug 2026). Re-check quarterly per AGENTS.md §2.
@@ -44,3 +49,10 @@ api_version = "2026-07"
   # [[webhooks.subscriptions]]
   # uri = "/webhooks/shop/redact"
   # compliance_topics = ["shop/redact"]
+
+[auth]
+redirect_urls = [ ]
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true

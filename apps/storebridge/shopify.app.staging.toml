@@ -13,12 +13,17 @@
 
 client_id = "4e756fbacff648a4dcf28ed39cd7075e"
 name = "storebridge (staging)"
+# TODO(unverified): replace with the real staging deployment URL once it
+# exists — this is scaffold-standard, not a verified value.
+application_url = "https://example.com"
+embedded = true
 
 [access_scopes]
 # Keep in sync with shopify.app.toml — same access needs, different app.
 # TODO(unverified): confirm exact scope names for metaobjects/metafields via Shopify Dev MCP
 # before first deploy — e.g. write_metaobjects, write_metaobject_definitions.
 scopes = ""
+use_legacy_install_flow = false
 
 [webhooks]
 # Keep in sync with shopify.app.toml's api_version.
@@ -33,3 +38,10 @@ api_version = "2026-07"
   [[webhooks.subscriptions]]
   topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
+
+[auth]
+redirect_urls = [ ]
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
