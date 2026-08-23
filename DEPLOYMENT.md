@@ -88,6 +88,12 @@ env var, so local dev and the Docker/`react-router-serve` path are unaffected.
 - **Automated, release-gated**: production — `shopify app deploy --config production` and
   `vercel deploy --prod` both fire on pushing a `v*` tag (`.github/workflows/deploy.yml`), or
   manually via `workflow_dispatch`. **Not** on merging to `main` — see the table above.
+- **Conditionally skipped**: `shopify app deploy` itself only actually runs when
+  `shopify.app*.toml`, `shopify.web.toml`, or `extensions/` changed since the last deploy to
+  that environment (`check-shopify-changes` job — diffs against the previous release tag for
+  production, the pre-push state of the branch for staging). App-only code changes ship via
+  Vercel without also re-pushing identical Shopify config. `workflow_dispatch` always deploys
+  regardless, since that's an explicit request.
 - **Manual, one-time**: everything in steps 1–4 above (dashboard app creation, CLI linking,
   secrets, Vercel project setup, disabling Vercel's auto-deploy-on-`main`) — none of it can
   be done from an unattended session since it requires interactive browser auth or dashboard
