@@ -2,6 +2,6 @@ package.json
 .shadowenv.d
 .vscode
 node_modules
-prisma
+drizzle
 public
 .shopify

@@ -3,9 +3,10 @@ import { render, screen } from "@testing-library/react";
 
 import Index, { loader } from "./app._index";
 
-// The loader in this file imports shopify.server -> db.server (Prisma). The
-// component test only exercises the default export, so stub the server-only
-// dependency rather than requiring a real Prisma client to render UI.
+// The loader in this file imports shopify.server -> db.server (Drizzle/pg).
+// The component test only exercises the default export, so stub the
+// server-only dependency rather than requiring a real Postgres pool to
+// render UI.
 const { authenticateAdmin } = vi.hoisted(() => ({
   authenticateAdmin: vi.fn(),
 }));

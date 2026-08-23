@@ -33,9 +33,6 @@ jobs:
           install: false
       - name: Install
         run: pnpm install --frozen-lockfile
-      # Prisma client generation is wired into turbo's task graph (lint,
-      # typecheck, test, build all `dependsOn: ["db:generate"]` where
-      # needed via turbo.json), so there's no separate step for it here.
       - name: Lint
         run: pnpm run lint
       - name: Typecheck
@@ -69,7 +66,7 @@ jobs:
     timeout-minutes: 15
     services:
       # Session storage in production is Supabase Postgres (see
-      # apps/storebridge/prisma/schema.prisma) — e2e runs against a real
+      # apps/storebridge/app/db/schema.server.ts) — e2e runs against a real
       # Postgres for the same reason, not sqlite, so a schema mismatch like
       # the one this migration once had (DATETIME instead of TIMESTAMP)
       # can't slip through unnoticed again.
@@ -132,7 +129,7 @@ jobs:
         run: pnpm exec playwright install-deps chromium
       - name: Run database migrations
         working-directory: apps/storebridge
-        run: pnpm exec prisma migrate deploy
+        run: pnpm exec drizzle-kit migrate
       - name: E2E
         run: pnpm run test:e2e
       - name: Upload Playwright report

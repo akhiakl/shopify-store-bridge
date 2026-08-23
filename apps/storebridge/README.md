@@ -30,7 +30,7 @@ debugging session to work out):
   webhooks, billing helpers).
 - **UI:** [Polaris Web Components](https://shopify.dev/docs/api/app-home/polaris-web-components)
   (`<s-page>`, `<s-section>`, …) — not the deprecated `@shopify/polaris` React library.
-- **Sessions & data:** Prisma → Supabase Postgres (`prisma/schema.prisma`, `DATABASE_URL`) —
+- **Sessions & data:** Drizzle → Supabase Postgres (`app/db/schema.server.ts`, `DATABASE_URL`) —
   both the session-storage library's own tables and the app's cross-shop pairing data (which
   can't live in Shopify metaobjects, see `docs/architecture/data-model.md`). Shop-local data
   still uses Shopify metaobjects/metafields (`$app:` namespace).
@@ -77,7 +77,7 @@ wrong API (e.g. Storefront instead of Admin), check `.graphqlrc.ts`.
 ## Troubleshooting
 
 **`The table "Session" does not exist`** — the database hasn't been migrated. Run
-`pnpm exec prisma migrate deploy` (or `pnpm run setup`, which also does this) against `DATABASE_URL`.
+`pnpm exec drizzle-kit migrate` (or `pnpm run setup`, which also does this) against `DATABASE_URL`.
 
 **Embedded app navigation breaks the session** — inside the admin iframe: use `Link` from
 `react-router` or Polaris, not `<a>`; use the `redirect` returned from `authenticate.admin`,

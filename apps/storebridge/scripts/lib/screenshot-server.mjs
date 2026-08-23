@@ -40,7 +40,7 @@ export function startServer({ port, env, timeoutMs = 60_000 }) {
     ready,
     // Awaited by callers before resetting DB fixtures - a fire-and-forget
     // SIGTERM would let resetScenarios() race the server's own in-flight
-    // Prisma queries. SIGKILL after a grace period covers a child that
+    // Drizzle queries. SIGKILL after a grace period covers a child that
     // ignores SIGTERM instead of leaving it orphaned.
     stop: () =>
       new Promise((resolve) => {
