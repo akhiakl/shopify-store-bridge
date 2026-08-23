@@ -14,6 +14,8 @@ describe("MembershipsList", () => {
         status: "APPROVED",
         requestedAt: new Date(),
         respondedAt: new Date(),
+        authTokenHash: null,
+        authTokenExpiresAt: null,
         group: {
           id: "group-1",
           name: "EU stores",
@@ -48,6 +50,8 @@ describe("MembershipsList", () => {
         status: "DECLINED",
         requestedAt: new Date(),
         respondedAt: new Date(),
+        authTokenHash: null,
+        authTokenExpiresAt: null,
         group: {
           id: "group-1",
           name: null,

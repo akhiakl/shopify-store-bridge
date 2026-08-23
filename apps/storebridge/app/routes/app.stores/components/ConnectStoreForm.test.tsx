@@ -43,8 +43,10 @@ describe("ConnectStoreForm", () => {
     );
   });
 
-  it("shows no banner once the request succeeds", async () => {
-    const action = vi.fn().mockResolvedValue({ ok: true });
+  it("shows the shareable authorization link once the request succeeds", async () => {
+    const authorizeUrl =
+      "https://app.example.com/app/stores/authorize?token=abc&shop=target.myshopify.com";
+    const action = vi.fn().mockResolvedValue({ ok: true, authorizeUrl });
     const Stub = createRoutesStub([
       { path: "/", Component: ConnectStoreForm, action },
     ]);
@@ -52,7 +54,14 @@ describe("ConnectStoreForm", () => {
 
     fireEvent.submit(document.querySelector("form") as HTMLFormElement);
 
-    await waitFor(() => expect(action).toHaveBeenCalled());
-    expect(document.querySelector("s-banner")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.querySelector("s-banner")).toHaveAttribute(
+        "heading",
+        "Pairing request created",
+      ),
+    );
+    expect(
+      document.querySelector('s-text-field[label="Authorization link"]'),
+    ).toHaveAttribute("value", authorizeUrl);
   });
 });
