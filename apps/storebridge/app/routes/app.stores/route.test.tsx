@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-// The loader/action import shopify.server -> db.server (Prisma) and
+// The loader/action import shopify.server -> db.server (Drizzle/pg) and
 // pairing.server, both server-only. Stub both so this test exercises just
 // the route's own wiring (which pairing.server function each intent calls,
-// with session.shop rather than form input as the identity), not Prisma.
+// with session.shop rather than form input as the identity), not Postgres.
 const { authenticateAdmin } = vi.hoisted(() => ({
   authenticateAdmin: vi.fn(),
 }));

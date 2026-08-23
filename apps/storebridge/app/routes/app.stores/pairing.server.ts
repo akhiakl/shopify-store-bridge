@@ -1,4 +1,13 @@
-import prisma from "~/db.server";
+import { and, desc, eq, inArray } from "drizzle-orm";
+
+import db from "~/db.server";
+import {
+  sessions,
+  stores,
+  syncGroups,
+  syncGroupTargets,
+} from "~/db/schema.server";
+
 import { generateAuthToken, hashAuthToken } from "./authToken.server";
 
 /**
@@ -20,18 +29,21 @@ export function normalizeShopDomain(input: string): string | null {
 
 /** Installed = has a stored offline session, same check authenticate.admin relies on. */
 async function isShopInstalled(shop: string): Promise<boolean> {
-  const session = await prisma.session.findFirst({
-    where: { shop, isOnline: false },
+  const session = await db.query.sessions.findFirst({
+    where: and(eq(sessions.shop, shop), eq(sessions.isOnline, false)),
   });
-  return session !== null;
+  return session !== undefined;
 }
 
+/** Upsert-by-shop — the update is a no-op (self-assign) purely to make the
+ * insert return the existing row on conflict, mirroring Prisma's upsert. */
 async function getOrCreateStore(shop: string) {
-  return prisma.store.upsert({
-    where: { shop },
-    create: { shop },
-    update: {},
-  });
+  const [store] = await db
+    .insert(stores)
+    .values({ shop })
+    .onConflictDoUpdate({ target: stores.shop, set: { shop } })
+    .returning();
+  return store;
 }
 
 export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;
@@ -40,20 +52,26 @@ export async function getDashboardData(shop: string) {
   const store = await getOrCreateStore(shop);
 
   const [ownedGroups, incomingRequests, memberships] = await Promise.all([
-    prisma.syncGroup.findMany({
-      where: { sourceId: store.id },
-      include: { targets: { include: { store: true } } },
-      orderBy: { createdAt: "desc" },
+    db.query.syncGroups.findMany({
+      where: eq(syncGroups.sourceId, store.id),
+      with: { targets: { with: { store: true } } },
+      orderBy: [desc(syncGroups.createdAt)],
     }),
-    prisma.syncGroupTarget.findMany({
-      where: { store: { shop }, status: "PENDING" },
-      include: { group: { include: { source: true } } },
-      orderBy: { requestedAt: "desc" },
+    db.query.syncGroupTargets.findMany({
+      where: and(
+        eq(syncGroupTargets.storeId, store.id),
+        eq(syncGroupTargets.status, "PENDING"),
+      ),
+      with: { group: { with: { source: true } } },
+      orderBy: [desc(syncGroupTargets.requestedAt)],
     }),
-    prisma.syncGroupTarget.findMany({
-      where: { store: { shop }, status: { in: ["APPROVED", "DECLINED"] } },
-      include: { group: { include: { source: true } } },
-      orderBy: { respondedAt: "desc" },
+    db.query.syncGroupTargets.findMany({
+      where: and(
+        eq(syncGroupTargets.storeId, store.id),
+        inArray(syncGroupTargets.status, ["APPROVED", "DECLINED"]),
+      ),
+      with: { group: { with: { source: true } } },
+      orderBy: [desc(syncGroupTargets.respondedAt)],
     }),
   ]);
 
@@ -108,18 +126,27 @@ export async function requestPairing({
   const target = await getOrCreateStore(targetShop);
 
   const group = groupId
-    ? await prisma.syncGroup.findFirst({
-        where: { id: groupId, sourceId: source.id },
+    ? await db.query.syncGroups.findFirst({
+        where: and(
+          eq(syncGroups.id, groupId),
+          eq(syncGroups.sourceId, source.id),
+        ),
       })
-    : await prisma.syncGroup.create({
-        data: { sourceId: source.id, name: groupName?.trim() || null },
-      });
+    : (
+        await db
+          .insert(syncGroups)
+          .values({ sourceId: source.id, name: groupName?.trim() || null })
+          .returning()
+      )[0];
   if (!group) {
     return { ok: false, error: "That sync group no longer exists." };
   }
 
-  const existing = await prisma.syncGroupTarget.findUnique({
-    where: { groupId_storeId: { groupId: group.id, storeId: target.id } },
+  const existing = await db.query.syncGroupTargets.findFirst({
+    where: and(
+      eq(syncGroupTargets.groupId, group.id),
+      eq(syncGroupTargets.storeId, target.id),
+    ),
   });
   if (existing) {
     return {
@@ -129,13 +156,11 @@ export async function requestPairing({
   }
 
   const { raw, hash, expiresAt } = generateAuthToken();
-  await prisma.syncGroupTarget.create({
-    data: {
-      groupId: group.id,
-      storeId: target.id,
-      authTokenHash: hash,
-      authTokenExpiresAt: expiresAt,
-    },
+  await db.insert(syncGroupTargets).values({
+    groupId: group.id,
+    storeId: target.id,
+    authTokenHash: hash,
+    authTokenExpiresAt: expiresAt,
   });
   return { ok: true, authToken: raw, targetShop };
 }
@@ -154,9 +179,9 @@ export type PendingTargetByToken = NonNullable<
  * leak doesn't tell an attacker anything about why it failed.
  */
 export async function getPendingRequestByToken(token: string, shop: string) {
-  const target = await prisma.syncGroupTarget.findUnique({
-    where: { authTokenHash: hashAuthToken(token) },
-    include: { store: true, group: { include: { source: true } } },
+  const target = await db.query.syncGroupTargets.findFirst({
+    where: eq(syncGroupTargets.authTokenHash, hashAuthToken(token)),
+    with: { store: true, group: { with: { source: true } } },
   });
 
   if (
@@ -192,15 +217,15 @@ export async function approvePairingRequest({
     };
   }
 
-  await prisma.syncGroupTarget.update({
-    where: { id: target.id },
-    data: {
+  await db
+    .update(syncGroupTargets)
+    .set({
       status: "APPROVED",
       respondedAt: new Date(),
       authTokenHash: null,
       authTokenExpiresAt: null,
-    },
-  });
+    })
+    .where(eq(syncGroupTargets.id, target.id));
   return { ok: true };
 }
 
@@ -217,9 +242,9 @@ export async function declinePairingRequest({
   targetId: string;
   shop: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const target = await prisma.syncGroupTarget.findUnique({
-    where: { id: targetId },
-    include: { store: true },
+  const target = await db.query.syncGroupTargets.findFirst({
+    where: eq(syncGroupTargets.id, targetId),
+    with: { store: true },
   });
 
   if (!target || target.store.shop !== shop) {
@@ -229,14 +254,14 @@ export async function declinePairingRequest({
     return { ok: false, error: "This request was already responded to." };
   }
 
-  await prisma.syncGroupTarget.update({
-    where: { id: targetId },
-    data: {
+  await db
+    .update(syncGroupTargets)
+    .set({
       status: "DECLINED",
       respondedAt: new Date(),
       authTokenHash: null,
       authTokenExpiresAt: null,
-    },
-  });
+    })
+    .where(eq(syncGroupTargets.id, targetId));
   return { ok: true };
 }

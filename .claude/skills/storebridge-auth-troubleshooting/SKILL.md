@@ -33,7 +33,7 @@ Compare the two. More than ~5 seconds off is the smoking gun.
 Don't add new logging — it's already there, just check the output:
 
 - `apps/storebridge/app/shopify.server.ts` sets `logger: { level: LogSeverity.Debug }` outside production. This is what actually surfaces _why_ a session token failed (the exact JWT error), not just that authentication was attempted.
-- `apps/storebridge/app/db.server.ts` logs every Prisma query outside production (`log: ["query"]`) — confirms whether a DB write is even being attempted.
+- `apps/storebridge/app/db.server.ts` logs every Drizzle query outside production (`logger: true`) — confirms whether a DB write is even being attempted.
 - `shopify app dev --verbose` for CLI-level tunnel/network detail.
 
 Read the terminal output for the _specific_ error, don't just confirm the flow "seems to run."

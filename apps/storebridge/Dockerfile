@@ -4,7 +4,6 @@
 # workspace member's package.json present before `pnpm install
 # --frozen-lockfile` can resolve the workspace tree.
 FROM node:22-alpine
-RUN apk add --no-cache openssl
 RUN corepack enable && corepack prepare pnpm@11.22.0 --activate
 
 EXPOSE 3000

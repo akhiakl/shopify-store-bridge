@@ -5,7 +5,7 @@ How StoreBridge authenticates embedded requests, where sessions get persisted, a
 ## The pieces
 
 - `app/shopify.server.ts` — the single `shopifyApp(...)` instance (`@shopify/shopify-app-react-router`). Every route imports `authenticate`/`sessionStorage`/etc. from here, never constructs its own — see AGENTS.md's Dependency Inversion note.
-- `app/db.server.ts` — the Prisma client `PrismaSessionStorage` writes to. Outside production it logs every query (`log: ["query"]`) — deliberately left on, see "Debugging a stuck auth flow" below.
+- `app/db.server.ts` — the Drizzle client `DrizzleSessionStoragePostgres` writes to. Outside production it logs every query (`logger: true`) — deliberately left on, see "Debugging a stuck auth flow" below.
 - Session persistence: **offline tokens only** (`useOnlineTokens` isn't set). One row per installed shop in the `Session` table, keyed by shop, not by user — the app doesn't currently track which staff member is doing what.
 - Distribution: `AppDistribution.AppStore`, `embedded = true`. Every `/app/*` route's loader calls `authenticate.admin(request)` — not just the parent `app.tsx` layout; every route independently, because a deep link into any of them (e.g. a pairing-authorization link — see `store-pairing.md`) needs to trigger the install/reauth flow on its own, not rely on a parent having already run.
 
@@ -31,7 +31,7 @@ In rough order of how likely each one actually is, from having chased this exact
    - `systemd-timesyncd` may simply refuse to run in some sandboxed/containerized dev environments (`ConditionVirtualization=!container` unmet) — don't assume "the sync service is running" means the clock is actually correct.
 2. **Turn on debug logging** (already wired up, not something you need to add):
    - `shopify.server.ts`'s `logger: { level: LogSeverity.Debug }` (non-production only) surfaces the token-exchange attempt and _why_ a session token was rejected — the exact JWT parse failure, expired-vs-invalid, etc. This is what actually revealed the clock skew in practice; without it you only see `[shopify-app/INFO] Authenticating admin request` with no indication of what happened next.
-   - `db.server.ts`'s `log: ["query"]` (non-production only) confirms whether a `Session`/`Store` write is even being attempted, vs. failing before it gets that far.
+   - `db.server.ts`'s `logger: true` (non-production only) confirms whether a `Session`/`Store` write is even being attempted, vs. failing before it gets that far.
    - Also available: `shopify app dev --verbose` for the CLI's own tunnel/network-level logging.
 3. **Verify DB connectivity directly**, independent of the app: `psql -h <host> -p <port> -U postgres -d storebridge -c '\dt'` against the exact `DATABASE_URL` in `.env`. Confirms the database and migrations are actually reachable before assuming the app-level auth logic is broken.
 4. **Confirm `shopify app dev` is actually running** with a live tunnel (`ps aux | grep cloudflared`) before assuming anything about auth logic — a dead process or a `SHOPIFY_APP_URL`/`application_url` still pointing at a placeholder (`https://localhost`, `https://example.com`) means Shopify's real Admin literally cannot reach the app, which looks identical to "nothing happens" from the browser's side.

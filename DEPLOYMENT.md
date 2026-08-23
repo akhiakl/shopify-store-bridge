@@ -74,12 +74,12 @@ env var, so local dev and the Docker/`react-router-serve` path are unaffected.
      app config (step 1)
    - `SHOPIFY_APP_URL` — the environment's Vercel URL
    - `DATABASE_URL` — Supabase Postgres pooled/pgbouncer connection string (see
-     `apps/storebridge/prisma/schema.prisma`'s comment and `apps/storebridge/.env.example`).
+     `apps/storebridge/app/db/schema.server.ts`'s comment and `apps/storebridge/.env.example`).
      **Use a separate Supabase project (or at least a separate database) per environment** —
      staging and production must not share session storage.
 5. Vercel Functions run on the Node.js runtime by default, which is what
-   `@shopify/shopify-app-remix`'s (now `shopify-app-react-router`'s) Node adapter and
-   Prisma need — no runtime config to change.
+   `@shopify/shopify-app-remix`'s (now `shopify-app-react-router`'s) Node adapter needs — no
+   runtime config to change.
 
 ## 3. What's automated vs manual
 
@@ -92,9 +92,10 @@ env var, so local dev and the Docker/`react-router-serve` path are unaffected.
   secrets, Vercel project setup, disabling Vercel's auto-deploy-on-`main`) — none of it can
   be done from an unattended session since it requires interactive browser auth or dashboard
   clicks.
-- **Manual, ongoing**: `prisma migrate deploy` runs automatically in the Docker path
+- **Manual, ongoing**: `drizzle-kit migrate` runs automatically in the Docker path
   (`pnpm run docker-start` → `pnpm run setup`), but Vercel's build doesn't run a migration
-  step — run `pnpm --filter storebridge run setup` (or `pnpm exec prisma migrate deploy` from
-  `apps/storebridge`) against each environment's `DATABASE_URL` after a schema change,
-  before or alongside the deploy. For production specifically, run this _before_ pushing the
-  release tag, so the schema is ready before the new code that depends on it goes live.
+  step — run `pnpm --filter storebridge run setup` (or `pnpm exec drizzle-kit migrate` from
+  `apps/storebridge`) against each environment's `DATABASE_URL`/`DIRECT_URL` after a schema
+  change, before or alongside the deploy. For production specifically, run this _before_
+  pushing the release tag, so the schema is ready before the new code that depends on it
+  goes live.

@@ -47,8 +47,8 @@ export const test = base.extend<EmbeddedFixtures>({
   },
 });
 
-// One PrismaClient is shared across every test in this worker (module-level
-// singleton in shopify-session.ts) — close it once after the last test runs
+// One pg.Pool is shared across every test in this worker (module-level
+// singleton in db.server.ts) — close it once after the last test runs
 // instead of per-test, or a still-open handle can make `playwright test`
 // hang/flap on exit.
 test.afterAll(async () => {

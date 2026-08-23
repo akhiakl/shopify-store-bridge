@@ -12,17 +12,6 @@
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "@shopify/dev-mcp@latest"]
-    },
-    "prisma": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "prisma@latest",
-        "mcp",
-        "--schema",
-        "apps/storebridge/prisma/schema.prisma"
-      ]
     }
   }
 }
