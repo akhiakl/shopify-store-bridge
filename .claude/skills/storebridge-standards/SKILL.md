@@ -88,10 +88,10 @@ down the open decision the way that one is written down.
 
 ## Repo layout (Turborepo monorepo)
 
-- `apps/storebridge` — the Shopify app: `app/`, `prisma/`, `e2e/`, its own `package.json`/`tsconfig.json`/`.eslintrc.cjs`/`vitest.config.ts`/`playwright.config.ts`.
+- `apps/storebridge` — the Shopify app: `app/`, `drizzle/`, `e2e/`, its own `package.json`/`tsconfig.json`/`.eslintrc.cjs`/`vitest.config.ts`/`playwright.config.ts`.
 - `packages/eslint-config`, `packages/typescript-config`, `packages/vitest-config` — shared config, consumed via `"@repo/<name>": "*"`.
 - Root — `turbo.json`, `pnpm-workspace.yaml`, `.npmrc`, `commitlint.config.cjs`, `.lintstagedrc.json`, `.husky/*` (Husky/commitlint/lint-staged stay root-level; they run repo-wide, not per-app).
-- `apps/storebridge/prisma/schema.prisma` — session/token store (Supabase Postgres) _and_ the app's own cross-shop data (store pairing) — see `apps/storebridge/docs/architecture/data-model.md` for which is which.
+- `apps/storebridge/app/db/schema.server.ts` — session/token store (Supabase Postgres) _and_ the app's own cross-shop data (store pairing) — see `apps/storebridge/docs/architecture/data-model.md` for which is which.
 
 ## Deeper context (per-app, not covered above)
 

@@ -1,12 +1,8 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "tasks": {
-    "db:generate": {
-      "cache": true,
-      "outputs": ["node_modules/.prisma/**", "node_modules/@prisma/client/**"]
-    },
     "build": {
-      "dependsOn": ["^build", "db:generate"],
+      "dependsOn": ["^build"],
       "env": ["SHOPIFY_API_KEY", "SHOPIFY_APP_URL", "VERCEL"],
       "outputs": ["build/**", ".react-router/**"]
     },
@@ -18,15 +14,12 @@
       "outputs": []
     },
     "typecheck": {
-      "dependsOn": ["db:generate"],
       "outputs": []
     },
     "test": {
-      "dependsOn": ["db:generate"],
       "outputs": []
     },
     "test:coverage": {
-      "dependsOn": ["db:generate"],
       "outputs": ["coverage/**"]
     },
     "test:e2e": {

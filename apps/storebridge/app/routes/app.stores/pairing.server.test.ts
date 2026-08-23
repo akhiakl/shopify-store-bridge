@@ -1,19 +1,37 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prismaMock } = vi.hoisted(() => ({
-  prismaMock: {
-    session: { findFirst: vi.fn() },
-    store: { upsert: vi.fn() },
-    syncGroup: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
-    syncGroupTarget: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
+/**
+ * A minimal stand-in for Drizzle's fluent query builders
+ * (`db.insert(...).values(...).returning()`,
+ * `db.update(...).set(...).where(...)`) — each chain method returns the
+ * same mock object so calls can keep chaining, and the terminal method
+ * resolves to `result` (awaiting a non-terminal call, e.g. a bare
+ * `await db.insert(t).values(v)` with no `.returning()`, just resolves to
+ * the chain object itself, which is fine since prod code never inspects
+ * that case's resolved value).
+ */
+function chain(result: unknown) {
+  const obj: Record<string, ReturnType<typeof vi.fn>> = {};
+  obj.values = vi.fn(() => obj);
+  obj.onConflictDoUpdate = vi.fn(() => obj);
+  obj.set = vi.fn(() => obj);
+  obj.where = vi.fn(() => Promise.resolve(result));
+  obj.returning = vi.fn(() => Promise.resolve(result));
+  return obj;
+}
+
+const { dbMock } = vi.hoisted(() => ({
+  dbMock: {
+    query: {
+      sessions: { findFirst: vi.fn() },
+      syncGroups: { findFirst: vi.fn(), findMany: vi.fn() },
+      syncGroupTargets: { findFirst: vi.fn(), findMany: vi.fn() },
     },
+    insert: vi.fn(),
+    update: vi.fn(),
   },
 }));
-vi.mock("~/db.server", () => ({ default: prismaMock }));
+vi.mock("~/db.server", () => ({ default: dbMock }));
 
 const {
   normalizeShopDomain,
@@ -23,6 +41,8 @@ const {
   approvePairingRequest,
   declinePairingRequest,
 } = await import("./pairing.server");
+const { stores, syncGroups, syncGroupTargets } =
+  await import("~/db/schema.server");
 
 const SOURCE_SHOP = "source-shop.myshopify.com";
 const TARGET_SHOP = "target-shop.myshopify.com";
@@ -85,7 +105,7 @@ describe("requestPairing", () => {
   });
 
   it("returns an install link when the target isn't installed", async () => {
-    prismaMock.session.findFirst.mockResolvedValue(null);
+    dbMock.query.sessions.findFirst.mockResolvedValue(undefined);
 
     const result = await requestPairing({
       sourceShop: SOURCE_SHOP,
@@ -100,17 +120,19 @@ describe("requestPairing", () => {
   });
 
   it("creates a new group and invites the target when installed", async () => {
-    prismaMock.session.findFirst.mockResolvedValue({ id: "session-1" });
-    prismaMock.store.upsert
-      .mockResolvedValueOnce({ id: "source-id", shop: SOURCE_SHOP })
-      .mockResolvedValueOnce({ id: "target-id", shop: TARGET_SHOP });
-    prismaMock.syncGroup.create.mockResolvedValue({
-      id: "group-1",
-      sourceId: "source-id",
-      name: "My group",
-    });
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue(null);
-    prismaMock.syncGroupTarget.create.mockResolvedValue({ id: "target-row" });
+    dbMock.query.sessions.findFirst.mockResolvedValue({ id: "session-1" });
+    const sourceChain = chain([{ id: "source-id", shop: SOURCE_SHOP }]);
+    const targetChain = chain([{ id: "target-id", shop: TARGET_SHOP }]);
+    const groupChain = chain([
+      { id: "group-1", sourceId: "source-id", name: "My group" },
+    ]);
+    const targetRowChain = chain(undefined);
+    dbMock.insert
+      .mockReturnValueOnce(sourceChain)
+      .mockReturnValueOnce(targetChain)
+      .mockReturnValueOnce(groupChain)
+      .mockReturnValueOnce(targetRowChain);
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
 
     const result = await requestPairing({
       sourceShop: SOURCE_SHOP,
@@ -122,25 +144,26 @@ describe("requestPairing", () => {
     if (!result.ok) throw new Error("expected ok result");
     expect(result.targetShop).toBe(TARGET_SHOP);
     expect(result.authToken).toEqual(expect.any(String));
-    expect(prismaMock.syncGroup.create).toHaveBeenCalledWith({
-      data: { sourceId: "source-id", name: "My group" },
+    expect(dbMock.insert).toHaveBeenNthCalledWith(3, syncGroups);
+    expect(groupChain.values).toHaveBeenCalledWith({
+      sourceId: "source-id",
+      name: "My group",
     });
-    expect(prismaMock.syncGroupTarget.create).toHaveBeenCalledWith({
-      data: {
-        groupId: "group-1",
-        storeId: "target-id",
-        authTokenHash: expect.any(String),
-        authTokenExpiresAt: expect.any(Date),
-      },
+    expect(dbMock.insert).toHaveBeenNthCalledWith(4, syncGroupTargets);
+    expect(targetRowChain.values).toHaveBeenCalledWith({
+      groupId: "group-1",
+      storeId: "target-id",
+      authTokenHash: expect.any(String),
+      authTokenExpiresAt: expect.any(Date),
     });
   });
 
   it("errors when an explicit groupId isn't owned by the source", async () => {
-    prismaMock.session.findFirst.mockResolvedValue({ id: "session-1" });
-    prismaMock.store.upsert
-      .mockResolvedValueOnce({ id: "source-id", shop: SOURCE_SHOP })
-      .mockResolvedValueOnce({ id: "target-id", shop: TARGET_SHOP });
-    prismaMock.syncGroup.findFirst.mockResolvedValue(null);
+    dbMock.query.sessions.findFirst.mockResolvedValue({ id: "session-1" });
+    dbMock.insert
+      .mockReturnValueOnce(chain([{ id: "source-id", shop: SOURCE_SHOP }]))
+      .mockReturnValueOnce(chain([{ id: "target-id", shop: TARGET_SHOP }]));
+    dbMock.query.syncGroups.findFirst.mockResolvedValue(undefined);
 
     const result = await requestPairing({
       sourceShop: SOURCE_SHOP,
@@ -155,12 +178,12 @@ describe("requestPairing", () => {
   });
 
   it("errors when the target already has a status in the group", async () => {
-    prismaMock.session.findFirst.mockResolvedValue({ id: "session-1" });
-    prismaMock.store.upsert
-      .mockResolvedValueOnce({ id: "source-id", shop: SOURCE_SHOP })
-      .mockResolvedValueOnce({ id: "target-id", shop: TARGET_SHOP });
-    prismaMock.syncGroup.create.mockResolvedValue({ id: "group-1" });
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
+    dbMock.query.sessions.findFirst.mockResolvedValue({ id: "session-1" });
+    dbMock.insert
+      .mockReturnValueOnce(chain([{ id: "source-id", shop: SOURCE_SHOP }]))
+      .mockReturnValueOnce(chain([{ id: "target-id", shop: TARGET_SHOP }]))
+      .mockReturnValueOnce(chain([{ id: "group-1" }]));
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
       status: "APPROVED",
     });
 
@@ -180,13 +203,13 @@ describe("getPendingRequestByToken", () => {
   const futureExpiry = new Date(Date.now() + 60_000);
 
   it("returns null for a token that doesn't match any request", async () => {
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue(null);
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
 
     expect(await getPendingRequestByToken("nope", TARGET_SHOP)).toBeNull();
   });
 
   it("returns null when the token belongs to a different shop", async () => {
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
       id: "target-1",
       status: "PENDING",
       authTokenExpiresAt: futureExpiry,
@@ -197,7 +220,7 @@ describe("getPendingRequestByToken", () => {
   });
 
   it("returns null once the request was already responded to", async () => {
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
       id: "target-1",
       status: "APPROVED",
       authTokenExpiresAt: futureExpiry,
@@ -208,7 +231,7 @@ describe("getPendingRequestByToken", () => {
   });
 
   it("returns null for an expired token", async () => {
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
       id: "target-1",
       status: "PENDING",
       authTokenExpiresAt: new Date(Date.now() - 1000),
@@ -225,7 +248,7 @@ describe("getPendingRequestByToken", () => {
       authTokenExpiresAt: futureExpiry,
       store: { shop: TARGET_SHOP },
     };
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue(target);
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(target);
 
     expect(await getPendingRequestByToken("tok", TARGET_SHOP)).toBe(target);
   });
@@ -233,7 +256,7 @@ describe("getPendingRequestByToken", () => {
 
 describe("approvePairingRequest", () => {
   it("errors when the token is invalid", async () => {
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue(null);
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
 
     const result = await approvePairingRequest({
       token: "bad",
@@ -247,13 +270,14 @@ describe("approvePairingRequest", () => {
   });
 
   it("approves and clears the token on a valid one", async () => {
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
       id: "target-1",
       status: "PENDING",
       authTokenExpiresAt: new Date(Date.now() + 60_000),
       store: { shop: TARGET_SHOP },
     });
-    prismaMock.syncGroupTarget.update.mockResolvedValue({});
+    const updateChain = chain(undefined);
+    dbMock.update.mockReturnValueOnce(updateChain);
 
     const result = await approvePairingRequest({
       token: "good",
@@ -261,21 +285,19 @@ describe("approvePairingRequest", () => {
     });
 
     expect(result).toEqual({ ok: true });
-    expect(prismaMock.syncGroupTarget.update).toHaveBeenCalledWith({
-      where: { id: "target-1" },
-      data: {
-        status: "APPROVED",
-        respondedAt: expect.any(Date),
-        authTokenHash: null,
-        authTokenExpiresAt: null,
-      },
+    expect(dbMock.update).toHaveBeenCalledWith(syncGroupTargets);
+    expect(updateChain.set).toHaveBeenCalledWith({
+      status: "APPROVED",
+      respondedAt: expect.any(Date),
+      authTokenHash: null,
+      authTokenExpiresAt: null,
     });
   });
 });
 
 describe("declinePairingRequest", () => {
   it("errors when the request doesn't exist", async () => {
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue(null);
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
 
     const result = await declinePairingRequest({
       targetId: "missing",
@@ -286,7 +308,7 @@ describe("declinePairingRequest", () => {
   });
 
   it("errors when the caller isn't the target store", async () => {
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
       id: "target-1",
       status: "PENDING",
       store: { shop: "someone-else.myshopify.com" },
@@ -301,7 +323,7 @@ describe("declinePairingRequest", () => {
   });
 
   it("errors when the request was already responded to", async () => {
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
       id: "target-1",
       status: "APPROVED",
       store: { shop: TARGET_SHOP },
@@ -319,12 +341,13 @@ describe("declinePairingRequest", () => {
   });
 
   it("declines a pending request from the target store", async () => {
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
       id: "target-1",
       status: "PENDING",
       store: { shop: TARGET_SHOP },
     });
-    prismaMock.syncGroupTarget.update.mockResolvedValue({});
+    const updateChain = chain(undefined);
+    dbMock.update.mockReturnValueOnce(updateChain);
 
     const result = await declinePairingRequest({
       targetId: "target-1",
@@ -332,26 +355,22 @@ describe("declinePairingRequest", () => {
     });
 
     expect(result).toEqual({ ok: true });
-    expect(prismaMock.syncGroupTarget.update).toHaveBeenCalledWith({
-      where: { id: "target-1" },
-      data: {
-        status: "DECLINED",
-        respondedAt: expect.any(Date),
-        authTokenHash: null,
-        authTokenExpiresAt: null,
-      },
+    expect(dbMock.update).toHaveBeenCalledWith(syncGroupTargets);
+    expect(updateChain.set).toHaveBeenCalledWith({
+      status: "DECLINED",
+      respondedAt: expect.any(Date),
+      authTokenHash: null,
+      authTokenExpiresAt: null,
     });
   });
 });
 
 describe("getDashboardData", () => {
   it("returns owned groups, incoming requests, and memberships", async () => {
-    prismaMock.store.upsert.mockResolvedValue({
-      id: "store-1",
-      shop: SOURCE_SHOP,
-    });
-    prismaMock.syncGroup.findMany.mockResolvedValue([{ id: "group-1" }]);
-    prismaMock.syncGroupTarget.findMany
+    const storeChain = chain([{ id: "store-1", shop: SOURCE_SHOP }]);
+    dbMock.insert.mockReturnValueOnce(storeChain);
+    dbMock.query.syncGroups.findMany.mockResolvedValue([{ id: "group-1" }]);
+    dbMock.query.syncGroupTargets.findMany
       .mockResolvedValueOnce([{ id: "incoming-1" }])
       .mockResolvedValueOnce([{ id: "membership-1" }]);
 
@@ -362,8 +381,8 @@ describe("getDashboardData", () => {
       incomingRequests: [{ id: "incoming-1" }],
       memberships: [{ id: "membership-1" }],
     });
-    expect(prismaMock.syncGroup.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { sourceId: "store-1" } }),
-    );
+    expect(dbMock.insert).toHaveBeenCalledWith(stores);
+    expect(dbMock.query.syncGroups.findMany).toHaveBeenCalledTimes(1);
+    expect(dbMock.query.syncGroupTargets.findMany).toHaveBeenCalledTimes(2);
   });
 });

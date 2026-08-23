@@ -1,6 +1,8 @@
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
+import { eq } from "drizzle-orm";
 
-import prisma from "~/db.server";
+import db from "~/db.server";
+import { syncGroups } from "~/db/schema.server";
 
 /**
  * UNVERIFIED — confirm via Shopify Dev MCP before merge (unavailable this
@@ -143,10 +145,11 @@ async function fetchMetaobjectDefinitions(
 /** Confirms `groupId` is a sync group the current shop actually owns as
  * source, before letting it browse (and later, migrate into) that group. */
 export async function getOwnedGroup(groupId: string, shop: string) {
-  return prisma.syncGroup.findFirst({
-    where: { id: groupId, source: { shop } },
-    include: { source: true, targets: { include: { store: true } } },
+  const group = await db.query.syncGroups.findFirst({
+    where: eq(syncGroups.id, groupId),
+    with: { source: true, targets: { with: { store: true } } },
   });
+  return group && group.source.shop === shop ? group : null;
 }
 
 export async function getDefinitionCatalog(admin: AdminApiContext) {

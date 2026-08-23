@@ -26,10 +26,11 @@ updates:
     groups:
 
       # Group together PRs of dependant packages
-      prisma:
+      drizzle:
         patterns:
-          - 'prisma'
-          - '@prisma/client'
+          - 'drizzle-orm'
+          - 'drizzle-kit'
+          - '@shopify/shopify-app-session-storage-drizzle'
       react:
         patterns:
           - 'react'

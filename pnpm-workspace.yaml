@@ -2,16 +2,13 @@ packages:
   - "apps/*"
   - "packages/*"
   - "apps/storebridge/extensions/*"
-# Packages whose install-time build scripts pnpm runs. All six are
-# well-known, necessary native-binary/build steps from their packages'
-# actual maintainers (not arbitrary transitive postinstalls) — Prisma
-# needs its engines downloaded, esbuild and @parcel/watcher (used by
-# Vite's dev server) ship native binaries, unrs-resolver backs
-# eslint-import-resolver-typescript's TS-aware module resolution.
+# Packages whose install-time build scripts pnpm runs. The first three are
+# well-known, necessary native-binary build steps from their packages'
+# actual maintainers (not arbitrary transitive postinstalls) — esbuild and
+# @parcel/watcher (used by Vite's dev server) ship native binaries,
+# unrs-resolver backs eslint-import-resolver-typescript's TS-aware module
+# resolution.
 allowBuilds:
-  '@parcel/watcher': true
-  '@prisma/client': true
-  '@prisma/engines': true
+  "@parcel/watcher": true
   esbuild: true
-  prisma: true
   unrs-resolver: true

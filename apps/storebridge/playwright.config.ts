@@ -6,7 +6,7 @@ import { defineConfig, devices } from "@playwright/test";
  *   SHOPIFY_APP_URL — same variables as `.env.example`. Any values work
  * for SHOPIFY_API_KEY/SECRET (nothing here calls the real Shopify API —
  * see e2e/support/embedded-fixture.ts); DATABASE_URL needs a real,
- * migrated Postgres database (`pnpm exec prisma migrate deploy` first — a
+ * migrated Postgres database (`pnpm exec drizzle-kit migrate` first — a
  * disposable one is fine, tests only touch the Session table).
  */
 const PORT = Number(process.env.PORT) || 3000;

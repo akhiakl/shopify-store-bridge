@@ -1,6 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import { eq } from "drizzle-orm";
 
-const prisma = new PrismaClient();
+import db, { pool } from "~/db.server";
+import { sessions } from "~/db/schema.server";
 
 /**
  * Seeds a Session row that @shopify/shopify-app-react-router's
@@ -19,9 +20,9 @@ export async function seedOfflineSession(
   accessToken = "e2e-test-access-token",
 ): Promise<string> {
   const id = `offline_${shop}`;
-  await prisma.session.upsert({
-    where: { id },
-    create: {
+  await db
+    .insert(sessions)
+    .values({
       id,
       shop,
       state: "",
@@ -29,16 +30,18 @@ export async function seedOfflineSession(
       scope: process.env.SCOPES ?? "",
       accessToken,
       expires: null,
-    },
-    update: { accessToken, expires: null },
-  });
+    })
+    .onConflictDoUpdate({
+      target: sessions.id,
+      set: { accessToken, expires: null },
+    });
   return id;
 }
 
 export async function deleteSession(id: string): Promise<void> {
-  await prisma.session.deleteMany({ where: { id } });
+  await db.delete(sessions).where(eq(sessions.id, id));
 }
 
 export async function disconnectSessionStore(): Promise<void> {
-  await prisma.$disconnect();
+  await pool.end();
 }

@@ -33,7 +33,7 @@ config link` once you've linked a Shopify app registration (see `apps/storebridg
 Then apply migrations:
 
 ```bash
-pnpm exec prisma migrate deploy --schema apps/storebridge/prisma/schema.prisma
+pnpm --filter storebridge exec drizzle-kit migrate
 ```
 
 ## Running the app

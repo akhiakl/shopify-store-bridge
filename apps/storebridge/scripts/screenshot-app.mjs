@@ -45,13 +45,15 @@ async function screenshotRoute(page, { baseUrl, shop, route, outFile }) {
 async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error(
-      "DATABASE_URL must point at a migrated Postgres database (npx prisma migrate deploy first).",
+      "DATABASE_URL must point at a migrated Postgres database (npx drizzle-kit migrate first).",
     );
   }
   mkdirSync(OUT_DIR, { recursive: true });
 
   if (!existsSync(path.join(ROOT, "build/server/index.js"))) {
-    throw new Error("Run `npm run build` first - no build/server/index.js found.");
+    throw new Error(
+      "Run `npm run build` first - no build/server/index.js found.",
+    );
   }
 
   const { emptyShop, mainShop } = await seedScenarios();

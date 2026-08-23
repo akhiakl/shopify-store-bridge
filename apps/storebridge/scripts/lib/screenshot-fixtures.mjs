@@ -1,15 +1,55 @@
 import { createHmac, randomUUID } from "node:crypto";
-import { PrismaClient } from "@prisma/client";
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { boolean, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { inArray } from "drizzle-orm";
 
 /**
  * Data + auth setup for scripts/screenshot-app.mjs. Deliberately separate
  * from e2e/support/* (those are .ts, loaded by the Playwright test runner;
  * this is a plain-Node script) rather than sharing a loader — small enough
- * that duplicating the session-token signing here is cheaper than wiring
- * cross-runtime TS imports for one script.
+ * that duplicating the session-token signing and table shapes here is
+ * cheaper than wiring cross-runtime TS imports for one script. Table/column
+ * names must stay in sync with app/db/schema.server.ts.
  */
 
-const prisma = new PrismaClient();
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const db = drizzle(pool);
+
+const syncGroupTargetStatusEnum = pgEnum("SyncGroupTargetStatus", [
+  "PENDING",
+  "APPROVED",
+  "DECLINED",
+]);
+
+const sessions = pgTable("Session", {
+  id: text("id").primaryKey(),
+  shop: text("shop").notNull(),
+  state: text("state").notNull(),
+  isOnline: boolean("isOnline").default(false).notNull(),
+  scope: text("scope"),
+  expires: timestamp("expires", { mode: "date" }),
+  accessToken: text("accessToken").notNull(),
+});
+
+const stores = pgTable("Store", {
+  id: text("id").primaryKey(),
+  shop: text("shop").notNull().unique(),
+});
+
+const syncGroups = pgTable("SyncGroup", {
+  id: text("id").primaryKey(),
+  name: text("name"),
+  sourceId: text("sourceId").notNull(),
+});
+
+const syncGroupTargets = pgTable("SyncGroupTarget", {
+  id: text("id").primaryKey(),
+  groupId: text("groupId").notNull(),
+  storeId: text("storeId").notNull(),
+  status: syncGroupTargetStatusEnum("status").notNull().default("PENDING"),
+  respondedAt: timestamp("respondedAt", { mode: "date" }),
+});
 
 function base64url(input) {
   return Buffer.from(input)
@@ -42,9 +82,9 @@ export function signSessionToken(shop, apiKey, apiSecretKey) {
 }
 
 async function seedInstalledShop(shop) {
-  await prisma.session.upsert({
-    where: { id: `offline_${shop}` },
-    create: {
+  await db
+    .insert(sessions)
+    .values({
       id: `offline_${shop}`,
       shop,
       state: "",
@@ -52,9 +92,20 @@ async function seedInstalledShop(shop) {
       scope: process.env.SCOPES ?? "",
       accessToken: "screenshot-fixture-token",
       expires: null,
-    },
-    update: { accessToken: "screenshot-fixture-token", expires: null },
-  });
+    })
+    .onConflictDoUpdate({
+      target: sessions.id,
+      set: { accessToken: "screenshot-fixture-token", expires: null },
+    });
+}
+
+async function upsertStore(shop) {
+  const [store] = await db
+    .insert(stores)
+    .values({ shop })
+    .onConflictDoUpdate({ target: stores.shop, set: { shop } })
+    .returning();
+  return store;
 }
 
 const SCREENSHOT_SHOPS = [
@@ -68,13 +119,12 @@ const SCREENSHOT_SHOPS = [
 /**
  * Deletes any leftover Store/Session rows from a previous run of this
  * script, so re-running it doesn't pile up duplicate SyncGroups (Store
- * deletion cascades to its groups/memberships - see prisma/schema.prisma).
+ * deletion cascades to its groups/memberships - see
+ * app/db/schema.server.ts).
  */
 export async function resetScenarios() {
-  await prisma.store.deleteMany({ where: { shop: { in: SCREENSHOT_SHOPS } } });
-  await prisma.session.deleteMany({
-    where: { shop: { in: SCREENSHOT_SHOPS } },
-  });
+  await db.delete(stores).where(inArray(stores.shop, SCREENSHOT_SHOPS));
+  await db.delete(sessions).where(inArray(sessions.shop, SCREENSHOT_SHOPS));
 }
 
 /**
@@ -90,56 +140,41 @@ export async function seedScenarios() {
 
   await Promise.all(SCREENSHOT_SHOPS.map(seedInstalledShop));
 
-  const mainStore = await prisma.store.upsert({
-    where: { shop: mainShop },
-    create: { shop: mainShop },
-    update: {},
-  });
-  const targetStore = await prisma.store.upsert({
-    where: { shop: targetShop },
-    create: { shop: targetShop },
-    update: {},
-  });
-  const partnerStore = await prisma.store.upsert({
-    where: { shop: partnerShop },
-    create: { shop: partnerShop },
-    update: {},
-  });
-  const approvedSourceStore = await prisma.store.upsert({
-    where: { shop: approvedSourceShop },
-    create: { shop: approvedSourceShop },
-    update: {},
-  });
+  const mainStore = await upsertStore(mainShop);
+  const targetStore = await upsertStore(targetShop);
+  const partnerStore = await upsertStore(partnerShop);
+  const approvedSourceStore = await upsertStore(approvedSourceShop);
 
-  const ownedGroup = await prisma.syncGroup.create({
-    data: { sourceId: mainStore.id, name: "EU expansion" },
-  });
-  await prisma.syncGroupTarget.create({
-    data: { groupId: ownedGroup.id, storeId: targetStore.id },
-  });
+  const [ownedGroup] = await db
+    .insert(syncGroups)
+    .values({ sourceId: mainStore.id, name: "EU expansion" })
+    .returning();
+  await db
+    .insert(syncGroupTargets)
+    .values({ groupId: ownedGroup.id, storeId: targetStore.id });
 
-  const incomingGroup = await prisma.syncGroup.create({
-    data: { sourceId: partnerStore.id, name: "Wholesale rollout" },
-  });
-  await prisma.syncGroupTarget.create({
-    data: { groupId: incomingGroup.id, storeId: mainStore.id },
-  });
+  const [incomingGroup] = await db
+    .insert(syncGroups)
+    .values({ sourceId: partnerStore.id, name: "Wholesale rollout" })
+    .returning();
+  await db
+    .insert(syncGroupTargets)
+    .values({ groupId: incomingGroup.id, storeId: mainStore.id });
 
-  const approvedGroup = await prisma.syncGroup.create({
-    data: { sourceId: approvedSourceStore.id, name: "Franchise sync" },
-  });
-  await prisma.syncGroupTarget.create({
-    data: {
-      groupId: approvedGroup.id,
-      storeId: mainStore.id,
-      status: "APPROVED",
-      respondedAt: new Date(),
-    },
+  const [approvedGroup] = await db
+    .insert(syncGroups)
+    .values({ sourceId: approvedSourceStore.id, name: "Franchise sync" })
+    .returning();
+  await db.insert(syncGroupTargets).values({
+    groupId: approvedGroup.id,
+    storeId: mainStore.id,
+    status: "APPROVED",
+    respondedAt: new Date(),
   });
 
   return { emptyShop, mainShop };
 }
 
 export async function teardown() {
-  await prisma.$disconnect();
+  await pool.end();
 }

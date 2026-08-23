@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { prismaMock } = vi.hoisted(() => ({
-  prismaMock: { syncGroup: { findFirst: vi.fn() } },
+const { dbMock } = vi.hoisted(() => ({
+  dbMock: { query: { syncGroups: { findFirst: vi.fn() } } },
 }));
-vi.mock("~/db.server", () => ({ default: prismaMock }));
+vi.mock("~/db.server", () => ({ default: dbMock }));
 
 const { getDefinitionCatalog, getOwnedGroup } =
   await import("./definitions.server");
@@ -14,15 +14,41 @@ function jsonResponse(data: unknown) {
 
 describe("getOwnedGroup", () => {
   it("looks up the group scoped to the given shop as source", async () => {
-    prismaMock.syncGroup.findFirst.mockResolvedValue({ id: "group-1" });
+    dbMock.query.syncGroups.findFirst.mockResolvedValue({
+      id: "group-1",
+      source: { shop: "source.myshopify.com" },
+    });
 
     const result = await getOwnedGroup("group-1", "source.myshopify.com");
 
-    expect(prismaMock.syncGroup.findFirst).toHaveBeenCalledWith({
-      where: { id: "group-1", source: { shop: "source.myshopify.com" } },
-      include: { source: true, targets: { include: { store: true } } },
+    expect(dbMock.query.syncGroups.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        with: { source: true, targets: { with: { store: true } } },
+      }),
+    );
+    expect(result).toEqual({
+      id: "group-1",
+      source: { shop: "source.myshopify.com" },
     });
-    expect(result).toEqual({ id: "group-1" });
+  });
+
+  it("returns null when the group belongs to a different shop", async () => {
+    dbMock.query.syncGroups.findFirst.mockResolvedValue({
+      id: "group-1",
+      source: { shop: "someone-else.myshopify.com" },
+    });
+
+    const result = await getOwnedGroup("group-1", "source.myshopify.com");
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null when the group doesn't exist", async () => {
+    dbMock.query.syncGroups.findFirst.mockResolvedValue(undefined);
+
+    const result = await getOwnedGroup("missing", "source.myshopify.com");
+
+    expect(result).toBeNull();
   });
 });
 

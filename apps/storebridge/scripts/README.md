@@ -24,7 +24,7 @@ session would normally provide:
 ```bash
 pnpm run build
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/storebridge_e2e \
-  pnpm exec prisma migrate deploy
+  pnpm exec drizzle-kit migrate
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/storebridge_e2e \
   pnpm run screenshot
 ```
