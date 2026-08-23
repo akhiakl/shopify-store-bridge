@@ -21,7 +21,13 @@ const METAFIELD_OWNER_TYPES = [
   "SHOP",
 ] as const;
 
-/** UNVERIFIED — confirm via Shopify Dev MCP before merge. */
+/**
+ * UNVERIFIED — query shape not validated via Shopify Dev MCP's
+ * validate_graphql_codeblocks (unavailable this session). Access scope is
+ * also unconfirmed — likely varies per MetafieldOwnerType (e.g.
+ * read_products for PRODUCT/PRODUCTVARIANT), see shopify.app.toml's
+ * comment.
+ */
 const METAFIELD_DEFINITIONS_QUERY = `#graphql
   query MetafieldDefinitionsByOwner($ownerType: MetafieldOwnerType!) {
     metafieldDefinitions(ownerType: $ownerType, first: 250) {
@@ -37,7 +43,13 @@ const METAFIELD_DEFINITIONS_QUERY = `#graphql
   }
 `;
 
-/** UNVERIFIED — confirm via Shopify Dev MCP before merge. */
+/**
+ * Access scope confirmed: read_metaobject_definitions (Shopify's
+ * metaobjectDefinitions docs, "Requires read_metaobject_definitions
+ * access scope" — see shopify.app.toml). Query shape itself is still
+ * UNVERIFIED against validate_graphql_codeblocks (Shopify Dev MCP
+ * unavailable this session).
+ */
 const METAOBJECT_DEFINITIONS_QUERY = `#graphql
   query MetaobjectDefinitionsList {
     metaobjectDefinitions(first: 250) {
