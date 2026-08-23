@@ -7,9 +7,12 @@ interface IncomingRequestsListProps {
 }
 
 /**
- * Pending pairing invites for the current store, approved/declined from
- * inside this store's own authenticated session — never via a code typed
- * elsewhere, see AGENTS.md's store-pairing notes.
+ * Pending pairing invites for the current store — visibility only.
+ * Approving requires the one-time link the source shared out-of-band (see
+ * app.stores.authorize.tsx and pairing.server.ts's requestPairing) rather
+ * than a button here, since anyone who can see this list could otherwise
+ * approve a pairing for a store they don't actually run. Declining stays
+ * available here — it's harmless either way.
  */
 export function IncomingRequestsList({ requests }: IncomingRequestsListProps) {
   return (
@@ -26,13 +29,7 @@ function RequestRow({
 }: {
   request: DashboardData["incomingRequests"][number];
 }) {
-  // Separate fetchers per action - sharing one would put both buttons into
-  // the loading state on any submit, and a second click while the first is
-  // still in flight would clobber it (one fetcher can only track one
-  // in-flight submission at a time).
-  const approveFetcher = useFetcher();
   const declineFetcher = useFetcher();
-  const isApproving = approveFetcher.state !== "idle";
   const isDeclining = declineFetcher.state !== "idle";
 
   return (
@@ -40,15 +37,9 @@ function RequestRow({
       <s-stack direction="inline" gap="base" alignItems="center">
         <s-paragraph>
           {request.group.source.shop}
-          {request.group.name ? ` — ${request.group.name}` : ""}
+          {request.group.name ? ` — ${request.group.name}` : ""} — waiting for
+          the pairing link sent to you to be opened and confirmed
         </s-paragraph>
-        <approveFetcher.Form method="post">
-          <input type="hidden" name="intent" value="approve" />
-          <input type="hidden" name="targetId" value={request.id} />
-          <s-button type="submit" variant="primary" loading={isApproving}>
-            Approve
-          </s-button>
-        </approveFetcher.Form>
         <declineFetcher.Form method="post">
           <input type="hidden" name="intent" value="decline" />
           <input type="hidden" name="targetId" value={request.id} />

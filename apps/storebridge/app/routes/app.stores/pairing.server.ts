@@ -1,4 +1,5 @@
 import prisma from "~/db.server";
+import { generateAuthToken, hashAuthToken } from "./authToken.server";
 
 /**
  * Narrow, deliberately conservative shop-domain format check for the
@@ -60,14 +61,20 @@ export async function getDashboardData(shop: string) {
 }
 
 type RequestPairingResult =
-  { ok: true } | { ok: false; error: string; installUrl?: string };
+  | { ok: true; authToken: string; targetShop: string }
+  | { ok: false; error: string; installUrl?: string };
 
 /**
  * Invites a target store into a sync group owned by `sourceShop` — creates
  * a new group when `groupId` is omitted, otherwise adds to an existing one
- * the source store actually owns. The target only actually joins once it
- * approves from its own authenticated session (respondToPairingRequest) —
- * this just creates the pending invite.
+ * the source store actually owns. Returns a one-time authorization token
+ * (never stored raw — see authToken.server.ts) the caller shares
+ * out-of-band with whoever actually runs the target store; only that
+ * token, redeemed from the target's own authenticated session, can
+ * approve the pairing (approvePairingRequest). Shopify has no API to
+ * prove two shops share an owner, so this out-of-band secret is the
+ * strongest available proof — the same pattern Slack Connect/Stripe
+ * Connect use for cross-tenant linking.
  */
 export async function requestPairing({
   sourceShop,
@@ -121,26 +128,94 @@ export async function requestPairing({
     };
   }
 
+  const { raw, hash, expiresAt } = generateAuthToken();
   await prisma.syncGroupTarget.create({
-    data: { groupId: group.id, storeId: target.id },
+    data: {
+      groupId: group.id,
+      storeId: target.id,
+      authTokenHash: hash,
+      authTokenExpiresAt: expiresAt,
+    },
+  });
+  return { ok: true, authToken: raw, targetShop };
+}
+
+export type PendingTargetByToken = NonNullable<
+  Awaited<ReturnType<typeof getPendingRequestByToken>>
+>;
+
+/**
+ * Looks up the pending request a raw authorization token points to,
+ * scoped to the shop redeeming it — `shop` must be the caller's
+ * authenticated session.shop, never form/URL input, or any shop could
+ * inspect (though not approve) another shop's pending request just by
+ * guessing a target id. Returns null for an invalid, expired, wrong-shop,
+ * or already-responded-to token; never distinguishes which, so a token
+ * leak doesn't tell an attacker anything about why it failed.
+ */
+export async function getPendingRequestByToken(token: string, shop: string) {
+  const target = await prisma.syncGroupTarget.findUnique({
+    where: { authTokenHash: hashAuthToken(token) },
+    include: { store: true, group: { include: { source: true } } },
+  });
+
+  if (
+    !target ||
+    target.store.shop !== shop ||
+    target.status !== "PENDING" ||
+    !target.authTokenExpiresAt ||
+    target.authTokenExpiresAt < new Date()
+  ) {
+    return null;
+  }
+  return target;
+}
+
+/**
+ * Approves a pairing request — the only path that can, since Shopify has
+ * no way to confirm the approving session actually belongs to whoever the
+ * source intended (see requestPairing's comment). Single-use: the token
+ * is cleared on success so it can't be replayed.
+ */
+export async function approvePairingRequest({
+  token,
+  shop,
+}: {
+  token: string;
+  shop: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const target = await getPendingRequestByToken(token, shop);
+  if (!target) {
+    return {
+      ok: false,
+      error: "This pairing link is invalid, expired, or already used.",
+    };
+  }
+
+  await prisma.syncGroupTarget.update({
+    where: { id: target.id },
+    data: {
+      status: "APPROVED",
+      respondedAt: new Date(),
+      authTokenHash: null,
+      authTokenExpiresAt: null,
+    },
   });
   return { ok: true };
 }
 
 /**
- * Approves or declines a pairing request — only from the target store's
- * own authenticated session. `shop` must be the caller's authenticated
- * session.shop, never a value taken from form input, or any shop could
- * approve any other shop's pairing requests.
+ * Declines a pairing request from the regular dashboard list — no token
+ * needed, since declining is harmless either way. `shop` must be the
+ * caller's authenticated session.shop, never form input, or any shop
+ * could decline any other shop's pairing requests.
  */
-export async function respondToPairingRequest({
+export async function declinePairingRequest({
   targetId,
   shop,
-  approve,
 }: {
   targetId: string;
   shop: string;
-  approve: boolean;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const target = await prisma.syncGroupTarget.findUnique({
     where: { id: targetId },
@@ -157,8 +232,10 @@ export async function respondToPairingRequest({
   await prisma.syncGroupTarget.update({
     where: { id: targetId },
     data: {
-      status: approve ? "APPROVED" : "DECLINED",
+      status: "DECLINED",
       respondedAt: new Date(),
+      authTokenHash: null,
+      authTokenExpiresAt: null,
     },
   });
   return { ok: true };

@@ -77,18 +77,29 @@ enum SyncGroupTargetStatus {
 }
 
 /// One target store's membership in a sync group — the pairing "invite."
-/// Requested from the source side, only takes effect once approved from
-/// inside the target store's own authenticated StoreBridge session (that's
-/// the proof of control, not a copy-pasted code).
+/// Requested from the source side. Shopify has no API to prove two shops
+/// share the same owner/organization (confirmed: no such field exists), so
+/// approval requires more than just an authenticated session at the
+/// target — it requires authTokenHash, a single-use secret the source gets
+/// once on request creation and shares out-of-band (email, chat — outside
+/// this app) with whoever they trust to actually run the target store.
+/// Only someone holding that secret, landing in the target's own
+/// authenticated session, can approve. Declining doesn't need it — it's
+/// harmless to allow from the dashboard list alone.
 model SyncGroupTarget {
-  id          String                @id @default(cuid())
-  groupId     String
-  group       SyncGroup             @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  storeId     String
-  store       Store                 @relation("SyncGroupTargetStore", fields: [storeId], references: [id], onDelete: Cascade)
-  status      SyncGroupTargetStatus @default(PENDING)
-  requestedAt DateTime              @default(now())
-  respondedAt DateTime?
+  id                 String                @id @default(cuid())
+  groupId            String
+  group              SyncGroup             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  storeId            String
+  store              Store                 @relation("SyncGroupTargetStore", fields: [storeId], references: [id], onDelete: Cascade)
+  status             SyncGroupTargetStatus @default(PENDING)
+  requestedAt        DateTime              @default(now())
+  respondedAt        DateTime?
+  /// SHA-256 hash of the raw token — the raw value is shown once, on
+  /// request creation, and never stored. Cleared (set back to null) once
+  /// used or once approval otherwise no longer needs it.
+  authTokenHash      String?               @unique
+  authTokenExpiresAt DateTime?
 
   @@unique([groupId, storeId])
 }

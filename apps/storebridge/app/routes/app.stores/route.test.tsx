@@ -11,16 +11,17 @@ vi.mock("~/shopify.server", () => ({
   authenticate: { admin: authenticateAdmin },
 }));
 
-const { getDashboardData, requestPairing, respondToPairingRequest } =
-  vi.hoisted(() => ({
+const { getDashboardData, requestPairing, declinePairingRequest } = vi.hoisted(
+  () => ({
     getDashboardData: vi.fn(),
     requestPairing: vi.fn(),
-    respondToPairingRequest: vi.fn(),
-  }));
+    declinePairingRequest: vi.fn(),
+  }),
+);
 vi.mock("./pairing.server", () => ({
   getDashboardData,
   requestPairing,
-  respondToPairingRequest,
+  declinePairingRequest,
 }));
 
 const { loader, action } = await import("./route");
@@ -62,9 +63,13 @@ describe("app.stores loader", () => {
 });
 
 describe("app.stores action", () => {
-  it("calls requestPairing with the authenticated shop as the source on connect", async () => {
+  it("calls requestPairing with the authenticated shop as the source on connect, and builds an authorize link", async () => {
     authenticateAdmin.mockResolvedValue({ session: { shop: SHOP } });
-    requestPairing.mockResolvedValue({ ok: true });
+    requestPairing.mockResolvedValue({
+      ok: true,
+      authToken: "raw-token",
+      targetShop: "target.myshopify.com",
+    });
 
     const result = await action({
       request: actionRequest({
@@ -82,29 +87,42 @@ describe("app.stores action", () => {
       groupId: undefined,
       groupName: "EU stores",
     });
-    expect(result).toEqual({ ok: true });
+    if (
+      typeof (result as { authorizeUrl?: unknown }).authorizeUrl !== "string"
+    ) {
+      throw new Error("expected a result with an authorizeUrl");
+    }
+    const url = new URL((result as { authorizeUrl: string }).authorizeUrl);
+    expect(url.pathname).toBe("/app/stores/authorize");
+    expect(url.searchParams.get("token")).toBe("raw-token");
+    expect(url.searchParams.get("shop")).toBe("target.myshopify.com");
   });
 
-  it("calls respondToPairingRequest with approve=true on approve", async () => {
+  it("passes through a requestPairing failure without building a link", async () => {
     authenticateAdmin.mockResolvedValue({ session: { shop: SHOP } });
-    respondToPairingRequest.mockResolvedValue({ ok: true });
+    requestPairing.mockResolvedValue({
+      ok: false,
+      error: "A store can't be paired with itself.",
+    });
 
-    await action({
-      request: actionRequest({ intent: "approve", targetId: "target-1" }),
+    const result = await action({
+      request: actionRequest({
+        intent: "connect",
+        targetDomain: SHOP,
+      }),
       params: {},
       context: {},
     } as never);
 
-    expect(respondToPairingRequest).toHaveBeenCalledWith({
-      targetId: "target-1",
-      shop: SHOP,
-      approve: true,
+    expect(result).toEqual({
+      ok: false,
+      error: "A store can't be paired with itself.",
     });
   });
 
-  it("calls respondToPairingRequest with approve=false on decline", async () => {
+  it("calls declinePairingRequest on decline", async () => {
     authenticateAdmin.mockResolvedValue({ session: { shop: SHOP } });
-    respondToPairingRequest.mockResolvedValue({ ok: true });
+    declinePairingRequest.mockResolvedValue({ ok: true });
 
     await action({
       request: actionRequest({ intent: "decline", targetId: "target-1" }),
@@ -112,10 +130,9 @@ describe("app.stores action", () => {
       context: {},
     } as never);
 
-    expect(respondToPairingRequest).toHaveBeenCalledWith({
+    expect(declinePairingRequest).toHaveBeenCalledWith({
       targetId: "target-1",
       shop: SHOP,
-      approve: false,
     });
   });
 

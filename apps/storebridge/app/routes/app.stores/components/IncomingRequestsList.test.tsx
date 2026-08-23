@@ -13,6 +13,8 @@ const requests: DashboardData["incomingRequests"] = [
     status: "PENDING",
     requestedAt: new Date(),
     respondedAt: null,
+    authTokenHash: "hash",
+    authTokenExpiresAt: new Date(),
     group: {
       id: "group-1",
       name: "EU stores",
@@ -29,7 +31,7 @@ const requests: DashboardData["incomingRequests"] = [
 ];
 
 describe("IncomingRequestsList", () => {
-  it("renders the requesting store and group name", () => {
+  it("renders the requesting store and group name, with no approve control", () => {
     const Stub = createRoutesStub([
       {
         path: "/",
@@ -39,29 +41,9 @@ describe("IncomingRequestsList", () => {
     render(<Stub initialEntries={["/"]} />);
 
     expect(
-      screen.getByText("source.myshopify.com — EU stores"),
+      screen.getByText(/source\.myshopify\.com — EU stores/),
     ).toBeInTheDocument();
-  });
-
-  it("posts an approve intent with the target id when approved", async () => {
-    const action = vi.fn().mockResolvedValue({ ok: true });
-    const Stub = createRoutesStub([
-      {
-        path: "/",
-        Component: () => <IncomingRequestsList requests={requests} />,
-        action,
-      },
-    ]);
-    render(<Stub initialEntries={["/"]} />);
-
-    const [approveForm] = document.querySelectorAll("form");
-    fireEvent.submit(approveForm);
-
-    await waitFor(() => expect(action).toHaveBeenCalled());
-    const formData =
-      (await action.mock.calls[0][0].request.formData()) as FormData;
-    expect(formData.get("intent")).toBe("approve");
-    expect(formData.get("targetId")).toBe("target-1");
+    expect(document.querySelectorAll("form")).toHaveLength(1);
   });
 
   it("posts a decline intent with the target id when declined", async () => {
@@ -75,8 +57,7 @@ describe("IncomingRequestsList", () => {
     ]);
     render(<Stub initialEntries={["/"]} />);
 
-    const [, declineForm] = document.querySelectorAll("form");
-    fireEvent.submit(declineForm);
+    fireEvent.submit(document.querySelector("form")!);
 
     await waitFor(() => expect(action).toHaveBeenCalled());
     const formData =
@@ -85,7 +66,7 @@ describe("IncomingRequestsList", () => {
     expect(formData.get("targetId")).toBe("target-1");
   });
 
-  it("keeps approve and decline loading state independent", async () => {
+  it("shows a loading state on the decline button while submitting", async () => {
     let resolveAction: (value: { ok: true }) => void = () => {};
     const action = vi.fn(
       () => new Promise((resolve) => (resolveAction = resolve)),
@@ -99,15 +80,11 @@ describe("IncomingRequestsList", () => {
     ]);
     render(<Stub initialEntries={["/"]} />);
 
-    const [approveForm, declineForm] = document.querySelectorAll("form");
-    fireEvent.submit(approveForm);
+    const declineForm = document.querySelector("form")!;
+    fireEvent.submit(declineForm);
     await waitFor(() => expect(action).toHaveBeenCalled());
 
-    expect(approveForm.querySelector("s-button")).toHaveAttribute(
-      "loading",
-      "true",
-    );
-    expect(declineForm.querySelector("s-button")).not.toHaveAttribute(
+    expect(declineForm.querySelector("s-button")).toHaveAttribute(
       "loading",
       "true",
     );
