@@ -16,9 +16,19 @@ application_url = "https://example.com"
 embedded = true
 
 [access_scopes]
-# TODO(unverified): confirm exact scope names for metaobjects/metafields via Shopify Dev MCP
-# before first deploy — e.g. write_metaobjects, write_metaobject_definitions.
-scopes = ""
+# read_metaobject_definitions: confirmed via Shopify's Admin GraphQL docs —
+# metaobjectDefinitions "Requires read_metaobject_definitions access scope."
+# (app.groups.$groupId.definitions/definitions.server.ts's
+# fetchMetaobjectDefinitions).
+#
+# TODO(unverified): metafieldDefinitions (same file's
+# fetchMetafieldDefinitions) doesn't state a scope on its own doc page —
+# likely varies per MetafieldOwnerType (read_products for PRODUCT/
+# PRODUCTVARIANT, etc.), needs Shopify Dev MCP's search_docs_chunks to
+# confirm the actual mapping before deploy. Only reads are implemented
+# today (no mutations) — don't add write_metaobjects/
+# write_metaobject_definitions until a write path actually exists.
+scopes = "read_metaobject_definitions"
 use_legacy_install_flow = false
 
 [webhooks]
