@@ -6,6 +6,7 @@ import { ConnectStoreForm } from "./components/ConnectStoreForm";
 import { IncomingRequestsList } from "./components/IncomingRequestsList";
 import { MembershipsList } from "./components/MembershipsList";
 import { OwnedGroupsList } from "./components/OwnedGroupsList";
+import { AUTH_TOKEN_TTL_MINUTES } from "./authToken.server";
 import {
   declinePairingRequest,
   getDashboardData,
@@ -47,7 +48,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     );
     authorizeUrl.searchParams.set("token", result.authToken);
     authorizeUrl.searchParams.set("shop", result.targetShop);
-    return { ok: true, authorizeUrl: authorizeUrl.toString() } as const;
+    return {
+      ok: true,
+      authorizeUrl: authorizeUrl.toString(),
+      expiresInMinutes: AUTH_TOKEN_TTL_MINUTES,
+    } as const;
   }
 
   if (intent === "decline") {

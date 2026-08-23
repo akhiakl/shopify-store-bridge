@@ -1,0 +1,216 @@
+/*
+ * Shared design tokens + primitives for the public marketing surface
+ * (app/routes/_index/*). Deliberately separate from the embedded admin's
+ * Polaris Web Components — this page renders outside /app/*, before
+ * install, so it isn't part of the Shopify admin chrome and doesn't need
+ * to match it.
+ */
+
+.page {
+  --ink: #14181f;
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --muted: #5b6472;
+  --line: #e1e4e9;
+  --accent: #d9622b;
+  --accent-ink: #ffffff;
+  --accent-soft: #fbe7db;
+
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100%;
+  font-family:
+    "Karla",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  line-height: 1.55;
+}
+
+@media (prefers-color-scheme: dark) {
+  .page {
+    --ink: #eef0f3;
+    --bg: #0f1216;
+    --surface: #171b21;
+    --muted: #9aa3b0;
+    --line: #262b33;
+    --accent: #ff8f52;
+    --accent-ink: #201004;
+    --accent-soft: #3a2415;
+  }
+}
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.buttonPrimary {
+  composes: button;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.buttonPrimary:hover {
+  filter: brightness(1.06);
+}
+
+.buttonSecondary {
+  composes: button;
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+.buttonSecondary:hover {
+  border-color: var(--accent);
+}
+
+/* Nav */
+
+.nav {
+  border-bottom: 1px solid var(--line);
+}
+
+.navInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+}
+
+.navBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.navMark {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+}
+
+.navLinks {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.navLinks a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+
+.navLinks a:hover {
+  color: var(--ink);
+}
+
+/* Login form */
+
+.loginForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.loginFormCompact {
+  composes: loginForm;
+  justify-content: center;
+}
+
+.loginField {
+  display: grid;
+  gap: 4px;
+}
+
+.loginLabel {
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.loginInput {
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.95rem;
+  min-width: 240px;
+}
+
+.loginInput:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.loginHint {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* Footer */
+
+.footer {
+  border-top: 1px solid var(--line);
+  margin-top: 64px;
+}
+
+.footerInner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 28px 24px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.footerLinks {
+  display: flex;
+  gap: 20px;
+}
+
+.footerLinks a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.footerLinks a:hover {
+  color: var(--ink);
+}
+
+@media (max-width: 640px) {
+  .navInner,
+  .footerInner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

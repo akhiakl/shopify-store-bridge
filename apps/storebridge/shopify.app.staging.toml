@@ -13,9 +13,21 @@
 
 client_id = "4e756fbacff648a4dcf28ed39cd7075e"
 name = "StoreBridge (staging)"
-# TODO(unverified): replace with the real staging deployment URL once it
-# exists — this is scaffold-standard, not a verified value.
-application_url = "https://storebridge-git-staging-akhiakls-projects.vercel.app"
+# Vercel Deployment Protection (SSO/Vercel Authentication) is on for this
+# project except on custom domains (verified via Vercel MCP:
+# ssoProtection.enabled=true, deploymentType="all_except_custom_domains"),
+# and this staging URL isn't a custom domain — so every request needs the
+# bypass secret. x-vercel-protection-bypass alone only got the *first*
+# full-page load through; client-side fetcher POSTs (e.g.
+# ConnectStoreForm's "Send pairing request") don't carry the query param,
+# so they need the bypass *cookie* Vercel can set on that first load to
+# actually persist. samesitenone (not `true`) is required specifically
+# because this app runs inside Shopify's embedded iframe — see
+# https://vercel.com/docs/security/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation's
+# "within iframes" note. If this still doesn't hold up in practice, the
+# more durable fix is a custom domain, which Deployment Protection already
+# exempts entirely.
+application_url = "https://storebridge-git-staging-akhiakls-projects.vercel.app?x-vercel-protection-bypass=H53OoODYOIes3zLhnuWNkABQw2tMH5pg&x-vercel-set-bypass-cookie=samesitenone"
 embedded = true
 
 [access_scopes]

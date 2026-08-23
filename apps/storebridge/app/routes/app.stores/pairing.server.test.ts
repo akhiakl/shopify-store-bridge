@@ -38,6 +38,7 @@ const {
   getDashboardData,
   requestPairing,
   getPendingRequestByToken,
+  getPairingLinkStatus,
   approvePairingRequest,
   declinePairingRequest,
 } = await import("./pairing.server");
@@ -79,13 +80,33 @@ describe("normalizeShopDomain", () => {
   it("accepts a single-character subdomain", () => {
     expect(normalizeShopDomain("a.myshopify.com")).toBe("a.myshopify.com");
   });
+
+  it("appends .myshopify.com to a bare handle, same as login()'s own normalization", () => {
+    expect(normalizeShopDomain("acme")).toBe("acme.myshopify.com");
+  });
+
+  it("rejects a bare handle with an invalid label even after appending the domain", () => {
+    expect(normalizeShopDomain("bad-")).toBeNull();
+  });
+
+  it("accepts the configured custom domain", () => {
+    vi.stubEnv("SHOP_CUSTOM_DOMAIN", "shop.example.com");
+    expect(normalizeShopDomain("shop.example.com")).toBe("shop.example.com");
+    vi.unstubAllEnvs();
+  });
+
+  it("still rejects a non-myshopify domain that isn't the configured custom domain", () => {
+    vi.stubEnv("SHOP_CUSTOM_DOMAIN", "shop.example.com");
+    expect(normalizeShopDomain("other.example.com")).toBeNull();
+    vi.unstubAllEnvs();
+  });
 });
 
 describe("requestPairing", () => {
   it("rejects an invalid target domain", async () => {
     const result = await requestPairing({
       sourceShop: SOURCE_SHOP,
-      targetDomain: "not-a-shop",
+      targetDomain: "not-a-shop.example.com",
     });
     expect(result).toEqual({
       ok: false,
@@ -289,8 +310,79 @@ describe("approvePairingRequest", () => {
     expect(updateChain.set).toHaveBeenCalledWith({
       status: "APPROVED",
       respondedAt: expect.any(Date),
-      authTokenHash: null,
       authTokenExpiresAt: null,
+    });
+  });
+});
+
+describe("getPairingLinkStatus", () => {
+  it("returns not_found for a token that doesn't match any request", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
+
+    expect(await getPairingLinkStatus("nope", TARGET_SHOP)).toEqual({
+      state: "not_found",
+    });
+  });
+
+  it("returns not_found when the token belongs to a different shop", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      status: "PENDING",
+      store: { shop: "someone-else.myshopify.com" },
+    });
+
+    expect(await getPairingLinkStatus("tok", TARGET_SHOP)).toEqual({
+      state: "not_found",
+    });
+  });
+
+  it("returns already_approved with the source shop and group name", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      status: "APPROVED",
+      store: { shop: TARGET_SHOP },
+      group: { name: "EU stores", source: { shop: SOURCE_SHOP } },
+    });
+
+    expect(await getPairingLinkStatus("tok", TARGET_SHOP)).toEqual({
+      state: "already_approved",
+      sourceShop: SOURCE_SHOP,
+      groupName: "EU stores",
+    });
+  });
+
+  it("returns already_declined", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      status: "DECLINED",
+      store: { shop: TARGET_SHOP },
+    });
+
+    expect(await getPairingLinkStatus("tok", TARGET_SHOP)).toEqual({
+      state: "already_declined",
+    });
+  });
+
+  it("returns expired for a PENDING row past its expiry", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      status: "PENDING",
+      authTokenExpiresAt: new Date(Date.now() - 1000),
+      store: { shop: TARGET_SHOP },
+    });
+
+    expect(await getPairingLinkStatus("tok", TARGET_SHOP)).toEqual({
+      state: "expired",
+    });
+  });
+
+  it("returns pending with the target for a valid, unexpired token", async () => {
+    const target = {
+      status: "PENDING",
+      authTokenExpiresAt: new Date(Date.now() + 60_000),
+      store: { shop: TARGET_SHOP },
+    };
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(target);
+
+    expect(await getPairingLinkStatus("tok", TARGET_SHOP)).toEqual({
+      state: "pending",
+      target,
     });
   });
 });
@@ -359,7 +451,6 @@ describe("declinePairingRequest", () => {
     expect(updateChain.set).toHaveBeenCalledWith({
       status: "DECLINED",
       respondedAt: expect.any(Date),
-      authTokenHash: null,
       authTokenExpiresAt: null,
     });
   });

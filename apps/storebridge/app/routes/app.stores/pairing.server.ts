@@ -11,20 +11,38 @@ import {
 import { generateAuthToken, hashAuthToken } from "./authToken.server";
 
 /**
- * Narrow, deliberately conservative shop-domain format check for the
- * "connect a store" input — *.myshopify.com only, not the broader set
- * Shopify itself accepts (custom/Plus domains). Widen later if needed;
- * this isn't Admin API surface, so it doesn't need Shopify Dev MCP
- * verification, just basic input sanitization.
+ * Shop-domain format check for the "connect a store" input. Mirrors
+ * @shopify/shopify-app-react-router's own login() normalization (read
+ * from the installed package, not memory — see
+ * node_modules/@shopify/shopify-app-react-router/dist/cjs/server/authenticate/login/login.js):
+ * a bare handle with no dot at all gets `.myshopify.com` appended before
+ * validating, so "acme" and "acme.myshopify.com" both work, matching what
+ * a merchant sees on Shopify's own login screen. Also accepts the app's
+ * configured custom domain (SHOP_CUSTOM_DOMAIN — same one shopify.server.ts
+ * passes to customShopDomains), not just *.myshopify.com.
  */
 export function normalizeShopDomain(input: string): string | null {
   const trimmed = input.trim().toLowerCase();
-  const shop = trimmed.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  const withoutProtocol = trimmed
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "");
+  const candidate = withoutProtocol.includes(".")
+    ? withoutProtocol
+    : `${withoutProtocol}.myshopify.com`;
+
   // Labels can't start OR end with a hyphen (RFC 1035) - the trailing
   // alnum is required separately since a bare `*` would let "bad-" through.
-  return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?\.myshopify\.com$/.test(shop)
-    ? shop
-    : null;
+  const label = "[a-z0-9]([a-z0-9-]*[a-z0-9])?";
+  if (new RegExp(`^${label}\\.myshopify\\.com$`).test(candidate)) {
+    return candidate;
+  }
+
+  const customDomain = process.env.SHOP_CUSTOM_DOMAIN?.trim().toLowerCase();
+  if (customDomain && candidate === customDomain) {
+    return candidate;
+  }
+
+  return null;
 }
 
 /** Installed = has a stored offline session, same check authenticate.admin relies on. */
@@ -176,7 +194,10 @@ export type PendingTargetByToken = NonNullable<
  * inspect (though not approve) another shop's pending request just by
  * guessing a target id. Returns null for an invalid, expired, wrong-shop,
  * or already-responded-to token; never distinguishes which, so a token
- * leak doesn't tell an attacker anything about why it failed.
+ * leak doesn't tell an attacker anything about why it failed. This is the
+ * strict gate approvePairingRequest actually authorizes against — use
+ * getPairingLinkStatus (below) for anything display-facing instead of
+ * loosening this one.
  */
 export async function getPendingRequestByToken(token: string, shop: string) {
   const target = await db.query.syncGroupTargets.findFirst({
@@ -196,11 +217,62 @@ export async function getPendingRequestByToken(token: string, shop: string) {
   return target;
 }
 
+export type PairingLinkStatus =
+  | { state: "pending"; target: PendingTargetByToken }
+  | { state: "expired" }
+  | { state: "already_approved"; sourceShop: string; groupName: string | null }
+  | { state: "already_declined" }
+  | { state: "not_found" };
+
+/**
+ * Same lookup as getPendingRequestByToken, but for the authorize page's
+ * display, not the approval gate — distinguishes *why* a link isn't
+ * currently approvable, so a merchant who already approved (or declined)
+ * a request doesn't see the same "invalid or expired" banner as someone
+ * with a wrong/bogus token. Still scoped to `shop`, and still doesn't
+ * distinguish "wrong shop" from "no such token" — that's the one case
+ * worth staying uninformative about, same reasoning as
+ * getPendingRequestByToken.
+ */
+export async function getPairingLinkStatus(
+  token: string,
+  shop: string,
+): Promise<PairingLinkStatus> {
+  const target = await db.query.syncGroupTargets.findFirst({
+    where: eq(syncGroupTargets.authTokenHash, hashAuthToken(token)),
+    with: { store: true, group: { with: { source: true } } },
+  });
+
+  if (!target || target.store.shop !== shop) {
+    return { state: "not_found" };
+  }
+  if (target.status === "APPROVED") {
+    return {
+      state: "already_approved",
+      sourceShop: target.group.source.shop,
+      groupName: target.group.name,
+    };
+  }
+  if (target.status === "DECLINED") {
+    return { state: "already_declined" };
+  }
+  if (!target.authTokenExpiresAt || target.authTokenExpiresAt < new Date()) {
+    return { state: "expired" };
+  }
+  return { state: "pending", target };
+}
+
 /**
  * Approves a pairing request — the only path that can, since Shopify has
  * no way to confirm the approving session actually belongs to whoever the
- * source intended (see requestPairing's comment). Single-use: the token
- * is cleared on success so it can't be replayed.
+ * source intended (see requestPairing's comment). Single-use: clearing
+ * `authTokenExpiresAt` and flipping `status` off PENDING is what actually
+ * blocks a replay (getPendingRequestByToken requires both PENDING and
+ * unexpired) — authTokenHash itself is deliberately left in place so
+ * getPairingLinkStatus can still look the row up afterward and tell a
+ * merchant "already approved" instead of a generic invalid/expired error.
+ * The hash is a one-way SHA-256 of the raw token, so keeping it around
+ * doesn't expose anything the row's status doesn't already.
  */
 export async function approvePairingRequest({
   token,
@@ -222,7 +294,6 @@ export async function approvePairingRequest({
     .set({
       status: "APPROVED",
       respondedAt: new Date(),
-      authTokenHash: null,
       authTokenExpiresAt: null,
     })
     .where(eq(syncGroupTargets.id, target.id));
@@ -259,7 +330,6 @@ export async function declinePairingRequest({
     .set({
       status: "DECLINED",
       respondedAt: new Date(),
-      authTokenHash: null,
       authTokenExpiresAt: null,
     })
     .where(eq(syncGroupTargets.id, targetId));

@@ -1,9 +1,28 @@
-import type { LoaderFunctionArgs } from "react-router";
-import { redirect, Form, useLoaderData } from "react-router";
+import type { LinksFunction, LoaderFunctionArgs } from "react-router";
+import { redirect, useLoaderData } from "react-router";
 
 import { login } from "~/shopify.server";
+import { Nav } from "~/marketing/Nav";
+import { Footer } from "~/marketing/Footer";
+import marketingStyles from "~/marketing/marketing.module.css";
 
-import styles from "./styles.module.css";
+import { Hero } from "./Hero";
+import { HowItWorks } from "./HowItWorks";
+import { Features } from "./Features";
+import { ClosingCta } from "./ClosingCta";
+
+export const links: LinksFunction = () => [
+  { rel: "preconnect", href: "https://fonts.googleapis.com" },
+  {
+    rel: "preconnect",
+    href: "https://fonts.gstatic.com",
+    crossOrigin: "anonymous",
+  },
+  {
+    rel: "stylesheet",
+    href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Karla:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap",
+  },
+];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
@@ -15,43 +34,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return { showForm: Boolean(login) };
 };
 
-export default function App() {
+export default function PublicLanding() {
   const { showForm } = useLoaderData<typeof loader>();
 
   return (
-    <div className={styles.index}>
-      <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
-        <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
-        </p>
-        {showForm && (
-          <Form className={styles.form} method="post" action="/auth/login">
-            <label className={styles.label}>
-              <span>Shop domain</span>
-              <input className={styles.input} type="text" name="shop" />
-              <span>e.g: my-shop-domain.myshopify.com</span>
-            </label>
-            <button className={styles.button} type="submit">
-              Log in
-            </button>
-          </Form>
-        )}
-        <ul className={styles.list}>
-          <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
-          </li>
-          <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
-          </li>
-          <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
-          </li>
-        </ul>
-      </div>
+    <div className={marketingStyles.page}>
+      <Nav showLoginLink={showForm} />
+      <Hero showForm={showForm} />
+      <HowItWorks />
+      <Features />
+      {showForm && <ClosingCta />}
+      <Footer />
     </div>
   );
 }

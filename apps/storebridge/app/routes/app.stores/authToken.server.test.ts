@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { generateAuthToken, hashAuthToken } from "./authToken.server";
+import {
+  AUTH_TOKEN_TTL_MINUTES,
+  generateAuthToken,
+  hashAuthToken,
+} from "./authToken.server";
 
 describe("generateAuthToken", () => {
   it("returns a raw token whose hash matches hashAuthToken", () => {
@@ -8,12 +12,12 @@ describe("generateAuthToken", () => {
     expect(hashAuthToken(raw)).toBe(hash);
   });
 
-  it("sets an expiry roughly 48 hours out", () => {
+  it("sets an expiry matching AUTH_TOKEN_TTL_MINUTES", () => {
     const before = Date.now();
     const { expiresAt } = generateAuthToken();
-    const hours = (expiresAt.getTime() - before) / (60 * 60 * 1000);
-    expect(hours).toBeGreaterThan(47.9);
-    expect(hours).toBeLessThan(48.1);
+    const minutes = (expiresAt.getTime() - before) / (60 * 1000);
+    expect(minutes).toBeGreaterThan(AUTH_TOKEN_TTL_MINUTES - 0.1);
+    expect(minutes).toBeLessThan(AUTH_TOKEN_TTL_MINUTES + 0.1);
   });
 
   it("generates a different raw token each call", () => {
