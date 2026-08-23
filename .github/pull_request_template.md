@@ -15,11 +15,11 @@ if the PR has no UI changes._
 ### Test this PR
 
 ```bash
-npm ci
-npm run lint
-npm run typecheck
-npm run test:coverage
-npm run build
+pnpm install --frozen-lockfile
+pnpm run lint
+pnpm run typecheck
+pnpm run test:coverage
+pnpm run build
 ```
 
 ### Checklist

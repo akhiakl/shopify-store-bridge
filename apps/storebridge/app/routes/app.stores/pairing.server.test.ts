@@ -19,7 +19,9 @@ const {
   normalizeShopDomain,
   getDashboardData,
   requestPairing,
-  respondToPairingRequest,
+  getPendingRequestByToken,
+  approvePairingRequest,
+  declinePairingRequest,
 } = await import("./pairing.server");
 
 const SOURCE_SHOP = "source-shop.myshopify.com";
@@ -116,12 +118,20 @@ describe("requestPairing", () => {
       groupName: "My group",
     });
 
-    expect(result).toEqual({ ok: true });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.targetShop).toBe(TARGET_SHOP);
+    expect(result.authToken).toEqual(expect.any(String));
     expect(prismaMock.syncGroup.create).toHaveBeenCalledWith({
       data: { sourceId: "source-id", name: "My group" },
     });
     expect(prismaMock.syncGroupTarget.create).toHaveBeenCalledWith({
-      data: { groupId: "group-1", storeId: "target-id" },
+      data: {
+        groupId: "group-1",
+        storeId: "target-id",
+        authTokenHash: expect.any(String),
+        authTokenExpiresAt: expect.any(Date),
+      },
     });
   });
 
@@ -166,14 +176,110 @@ describe("requestPairing", () => {
   });
 });
 
-describe("respondToPairingRequest", () => {
+describe("getPendingRequestByToken", () => {
+  const futureExpiry = new Date(Date.now() + 60_000);
+
+  it("returns null for a token that doesn't match any request", async () => {
+    prismaMock.syncGroupTarget.findUnique.mockResolvedValue(null);
+
+    expect(await getPendingRequestByToken("nope", TARGET_SHOP)).toBeNull();
+  });
+
+  it("returns null when the token belongs to a different shop", async () => {
+    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
+      id: "target-1",
+      status: "PENDING",
+      authTokenExpiresAt: futureExpiry,
+      store: { shop: "someone-else.myshopify.com" },
+    });
+
+    expect(await getPendingRequestByToken("tok", TARGET_SHOP)).toBeNull();
+  });
+
+  it("returns null once the request was already responded to", async () => {
+    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
+      id: "target-1",
+      status: "APPROVED",
+      authTokenExpiresAt: futureExpiry,
+      store: { shop: TARGET_SHOP },
+    });
+
+    expect(await getPendingRequestByToken("tok", TARGET_SHOP)).toBeNull();
+  });
+
+  it("returns null for an expired token", async () => {
+    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
+      id: "target-1",
+      status: "PENDING",
+      authTokenExpiresAt: new Date(Date.now() - 1000),
+      store: { shop: TARGET_SHOP },
+    });
+
+    expect(await getPendingRequestByToken("tok", TARGET_SHOP)).toBeNull();
+  });
+
+  it("returns the matching pending request for a valid token", async () => {
+    const target = {
+      id: "target-1",
+      status: "PENDING",
+      authTokenExpiresAt: futureExpiry,
+      store: { shop: TARGET_SHOP },
+    };
+    prismaMock.syncGroupTarget.findUnique.mockResolvedValue(target);
+
+    expect(await getPendingRequestByToken("tok", TARGET_SHOP)).toBe(target);
+  });
+});
+
+describe("approvePairingRequest", () => {
+  it("errors when the token is invalid", async () => {
+    prismaMock.syncGroupTarget.findUnique.mockResolvedValue(null);
+
+    const result = await approvePairingRequest({
+      token: "bad",
+      shop: TARGET_SHOP,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "This pairing link is invalid, expired, or already used.",
+    });
+  });
+
+  it("approves and clears the token on a valid one", async () => {
+    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
+      id: "target-1",
+      status: "PENDING",
+      authTokenExpiresAt: new Date(Date.now() + 60_000),
+      store: { shop: TARGET_SHOP },
+    });
+    prismaMock.syncGroupTarget.update.mockResolvedValue({});
+
+    const result = await approvePairingRequest({
+      token: "good",
+      shop: TARGET_SHOP,
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(prismaMock.syncGroupTarget.update).toHaveBeenCalledWith({
+      where: { id: "target-1" },
+      data: {
+        status: "APPROVED",
+        respondedAt: expect.any(Date),
+        authTokenHash: null,
+        authTokenExpiresAt: null,
+      },
+    });
+  });
+});
+
+describe("declinePairingRequest", () => {
   it("errors when the request doesn't exist", async () => {
     prismaMock.syncGroupTarget.findUnique.mockResolvedValue(null);
 
-    const result = await respondToPairingRequest({
+    const result = await declinePairingRequest({
       targetId: "missing",
       shop: TARGET_SHOP,
-      approve: true,
     });
 
     expect(result).toEqual({ ok: false, error: "Pairing request not found." });
@@ -186,10 +292,9 @@ describe("respondToPairingRequest", () => {
       store: { shop: "someone-else.myshopify.com" },
     });
 
-    const result = await respondToPairingRequest({
+    const result = await declinePairingRequest({
       targetId: "target-1",
       shop: TARGET_SHOP,
-      approve: true,
     });
 
     expect(result).toEqual({ ok: false, error: "Pairing request not found." });
@@ -202,36 +307,14 @@ describe("respondToPairingRequest", () => {
       store: { shop: TARGET_SHOP },
     });
 
-    const result = await respondToPairingRequest({
+    const result = await declinePairingRequest({
       targetId: "target-1",
       shop: TARGET_SHOP,
-      approve: false,
     });
 
     expect(result).toEqual({
       ok: false,
       error: "This request was already responded to.",
-    });
-  });
-
-  it("approves a pending request from the target store", async () => {
-    prismaMock.syncGroupTarget.findUnique.mockResolvedValue({
-      id: "target-1",
-      status: "PENDING",
-      store: { shop: TARGET_SHOP },
-    });
-    prismaMock.syncGroupTarget.update.mockResolvedValue({});
-
-    const result = await respondToPairingRequest({
-      targetId: "target-1",
-      shop: TARGET_SHOP,
-      approve: true,
-    });
-
-    expect(result).toEqual({ ok: true });
-    expect(prismaMock.syncGroupTarget.update).toHaveBeenCalledWith({
-      where: { id: "target-1" },
-      data: { status: "APPROVED", respondedAt: expect.any(Date) },
     });
   });
 
@@ -243,16 +326,20 @@ describe("respondToPairingRequest", () => {
     });
     prismaMock.syncGroupTarget.update.mockResolvedValue({});
 
-    const result = await respondToPairingRequest({
+    const result = await declinePairingRequest({
       targetId: "target-1",
       shop: TARGET_SHOP,
-      approve: false,
     });
 
     expect(result).toEqual({ ok: true });
     expect(prismaMock.syncGroupTarget.update).toHaveBeenCalledWith({
       where: { id: "target-1" },
-      data: { status: "DECLINED", respondedAt: expect.any(Date) },
+      data: {
+        status: "DECLINED",
+        respondedAt: expect.any(Date),
+        authTokenHash: null,
+        authTokenExpiresAt: null,
+      },
     });
   });
 });

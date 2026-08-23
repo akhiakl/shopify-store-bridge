@@ -84,11 +84,17 @@ down the open decision the way that one is written down.
 
 - Type-check, build, and full test suite (≥80% coverage on touched files) all pass — these run automatically via Husky `pre-push`, fanned out across the monorepo via `turbo run <task>`.
 - Note: coverage currently only counts files a test imports (`coverage.all: false`) — see AGENTS.md §5 for when to revisit this.
-- Unit tests (Vitest + RTL) and e2e tests (Playwright) are separate suites — `npm run test:coverage` runs unit only; `npm run test:e2e` (from `apps/storebridge`) runs e2e. Both must pass, but only unit tests gate the 80% coverage floor.
+- Unit tests (Vitest + RTL) and e2e tests (Playwright) are separate suites — `pnpm run test:coverage` runs unit only; `pnpm run test:e2e` (from `apps/storebridge`) runs e2e. Both must pass, but only unit tests gate the 80% coverage floor.
 
 ## Repo layout (Turborepo monorepo)
 
 - `apps/storebridge` — the Shopify app: `app/`, `prisma/`, `e2e/`, its own `package.json`/`tsconfig.json`/`.eslintrc.cjs`/`vitest.config.ts`/`playwright.config.ts`.
 - `packages/eslint-config`, `packages/typescript-config`, `packages/vitest-config` — shared config, consumed via `"@repo/<name>": "*"`.
-- Root — `turbo.json`, `.npmrc`, `commitlint.config.cjs`, `.lintstagedrc.json`, `.husky/*` (Husky/commitlint/lint-staged stay root-level; they run repo-wide, not per-app).
-- `apps/storebridge/prisma/schema.prisma` — session/token store only (Supabase Postgres); no app data here.
+- Root — `turbo.json`, `pnpm-workspace.yaml`, `.npmrc`, `commitlint.config.cjs`, `.lintstagedrc.json`, `.husky/*` (Husky/commitlint/lint-staged stay root-level; they run repo-wide, not per-app).
+- `apps/storebridge/prisma/schema.prisma` — session/token store (Supabase Postgres) _and_ the app's own cross-shop data (store pairing) — see `apps/storebridge/docs/architecture/data-model.md` for which is which.
+
+## Deeper context (per-app, not covered above)
+
+- `apps/storebridge/docs/architecture/` — auth/session flow, the data model, and the store-pairing trust design. Read the relevant one before touching auth code or the pairing feature; none of this is derivable from the code alone.
+- `storebridge-auth-troubleshooting` skill — the embedded app isn't authenticating, or a session isn't persisting.
+- `storebridge-dependency-parity` skill — checking whether config/dependencies drifted from what `shopify app init` actually scaffolds.

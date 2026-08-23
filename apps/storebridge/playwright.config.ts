@@ -1,12 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Requires, in the environment before running `npm run test:e2e`:
+ * Requires, in the environment before running `pnpm run test:e2e`:
  *   DATABASE_URL, SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SCOPES,
  *   SHOPIFY_APP_URL — same variables as `.env.example`. Any values work
  * for SHOPIFY_API_KEY/SECRET (nothing here calls the real Shopify API —
  * see e2e/support/embedded-fixture.ts); DATABASE_URL needs a real,
- * migrated Postgres database (`npx prisma migrate deploy` first — a
+ * migrated Postgres database (`pnpm exec prisma migrate deploy` first — a
  * disposable one is fine, tests only touch the Session table).
  */
 const PORT = Number(process.env.PORT) || 3000;
@@ -25,9 +25,9 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    // Assumes `npm run build` already ran — see the test:e2e turbo task
+    // Assumes `pnpm run build` already ran — see the test:e2e turbo task
     // (dependsOn: ["build"]) rather than rebuilding on every test run here.
-    command: "npm run start",
+    command: "pnpm run start",
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,

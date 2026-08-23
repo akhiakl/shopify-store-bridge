@@ -7,7 +7,9 @@ writing code, it's enforced by tooling, not just convention.
 ## Prerequisites
 
 - Node `^22.22.2 || ^24.15.0 || >=26.0.0` (see `engines` in `package.json`)
-- npm — the lockfile is `package-lock.json`; other package managers aren't supported
+- pnpm — the lockfile is `pnpm-lock.yaml`; other package managers aren't supported. Version
+  is pinned via `packageManager` in `package.json`; run via Corepack (`corepack enable`) or
+  install it directly
 - A Postgres database for session storage — a local instance is enough for dev/e2e; see
   [`DEPLOYMENT.md`](DEPLOYMENT.md) for the production Supabase setup
 
@@ -16,7 +18,7 @@ writing code, it's enforced by tooling, not just convention.
 ```bash
 git clone https://github.com/akhiakl/shopify-store-bridge.git
 cd shopify-store-bridge
-npm ci
+pnpm install --frozen-lockfile
 cp apps/storebridge/.env.example apps/storebridge/.env
 ```
 
@@ -31,13 +33,13 @@ config link` once you've linked a Shopify app registration (see `apps/storebridg
 Then apply migrations:
 
 ```bash
-npx prisma migrate deploy --schema apps/storebridge/prisma/schema.prisma
+pnpm exec prisma migrate deploy --schema apps/storebridge/prisma/schema.prisma
 ```
 
 ## Running the app
 
 ```bash
-npm run dev --workspace=storebridge
+pnpm --filter storebridge run dev
 ```
 
 This runs `shopify app dev`, which needs a linked Shopify app (see Setup above) — it logs
@@ -46,8 +48,8 @@ into your Partner/Dev Dashboard account, opens a tunnel, and installs the app on
 ## Testing
 
 ```bash
-npm run test:coverage      # unit — Vitest + React Testing Library, ≥80% coverage on touched files
-npm run test:e2e           # e2e — Playwright; needs the env vars + migrated database above
+pnpm run test:coverage      # unit — Vitest + React Testing Library, ≥80% coverage on touched files
+pnpm run test:e2e           # e2e — Playwright; needs the env vars + migrated database above
 ```
 
 `test:e2e` builds the app first (`turbo`'s task graph handles this) and boots it against
@@ -58,8 +60,8 @@ for how.
 ## Linting & type-checking
 
 ```bash
-npm run lint
-npm run typecheck
+pnpm run lint
+pnpm run typecheck
 ```
 
 Both also run automatically: `lint` (via lint-staged) on `git commit`, both plus the full

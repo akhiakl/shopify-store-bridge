@@ -3,6 +3,26 @@
     "supabase": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp?project_ref=fnfssvaqwnlmprwnhitq&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching"
+    },
+    "vercel": {
+      "type": "http",
+      "url": "https://mcp.vercel.com"
+    },
+    "shopify-dev-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@shopify/dev-mcp@latest"]
+    },
+    "prisma": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "prisma@latest",
+        "mcp",
+        "--schema",
+        "apps/storebridge/prisma/schema.prisma"
+      ]
     }
   }
 }

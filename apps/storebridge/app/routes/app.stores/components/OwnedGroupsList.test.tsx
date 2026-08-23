@@ -34,6 +34,8 @@ describe("OwnedGroupsList", () => {
             status: "PENDING",
             requestedAt: new Date(),
             respondedAt: null,
+            authTokenHash: null,
+            authTokenExpiresAt: null,
             store: baseStore,
           },
         ],

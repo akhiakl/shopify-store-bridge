@@ -3,11 +3,26 @@
 An embedded Shopify admin app, built on the [React Router](https://reactrouter.com/) Shopify
 app template ([`shopify-app-template-react-router`](https://github.com/Shopify/shopify-app-template-react-router)).
 
-**Status:** scaffold stage. The app home (`app/routes/app._index.tsx`) is a placeholder —
-sync group setup, pairing, and job history are the intended scope but aren't built yet.
+**Status:** store pairing (sync groups, invite/approve) is built — see
+[`docs/architecture/store-pairing.md`](docs/architecture/store-pairing.md). Job history isn't
+yet.
 
 This is the app workspace of a [Turborepo monorepo](../../README.md); for cloning, local
 setup, and the git workflow, see the [root `CONTRIBUTING.md`](../../CONTRIBUTING.md).
+
+## Architecture
+
+Deeper-than-README context on how specific parts of the app actually work — written up
+because it isn't derivable from reading the code alone (or wasn't, until it took an entire
+debugging session to work out):
+
+- [`docs/architecture/auth.md`](docs/architecture/auth.md) — the embedded auth/session flow,
+  and how to actually debug it when it's stuck (start with the system clock).
+- [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — what's in Postgres,
+  what's owned by the session-storage library vs. the app, and why.
+- [`docs/architecture/store-pairing.md`](docs/architecture/store-pairing.md) — the pairing
+  trust model: why Shopify can't tell us two shops share an owner, and the out-of-band-token
+  design that closes that gap instead.
 
 ## Stack
 
@@ -15,8 +30,10 @@ setup, and the git workflow, see the [root `CONTRIBUTING.md`](../../CONTRIBUTING
   webhooks, billing helpers).
 - **UI:** [Polaris Web Components](https://shopify.dev/docs/api/app-home/polaris-web-components)
   (`<s-page>`, `<s-section>`, …) — not the deprecated `@shopify/polaris` React library.
-- **Sessions:** Prisma → Supabase Postgres (`prisma/schema.prisma`, `DATABASE_URL`). No app
-  data lives here — that's Shopify metaobjects/metafields (`$app:` namespace) once built.
+- **Sessions & data:** Prisma → Supabase Postgres (`prisma/schema.prisma`, `DATABASE_URL`) —
+  both the session-storage library's own tables and the app's cross-shop pairing data (which
+  can't live in Shopify metaobjects, see `docs/architecture/data-model.md`). Shop-local data
+  still uses Shopify metaobjects/metafields (`$app:` namespace).
 - **Testing:** Vitest + React Testing Library (unit), Playwright (`e2e/`) for the auth
   boundary and public routes.
 
@@ -60,7 +77,7 @@ wrong API (e.g. Storefront instead of Admin), check `.graphqlrc.ts`.
 ## Troubleshooting
 
 **`The table "Session" does not exist`** — the database hasn't been migrated. Run
-`npx prisma migrate deploy` (or `npm run setup`, which also does this) against `DATABASE_URL`.
+`pnpm exec prisma migrate deploy` (or `pnpm run setup`, which also does this) against `DATABASE_URL`.
 
 **Embedded app navigation breaks the session** — inside the admin iframe: use `Link` from
 `react-router` or Polaris, not `<a>`; use the `redirect` returned from `authenticate.admin`,
