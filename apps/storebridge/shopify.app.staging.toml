@@ -12,10 +12,10 @@
 # Dev with:     pnpm run dev -- --config staging
 
 client_id = "4e756fbacff648a4dcf28ed39cd7075e"
-name = "storebridge (staging)"
+name = "StoreBridge (staging)"
 # TODO(unverified): replace with the real staging deployment URL once it
 # exists — this is scaffold-standard, not a verified value.
-application_url = "https://example.com"
+application_url = "https://storebridge-git-staging-akhiakls-projects.vercel.app"
 embedded = true
 
 [access_scopes]
@@ -29,18 +29,18 @@ use_legacy_install_flow = false
 # Keep in sync with shopify.app.toml's api_version.
 api_version = "2026-07"
 
-  # Handled by: /app/routes/webhooks.app.uninstalled.tsx
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/app/uninstalled"
-  topics = ["app/uninstalled"]
+# Handled by: /app/routes/webhooks.app.uninstalled.tsx
+[[webhooks.subscriptions]]
+uri = "/webhooks/app/uninstalled"
+topics = ["app/uninstalled"]
 
-  # Handled by: /app/routes/webhooks.app.scopes_update.tsx
-  [[webhooks.subscriptions]]
-  topics = [ "app/scopes_update" ]
-  uri = "/webhooks/app/scopes_update"
+# Handled by: /app/routes/webhooks.app.scopes_update.tsx
+[[webhooks.subscriptions]]
+topics = ["app/scopes_update"]
+uri = "/webhooks/app/scopes_update"
 
 [auth]
-redirect_urls = [ ]
+redirect_urls = []
 
 [build]
 include_config_on_deploy = true
