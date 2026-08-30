@@ -21,14 +21,25 @@ embedded = true
 # (app.groups.$groupId.definitions/definitions.server.ts's
 # fetchMetaobjectDefinitions).
 #
-# TODO(unverified): metafieldDefinitions (same file's
-# fetchMetafieldDefinitions) doesn't state a scope on its own doc page —
-# likely varies per MetafieldOwnerType (read_products for PRODUCT/
-# PRODUCTVARIANT, etc.), needs Shopify Dev MCP's search_docs_chunks to
-# confirm the actual mapping before deploy. Only reads are implemented
-# today (no mutations) — don't add write_metaobjects/
-# write_metaobject_definitions until a write path actually exists.
-scopes = "read_metaobject_definitions"
+# write_metaobject_definitions: confirmed via shopify.dev's "Manage
+# metaobject definitions" guide — metaobjectDefinitionCreate needs both the
+# read and write scopes. Used by sync.server.ts's runSyncJob.
+#
+# write_products / write_customers / write_orders: confirmed via
+# shopify.dev's "Manage metafield definitions" guide ("the appropriate
+# access scopes for the owner type ... write_products for product
+# metafields, or write_customers for customer metafields") — covers
+# METAFIELD_OWNER_TYPES' PRODUCT/PRODUCTVARIANT/COLLECTION, CUSTOMER, and
+# ORDER entries respectively.
+#
+# TODO(unverified): the same METAFIELD_OWNER_TYPES list also has PAGE,
+# BLOG, ARTICLE, and SHOP — their exact scope names weren't confirmed
+# (shopify.dev's scope list has write_online_store_pages but no plain
+# "write_content"; blogs/articles/shop weren't pinned down at all). Add
+# the missing scope(s) once a sync actually needs one of those owner
+# types selected — same "extend as needed" stance METAFIELD_OWNER_TYPES
+# itself already takes.
+scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders"
 use_legacy_install_flow = false
 
 [webhooks]
