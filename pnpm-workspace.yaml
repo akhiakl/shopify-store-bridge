@@ -12,3 +12,10 @@ allowBuilds:
   "@parcel/watcher": true
   esbuild: true
   unrs-resolver: true
+  # drizzle-orm declares @prisma/client/prisma as an optional peer (its
+  # Prisma adapter) — pulled in by pnpm's peer resolution even though
+  # nothing here uses it (session storage is Drizzle-only, see
+  # app/db.server.ts). No build step of theirs needs to run.
+  "@prisma/client": false
+  "@prisma/engines": false
+  prisma: false

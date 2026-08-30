@@ -8,6 +8,13 @@
       "when": 1787499011342,
       "tag": "0000_late_mordo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788092807231,
+      "tag": "0001_add_rls_service_role_policies",
+      "breakpoints": true
     }
   ]
 }
