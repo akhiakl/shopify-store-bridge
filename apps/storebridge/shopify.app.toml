@@ -33,12 +33,22 @@ embedded = true
 # ORDER entries respectively.
 #
 # TODO(unverified): the same METAFIELD_OWNER_TYPES list also has PAGE,
-# BLOG, ARTICLE, and SHOP — their exact scope names weren't confirmed
+# BLOG, and ARTICLE — their exact scope names weren't confirmed
 # (shopify.dev's scope list has write_online_store_pages but no plain
-# "write_content"; blogs/articles/shop weren't pinned down at all). Add
-# the missing scope(s) once a sync actually needs one of those owner
-# types selected — same "extend as needed" stance METAFIELD_OWNER_TYPES
-# itself already takes.
+# "write_content"; blogs/articles weren't pinned down at all). Add the
+# missing scope(s) once a sync actually needs one of those owner types
+# selected — same "extend as needed" stance METAFIELD_OWNER_TYPES itself
+# already takes.
+#
+# TODO(unverified) — SHOP: syncTarget.server.ts's syncShopMetafieldValue
+# now actively calls metafieldsSet against the target's Shop, and
+# metafieldsSet "requires the same access level needed to mutate the
+# owner resource" (shopify.dev) — but there's no plain "write_shop"/
+# "write_shop_settings" scope in Shopify's canonical scope list, and
+# which scope (if any) actually gates shop-owned metafields specifically
+# wasn't confirmed this session. If sync calls start failing with a
+# permissions error on SHOP-owned metafields specifically, this is why —
+# confirm via Shopify Dev MCP and add the real scope name here.
 scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders"
 use_legacy_install_flow = false
 

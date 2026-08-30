@@ -5,10 +5,11 @@ app template ([`shopify-app-template-react-router`](https://github.com/Shopify/s
 
 **Status:** store pairing (sync groups, invite/approve) is built — see
 [`docs/architecture/store-pairing.md`](docs/architecture/store-pairing.md). Manually-triggered
-definition sync (metaobject/metafield definitions, source → approved targets) and job history
-are built too — see
-[`docs/architecture/definition-sync.md`](docs/architecture/definition-sync.md). Syncing actual
-metaobject/product data (not just definitions) isn't yet.
+definition sync (metaobject/metafield definitions, source → approved targets), job history,
+and shop-level metafield value sync are built too — see
+[`docs/architecture/definition-sync.md`](docs/architecture/definition-sync.md).
+Resource-level metafield/metaobject data (Product, Customer, Order, …) doesn't sync yet —
+it needs a way to match records across the two stores' separate catalogs first.
 
 This is the app workspace of a [Turborepo monorepo](../../README.md); for cloning, local
 setup, and the git workflow, see the [root `CONTRIBUTING.md`](../../CONTRIBUTING.md).
