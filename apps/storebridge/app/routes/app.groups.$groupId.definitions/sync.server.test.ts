@@ -148,7 +148,7 @@ describe("runSyncJob", () => {
     expect(dbMock.insert).toHaveBeenCalledTimes(2);
   });
 
-  it("records a target FAILED when its mutation returns userErrors", async () => {
+  it("records a target FAILED when its mutation returns a real userError", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
     dbMock.insert.mockReturnValueOnce(chain(undefined));
     dbMock.update.mockReturnValueOnce(chain(undefined));
@@ -159,7 +159,7 @@ describe("runSyncJob", () => {
           jsonResponse({
             metaobjectDefinitionCreate: {
               metaobjectDefinition: null,
-              userErrors: [{ message: "Type has already been taken" }],
+              userErrors: [{ message: "Name can't be blank", code: "BLANK" }],
             },
           }),
         ),
@@ -178,6 +178,36 @@ describe("runSyncJob", () => {
     // check in runSyncJob) rather than PARTIAL, which only shows up
     // across multiple targets with mixed outcomes.
     expect(result.status).toBe("FAILED");
+  });
+
+  it("rolls up to SUCCEEDED, not FAILED, when a target's only outcome is TAKEN (already exists)", async () => {
+    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
+    dbMock.insert.mockReturnValueOnce(chain(undefined));
+    dbMock.update.mockReturnValueOnce(chain(undefined));
+
+    const targetAdmin = {
+      graphql: vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({
+            metaobjectDefinitionCreate: {
+              metaobjectDefinition: null,
+              userErrors: [
+                { message: "Type has already been taken", code: "TAKEN" },
+              ],
+            },
+          }),
+        ),
+      ),
+    };
+    unauthenticatedMock.admin.mockResolvedValue({ admin: targetAdmin });
+
+    const result = await runSyncJob({
+      group,
+      selection: ["metaobject:size_chart"],
+      sourceAdmin: sourceAdminWithCatalog(),
+    } as never);
+
+    expect(result.status).toBe("SUCCEEDED");
   });
 
   it("reports PARTIAL when approved targets have mixed outcomes", async () => {
