@@ -25,6 +25,7 @@ describe("JobHistoryList", () => {
                   id: "t-1",
                   status: "SUCCEEDED",
                   itemsSynced: 1,
+                  itemsSkipped: 2,
                   itemsFailed: 0,
                   errorMessage: null,
                   store: { shop: "target-1.myshopify.com" },
@@ -33,8 +34,9 @@ describe("JobHistoryList", () => {
                   id: "t-2",
                   status: "FAILED",
                   itemsSynced: 0,
+                  itemsSkipped: 0,
                   itemsFailed: 1,
-                  errorMessage: "Type has already been taken",
+                  errorMessage: "Something went wrong",
                   store: { shop: "target-2.myshopify.com" },
                 },
               ],
@@ -46,8 +48,8 @@ describe("JobHistoryList", () => {
 
     expect(screen.getByText("PARTIAL")).toBeInTheDocument();
     expect(screen.getByText("target-1.myshopify.com")).toBeInTheDocument();
-    expect(screen.getByText("1 synced")).toBeInTheDocument();
+    expect(screen.getByText("1 synced, 2 already existed")).toBeInTheDocument();
     expect(screen.getByText("0 synced, 1 failed")).toBeInTheDocument();
-    expect(screen.getByText("Type has already been taken")).toBeInTheDocument();
+    expect(screen.getByText("Something went wrong")).toBeInTheDocument();
   });
 });

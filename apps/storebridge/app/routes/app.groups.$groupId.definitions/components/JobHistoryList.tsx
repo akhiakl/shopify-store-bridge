@@ -55,6 +55,9 @@ export function JobHistoryList({ jobs }: JobHistoryListProps) {
                 </s-badge>
                 <s-paragraph>
                   {target.itemsSynced} synced
+                  {target.itemsSkipped > 0
+                    ? `, ${target.itemsSkipped} already existed`
+                    : ""}
                   {target.itemsFailed > 0
                     ? `, ${target.itemsFailed} failed`
                     : ""}
