@@ -62,6 +62,7 @@ const METAOBJECT_DEFINITIONS_QUERY = `#graphql
         fieldDefinitions {
           name
           key
+          required
           type { name }
         }
       }
@@ -79,10 +80,22 @@ export interface MetafieldDefinitionRow {
   ownerType: (typeof METAFIELD_OWNER_TYPES)[number];
 }
 
+export interface MetaobjectFieldDefinition {
+  name: string;
+  key: string;
+  required: boolean;
+  type: string;
+}
+
 export interface MetaobjectDefinitionRow {
   id: string;
   type: string;
   name: string;
+  /** Full field list — needed to recreate this type on a target store
+   * (sync.server.ts); `fieldCount` below is just its length, kept so the
+   * browse-only UI (MetaobjectDefinitionsSection) doesn't need to know
+   * that. */
+  fieldDefinitions: MetaobjectFieldDefinition[];
   fieldCount: number;
 }
 
@@ -132,11 +145,22 @@ async function fetchMetaobjectDefinitions(
       id: string;
       type: string;
       name: string;
-      fieldDefinitions: unknown[];
+      fieldDefinitions: {
+        name: string;
+        key: string;
+        required: boolean;
+        type: { name: string };
+      }[];
     }) => ({
       id: node.id,
       type: node.type,
       name: node.name,
+      fieldDefinitions: node.fieldDefinitions.map((field) => ({
+        name: field.name,
+        key: field.key,
+        required: field.required,
+        type: field.type.name,
+      })),
       fieldCount: node.fieldDefinitions.length,
     }),
   );
