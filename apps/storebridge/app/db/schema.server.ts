@@ -1,6 +1,8 @@
 import {
   bigint,
   boolean,
+  integer,
+  jsonb,
   pgEnum,
   pgPolicy,
   pgTable,
@@ -16,6 +18,25 @@ export const syncGroupTargetStatusEnum = pgEnum("SyncGroupTargetStatus", [
   "PENDING",
   "APPROVED",
   "DECLINED",
+]);
+
+/** Rollup of a job's `SyncJobTarget` rows: SUCCEEDED/FAILED only when every
+ * target agreed, PARTIAL when they didn't. */
+export const syncJobStatusEnum = pgEnum("SyncJobStatus", [
+  "RUNNING",
+  "SUCCEEDED",
+  "FAILED",
+  "PARTIAL",
+]);
+
+/** SKIPPED covers a target that dropped out of APPROVED between the
+ * checkbox UI loading and the sync actually running (declined, or its
+ * session got revoked) — the job still records it rather than silently
+ * omitting it. */
+export const syncJobTargetStatusEnum = pgEnum("SyncJobTargetStatus", [
+  "SUCCEEDED",
+  "FAILED",
+  "SKIPPED",
 ]);
 
 // --- ROW LEVEL SECURITY ---
@@ -153,6 +174,54 @@ export const syncGroupTargets = pgTable(
   ],
 ).enableRLS();
 
+/** One "Sync now" click for a group — pushes the selected metafield/metaobject
+ * definitions (see app.groups.$groupId.definitions/sync.server.ts) from the
+ * group's source store to each of its APPROVED targets. `selection` is the
+ * raw definition keys the UI submitted (same `metaobject:<type>` /
+ * `metafield:<ownerType>:<namespace>:<key>` keys the checkboxes use) — kept
+ * verbatim so job history can show what was actually requested, not just
+ * the outcome. */
+export const syncJobs = pgTable(
+  "SyncJob",
+  {
+    id: text("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()::text`),
+    groupId: text("groupId")
+      .notNull()
+      .references(() => syncGroups.id, { onDelete: "cascade" }),
+    selection: jsonb("selection").$type<string[]>().notNull(),
+    status: syncJobStatusEnum("status").notNull().default("RUNNING"),
+    startedAt: timestamp("startedAt", { mode: "date" }).notNull().defaultNow(),
+    finishedAt: timestamp("finishedAt", { mode: "date" }),
+  },
+  () => [serviceRoleOnly("SyncJob")],
+).enableRLS();
+
+/** One target store's result within a `SyncJob` — counts, not a
+ * per-definition log, per the YAGNI call in definition-sync.md; the exact
+ * Shopify userError (if any) is kept in `errorMessage` for a target-level
+ * failure (e.g. its session couldn't be loaded), not a per-item one. */
+export const syncJobTargets = pgTable(
+  "SyncJobTarget",
+  {
+    id: text("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()::text`),
+    jobId: text("jobId")
+      .notNull()
+      .references(() => syncJobs.id, { onDelete: "cascade" }),
+    storeId: text("storeId")
+      .notNull()
+      .references(() => stores.id, { onDelete: "cascade" }),
+    status: syncJobTargetStatusEnum("status").notNull(),
+    itemsSynced: integer("itemsSynced").notNull().default(0),
+    itemsFailed: integer("itemsFailed").notNull().default(0),
+    errorMessage: text("errorMessage"),
+  },
+  () => [serviceRoleOnly("SyncJobTarget")],
+).enableRLS();
+
 // --- DRIZZLE RELATIONS ---
 
 export const storesRelations = relations(stores, ({ many }) => ({
@@ -160,6 +229,7 @@ export const storesRelations = relations(stores, ({ many }) => ({
   targetMemberships: many(syncGroupTargets, {
     relationName: "SyncGroupTargetStore",
   }),
+  syncJobTargets: many(syncJobTargets),
 }));
 
 export const syncGroupsRelations = relations(syncGroups, ({ one, many }) => ({
@@ -169,6 +239,7 @@ export const syncGroupsRelations = relations(syncGroups, ({ one, many }) => ({
     relationName: "SyncGroupSource",
   }),
   targets: many(syncGroupTargets),
+  jobs: many(syncJobs),
 }));
 
 export const syncGroupTargetsRelations = relations(
@@ -185,3 +256,22 @@ export const syncGroupTargetsRelations = relations(
     }),
   }),
 );
+
+export const syncJobsRelations = relations(syncJobs, ({ one, many }) => ({
+  group: one(syncGroups, {
+    fields: [syncJobs.groupId],
+    references: [syncGroups.id],
+  }),
+  targets: many(syncJobTargets),
+}));
+
+export const syncJobTargetsRelations = relations(syncJobTargets, ({ one }) => ({
+  job: one(syncJobs, {
+    fields: [syncJobTargets.jobId],
+    references: [syncJobs.id],
+  }),
+  store: one(stores, {
+    fields: [syncJobTargets.storeId],
+    references: [stores.id],
+  }),
+}));

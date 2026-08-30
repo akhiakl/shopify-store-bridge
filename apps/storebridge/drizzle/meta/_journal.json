@@ -15,6 +15,13 @@
       "when": 1788092807231,
       "tag": "0001_add_rls_service_role_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788112299779,
+      "tag": "0002_add_sync_jobs",
+      "breakpoints": true
     }
   ]
 }
