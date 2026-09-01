@@ -40,6 +40,7 @@ const {
   getPendingRequestByToken,
   approvePairingRequest,
   declinePairingRequest,
+  regeneratePairingRequest,
 } = await import("./pairing.server");
 const { stores, syncGroups, syncGroupTargets } =
   await import("~/db/schema.server");
@@ -361,6 +362,81 @@ describe("declinePairingRequest", () => {
       respondedAt: expect.any(Date),
       authTokenHash: null,
       authTokenExpiresAt: null,
+    });
+  });
+});
+
+describe("regeneratePairingRequest", () => {
+  it("errors when the request doesn't exist", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
+
+    const result = await regeneratePairingRequest({
+      targetId: "missing",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({ ok: false, error: "Pairing request not found." });
+  });
+
+  it("errors when the caller isn't the source store", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      id: "target-1",
+      status: "PENDING",
+      store: { shop: TARGET_SHOP },
+      group: { source: { shop: "someone-else.myshopify.com" } },
+    });
+
+    const result = await regeneratePairingRequest({
+      targetId: "target-1",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({ ok: false, error: "Pairing request not found." });
+  });
+
+  it("errors when the request was already responded to", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      id: "target-1",
+      status: "APPROVED",
+      store: { shop: TARGET_SHOP },
+      group: { source: { shop: SOURCE_SHOP } },
+    });
+
+    const result = await regeneratePairingRequest({
+      targetId: "target-1",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "This request was already responded to.",
+    });
+  });
+
+  it("issues a fresh token for a pending request from the source store", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      id: "target-1",
+      status: "PENDING",
+      store: { shop: TARGET_SHOP },
+      group: { source: { shop: SOURCE_SHOP } },
+    });
+    const updateChain = chain(undefined);
+    dbMock.update.mockReturnValueOnce(updateChain);
+
+    const result = await regeneratePairingRequest({
+      targetId: "target-1",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      authToken: expect.any(String),
+      targetShop: TARGET_SHOP,
+    });
+    expect(dbMock.update).toHaveBeenCalledWith(syncGroupTargets);
+    expect(updateChain.set).toHaveBeenCalledWith({
+      authTokenHash: expect.any(String),
+      authTokenExpiresAt: expect.any(Date),
     });
   });
 });
