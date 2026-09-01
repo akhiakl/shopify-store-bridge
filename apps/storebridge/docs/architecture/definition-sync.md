@@ -90,9 +90,10 @@ One `SyncJob` row per "Sync now" click (group, requested selection, overall stat
 timing), one `SyncJobTarget` row per target that was APPROVED when the job ran
 (per-target status, item counts, error), and one `SyncJobItem` row per definition-or-value
 attempt within that target (`key` — the same `metaobject:<type>` /
-`metafield:<ownerType>:<namespace>:<key>` format the selection UI uses, plus a `VALUE`
-suffix case for shop-metafield value copies; `kind`: `DEFINITION` | `VALUE`; `status`:
-`SUCCEEDED` | `SKIPPED` | `FAILED`; `errorMessage`). Same reasoning as `Store`/
+`metafield:<ownerType>:<namespace>:<key>` format the selection UI uses, unchanged for
+both steps of a SHOP metafield; `kind`: `DEFINITION` | `VALUE` is what distinguishes the
+definition-create attempt from the value-copy attempt that can follow it for the same
+key; `status`: `SUCCEEDED` | `SKIPPED` | `FAILED`; `errorMessage`). Same reasoning as `Store`/
 `SyncGroup`/`SyncGroupTarget`'s split in `data-model.md`: a job's overall status, one
 target's result, and one item's outcome within that target are genuinely different
 things — a run can succeed for one target and fail for another, and within a failed

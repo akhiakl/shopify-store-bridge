@@ -74,7 +74,7 @@ export function JobHistoryList({ jobs }: JobHistoryListProps) {
                   .map((item) => ({ ...item, shop: target.store.shop })),
               )
               .map((item) => (
-                <s-paragraph key={`${item.shop}-${item.key}`}>
+                <s-paragraph key={`${item.shop}-${item.kind}-${item.key}`}>
                   {item.shop} — {item.key}: {item.errorMessage}
                 </s-paragraph>
               ))}
