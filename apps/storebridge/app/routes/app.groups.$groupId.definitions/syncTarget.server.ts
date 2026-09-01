@@ -132,10 +132,49 @@ export interface SyncTally {
   itemsFailed: number;
 }
 
-function tally(tallies: SyncTally, result: CreateResult): void {
-  if (!result.ok) tallies.itemsFailed++;
-  else if (result.skipped) tallies.itemsSkipped++;
-  else tallies.itemsSynced++;
+/** One definition (or value-sync) attempt's outcome — persisted verbatim
+ * as a `SyncJobItem` row by runSyncJob, so job history can show which
+ * item failed, not just how many. `key` reuses the same
+ * `metaobject:<type>` / `metafield:<ownerType>:<namespace>:<key>` format
+ * the checkbox UI and sync.server.ts's parseSelection already use. */
+export interface SyncItemResult {
+  key: string;
+  kind: "DEFINITION" | "VALUE";
+  status: "SUCCEEDED" | "SKIPPED" | "FAILED";
+  errorMessage: string | null;
+}
+
+function metaobjectKey(def: MetaobjectDefinitionRow): string {
+  return `metaobject:${def.type}`;
+}
+
+function metafieldKey(def: MetafieldDefinitionRow): string {
+  return `metafield:${def.ownerType}:${def.namespace}:${def.key}`;
+}
+
+function tally({
+  tallies,
+  items,
+  key,
+  kind,
+  result,
+}: {
+  tallies: SyncTally;
+  items: SyncItemResult[];
+  key: string;
+  kind: SyncItemResult["kind"];
+  result: CreateResult;
+}): void {
+  if (!result.ok) {
+    tallies.itemsFailed++;
+    items.push({ key, kind, status: "FAILED", errorMessage: result.error });
+  } else if (result.skipped) {
+    tallies.itemsSkipped++;
+    items.push({ key, kind, status: "SKIPPED", errorMessage: null });
+  } else {
+    tallies.itemsSynced++;
+    items.push({ key, kind, status: "SUCCEEDED", errorMessage: null });
+  }
 }
 
 /** Only fetched when there's actually a SHOP-owned definition selected —
@@ -163,12 +202,13 @@ export async function syncToTarget({
   targetAdmin: AdminApiContext;
   metaobjectDefinitions: MetaobjectDefinitionRow[];
   metafieldDefinitions: MetafieldDefinitionRow[];
-}): Promise<SyncTally> {
+}): Promise<{ tallies: SyncTally; items: SyncItemResult[] }> {
   const tallies: SyncTally = {
     itemsSynced: 0,
     itemsSkipped: 0,
     itemsFailed: 0,
   };
+  const items: SyncItemResult[] = [];
 
   for (const def of metaobjectDefinitions) {
     const result = await createOne(
@@ -187,7 +227,13 @@ export async function syncToTarget({
         },
       },
     );
-    tally(tallies, result);
+    tally({
+      tallies,
+      items,
+      key: metaobjectKey(def),
+      kind: "DEFINITION",
+      result,
+    });
   }
 
   const shopOwnedDefs = metafieldDefinitions.filter(
@@ -196,6 +242,7 @@ export async function syncToTarget({
   const targetShopId = await resolveTargetShopId(targetAdmin, shopOwnedDefs);
 
   for (const def of metafieldDefinitions) {
+    const key = metafieldKey(def);
     const result = await createOne(
       targetAdmin,
       METAFIELD_DEFINITION_CREATE_MUTATION,
@@ -210,7 +257,7 @@ export async function syncToTarget({
         },
       },
     );
-    tally(tallies, result);
+    tally({ tallies, items, key, kind: "DEFINITION", result });
 
     // Definition confirmed on the target (created or already there) — now
     // ride the value along, SHOP owner only (see syncShopMetafieldValue).
@@ -221,9 +268,9 @@ export async function syncToTarget({
         targetShopId,
         def,
       });
-      tally(tallies, valueResult);
+      tally({ tallies, items, key, kind: "VALUE", result: valueResult });
     }
   }
 
-  return tallies;
+  return { tallies, items };
 }

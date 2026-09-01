@@ -53,7 +53,19 @@ describe("syncToTarget", () => {
       metafieldDefinitions: [],
     });
 
-    expect(result).toEqual({ itemsSynced: 1, itemsSkipped: 0, itemsFailed: 0 });
+    expect(result.tallies).toEqual({
+      itemsSynced: 1,
+      itemsSkipped: 0,
+      itemsFailed: 0,
+    });
+    expect(result.items).toEqual([
+      {
+        key: "metaobject:size_chart",
+        kind: "DEFINITION",
+        status: "SUCCEEDED",
+        errorMessage: null,
+      },
+    ]);
   });
 
   it("counts a TAKEN userError as skipped, not failed", async () => {
@@ -79,7 +91,19 @@ describe("syncToTarget", () => {
       metafieldDefinitions: [],
     });
 
-    expect(result).toEqual({ itemsSynced: 0, itemsSkipped: 1, itemsFailed: 0 });
+    expect(result.tallies).toEqual({
+      itemsSynced: 0,
+      itemsSkipped: 1,
+      itemsFailed: 0,
+    });
+    expect(result.items).toEqual([
+      {
+        key: "metaobject:size_chart",
+        kind: "DEFINITION",
+        status: "SKIPPED",
+        errorMessage: null,
+      },
+    ]);
   });
 
   it("counts a non-TAKEN userError as failed", async () => {
@@ -103,7 +127,19 @@ describe("syncToTarget", () => {
       metafieldDefinitions: [],
     });
 
-    expect(result).toEqual({ itemsSynced: 0, itemsSkipped: 0, itemsFailed: 1 });
+    expect(result.tallies).toEqual({
+      itemsSynced: 0,
+      itemsSkipped: 0,
+      itemsFailed: 1,
+    });
+    expect(result.items).toEqual([
+      {
+        key: "metaobject:size_chart",
+        kind: "DEFINITION",
+        status: "FAILED",
+        errorMessage: "Name can't be blank",
+      },
+    ]);
   });
 
   it("syncs a SHOP metafield's value after its definition is confirmed", async () => {
@@ -161,7 +197,16 @@ describe("syncToTarget", () => {
     });
 
     // Definition create (synced) + value set (synced) = 2 items for one selected def.
-    expect(result).toEqual({ itemsSynced: 2, itemsSkipped: 0, itemsFailed: 0 });
+    expect(result.tallies).toEqual({
+      itemsSynced: 2,
+      itemsSkipped: 0,
+      itemsFailed: 0,
+    });
+    const key = "metafield:SHOP:custom:support_email";
+    expect(result.items).toEqual([
+      { key, kind: "DEFINITION", status: "SUCCEEDED", errorMessage: null },
+      { key, kind: "VALUE", status: "SUCCEEDED", errorMessage: null },
+    ]);
     expect(
       targetAdmin.graphql.mock.calls.some(([q]) => q.includes("MetafieldsSet")),
     ).toBe(true);
@@ -198,7 +243,16 @@ describe("syncToTarget", () => {
       metafieldDefinitions: [shopMetafieldDef],
     });
 
-    expect(result).toEqual({ itemsSynced: 1, itemsSkipped: 1, itemsFailed: 0 });
+    expect(result.tallies).toEqual({
+      itemsSynced: 1,
+      itemsSkipped: 1,
+      itemsFailed: 0,
+    });
+    const key = "metafield:SHOP:custom:support_email";
+    expect(result.items).toEqual([
+      { key, kind: "DEFINITION", status: "SUCCEEDED", errorMessage: null },
+      { key, kind: "VALUE", status: "SKIPPED", errorMessage: null },
+    ]);
     expect(
       targetAdmin.graphql.mock.calls.some(([q]) => q.includes("MetafieldsSet")),
     ).toBe(false);

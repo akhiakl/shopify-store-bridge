@@ -32,13 +32,11 @@ embedded = true
 # METAFIELD_OWNER_TYPES' PRODUCT/PRODUCTVARIANT/COLLECTION, CUSTOMER, and
 # ORDER entries respectively.
 #
-# TODO(unverified): the same METAFIELD_OWNER_TYPES list also has PAGE,
-# BLOG, and ARTICLE — their exact scope names weren't confirmed
-# (shopify.dev's scope list has write_online_store_pages but no plain
-# "write_content"; blogs/articles weren't pinned down at all). Add the
-# missing scope(s) once a sync actually needs one of those owner types
-# selected — same "extend as needed" stance METAFIELD_OWNER_TYPES itself
-# already takes.
+# write_content: confirmed via shopify.dev — PAGE, BLOG, and ARTICLE
+# objects each "Requires read_content access scope" (or the narrower
+# read_online_store_pages for Page/Blog specifically, but content covers
+# all three) — covers METAFIELD_OWNER_TYPES' remaining PAGE/BLOG/ARTICLE
+# entries.
 #
 # TODO(unverified) — SHOP: syncTarget.server.ts's syncShopMetafieldValue
 # now actively calls metafieldsSet against the target's Shop, and
@@ -49,7 +47,7 @@ embedded = true
 # wasn't confirmed this session. If sync calls start failing with a
 # permissions error on SHOP-owned metafields specifically, this is why —
 # confirm via Shopify Dev MCP and add the real scope name here.
-scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders"
+scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content"
 use_legacy_install_flow = false
 
 [webhooks]
@@ -66,20 +64,27 @@ api_version = "2026-07"
   topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
 
-  # TODO: mandatory for public apps, required before App Store submission (not before —
-  # route handlers don't exist yet; build alongside install/uninstall flows, per YAGNI).
-  # See: https://shopify.dev/docs/apps/build/privacy-law-compliance
-  # [[webhooks.subscriptions]]
-  # uri = "/webhooks/customers/data_request"
-  # compliance_topics = ["customers/data_request"]
+  # Mandatory for public apps — see:
+  # https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance
+  # StoreBridge holds no customer records (only definition metadata and
+  # SHOP-level metafield values), so data_request/redact just acknowledge;
+  # shop/redact actually erases the shop's data. See each handler's doc
+  # comment.
 
-  # [[webhooks.subscriptions]]
-  # uri = "/webhooks/customers/redact"
-  # compliance_topics = ["customers/redact"]
+  # Handled by: /app/routes/webhooks.customers.data_request.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/data_request"
+  compliance_topics = ["customers/data_request"]
 
-  # [[webhooks.subscriptions]]
-  # uri = "/webhooks/shop/redact"
-  # compliance_topics = ["shop/redact"]
+  # Handled by: /app/routes/webhooks.customers.redact.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/redact"
+  compliance_topics = ["customers/redact"]
+
+  # Handled by: /app/routes/webhooks.shop.redact.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/shop/redact"
+  compliance_topics = ["shop/redact"]
 
 [auth]
 redirect_urls = [ ]
