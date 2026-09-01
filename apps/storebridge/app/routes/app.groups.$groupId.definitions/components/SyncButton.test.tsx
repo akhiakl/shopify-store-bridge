@@ -78,6 +78,38 @@ describe("SyncButton", () => {
     );
   });
 
+  it("shows a warning banner, not a success one, for a PARTIAL sync", async () => {
+    const action = vi
+      .fn()
+      .mockResolvedValue({ ok: true, jobId: "job-1", status: "PARTIAL" });
+    const Stub = createRoutesStub([
+      {
+        path: "/",
+        Component: () => (
+          <SyncButton
+            selected={new Set(["metaobject:size_chart"])}
+            approvedTargetCount={2}
+          />
+        ),
+        action,
+      },
+    ]);
+    render(<Stub initialEntries={["/"]} />);
+
+    fireEvent.submit(document.querySelector("form") as HTMLFormElement);
+
+    await waitFor(() =>
+      expect(document.querySelector("s-banner")).toHaveAttribute(
+        "heading",
+        "Sync partial",
+      ),
+    );
+    expect(document.querySelector("s-banner")).toHaveAttribute(
+      "tone",
+      "warning",
+    );
+  });
+
   it("shows a critical banner on failure", async () => {
     const action = vi.fn().mockResolvedValue({
       ok: false,

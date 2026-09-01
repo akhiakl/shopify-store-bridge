@@ -29,10 +29,12 @@ export const syncJobStatusEnum = pgEnum("SyncJobStatus", [
   "PARTIAL",
 ]);
 
-/** SKIPPED covers a target that dropped out of APPROVED between the
- * checkbox UI loading and the sync actually running (declined, or its
- * session got revoked) — the job still records it rather than silently
- * omitting it. */
+/** SKIPPED is reserved for a target that drops out of APPROVED between
+ * the checkbox UI loading and the sync actually running (declined, or its
+ * session got revoked) — runSyncJob doesn't emit it yet (it only iterates
+ * the APPROVED targets it read at the start), so this status is currently
+ * unused; kept here so job history has somewhere to put that case once it
+ * is handled rather than needing a migration then. */
 export const syncJobTargetStatusEnum = pgEnum("SyncJobTargetStatus", [
   "SUCCEEDED",
   "FAILED",
@@ -101,7 +103,7 @@ export const syncJobTargets = pgTable(
     itemsSynced: integer("itemsSynced").notNull().default(0),
     /** Already existed on the target (Shopify's `TAKEN` userError code) —
      * counted separately from itemsFailed so a clean re-run doesn't read
-     * as an error; see sync.server.ts's createOne. */
+     * as an error; see syncTarget.server.ts's createOne. */
     itemsSkipped: integer("itemsSkipped").notNull().default(0),
     itemsFailed: integer("itemsFailed").notNull().default(0),
     errorMessage: text("errorMessage"),

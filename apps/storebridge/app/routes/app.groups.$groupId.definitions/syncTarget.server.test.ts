@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { syncToTarget } from "./syncTarget.server";
 
-function jsonResponse(data: unknown) {
-  return { json: () => Promise.resolve({ data }) };
+function jsonResponse(data: unknown, errors?: { message: string }[]) {
+  return { json: () => Promise.resolve({ data, errors }) };
 }
 
 const metaobjectDef = {
@@ -140,6 +140,95 @@ describe("syncToTarget", () => {
         errorMessage: "Name can't be blank",
       },
     ]);
+  });
+
+  it("counts a top-level GraphQL error as failed, not a silent success", async () => {
+    const targetAdmin = {
+      graphql: vi.fn(() =>
+        Promise.resolve(
+          jsonResponse(null, [{ message: "Access denied for this scope" }]),
+        ),
+      ),
+    };
+
+    const result = await syncToTarget({
+      sourceAdmin: { graphql: vi.fn() } as never,
+      targetAdmin: targetAdmin as never,
+      metaobjectDefinitions: [metaobjectDef],
+      metafieldDefinitions: [],
+    });
+
+    expect(result.tallies).toEqual({
+      itemsSynced: 0,
+      itemsSkipped: 0,
+      itemsFailed: 1,
+    });
+    expect(result.items).toEqual([
+      {
+        key: "metaobject:size_chart",
+        kind: "DEFINITION",
+        status: "FAILED",
+        errorMessage: "Access denied for this scope",
+      },
+    ]);
+  });
+
+  it("counts a missing response payload as failed, not a silent success", async () => {
+    const targetAdmin = {
+      graphql: vi.fn(() => Promise.resolve(jsonResponse({}))),
+    };
+
+    const result = await syncToTarget({
+      sourceAdmin: { graphql: vi.fn() } as never,
+      targetAdmin: targetAdmin as never,
+      metaobjectDefinitions: [metaobjectDef],
+      metafieldDefinitions: [],
+    });
+
+    expect(result.tallies.itemsFailed).toBe(1);
+    expect(result.items[0].status).toBe("FAILED");
+  });
+
+  it("records a failed VALUE item when the target's shop id can't be resolved", async () => {
+    const sourceAdmin = { graphql: vi.fn() };
+    const targetAdmin = {
+      graphql: vi.fn((query: string) => {
+        if (query.includes("MetafieldDefinitionCreate")) {
+          return Promise.resolve(
+            jsonResponse({
+              metafieldDefinitionCreate: {
+                createdDefinition: { id: "gid://1" },
+                userErrors: [],
+              },
+            }),
+          );
+        }
+        // ShopId query fails — no data, no shop id.
+        return Promise.resolve(jsonResponse({}));
+      }),
+    };
+
+    const result = await syncToTarget({
+      sourceAdmin: sourceAdmin as never,
+      targetAdmin: targetAdmin as never,
+      metaobjectDefinitions: [],
+      metafieldDefinitions: [shopMetafieldDef],
+    });
+
+    const key = "metafield:SHOP:custom:support_email";
+    expect(result.items).toEqual([
+      { key, kind: "DEFINITION", status: "SUCCEEDED", errorMessage: null },
+      {
+        key,
+        kind: "VALUE",
+        status: "FAILED",
+        errorMessage: "Could not resolve the target store's Shop id.",
+      },
+    ]);
+    expect(result.tallies.itemsFailed).toBe(1);
+    // Never even tries to read the source's value once the target's shop
+    // id is unknown.
+    expect(sourceAdmin.graphql).not.toHaveBeenCalled();
   });
 
   it("syncs a SHOP metafield's value after its definition is confirmed", async () => {

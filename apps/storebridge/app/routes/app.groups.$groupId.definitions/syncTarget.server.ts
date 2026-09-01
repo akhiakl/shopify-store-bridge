@@ -74,17 +74,38 @@ type CreateResult =
 /** Runs one create mutation. A `TAKEN` userError code — confirmed via
  * `MetaobjectUserErrorCode`/`MetafieldDefinitionCreateUserErrorCode` — means
  * the definition already exists on the target; that's `skipped`, not
- * `failed`, so a clean re-run doesn't read as an error in job history. */
+ * `failed`, so a clean re-run doesn't read as an error in job history.
+ * Top-level GraphQL `errors` (a bad query, a missing scope) and a missing
+ * response payload are both real failures — treating them as an empty
+ * `userErrors` array (the pre-existing bug here) silently marked a job
+ * SUCCEEDED when the mutation never actually ran. */
 async function createOne(
   admin: AdminApiContext,
   query: string,
   variables: Record<string, unknown>,
 ): Promise<CreateResult> {
   const response = await admin.graphql(query, { variables });
-  const { data } = await response.json();
+  // `admin.graphql`'s return type only declares `data` on the parsed body,
+  // but the raw GraphQL response can carry a top-level `errors` array too
+  // (a bad query, a missing scope) — this codebase doesn't have generated
+  // types wired into these hand-written calls yet (see shopify.app.toml's
+  // TODO on that), so this is cast the same loose way `payload` below is.
+  const { data, errors } = (await response.json()) as {
+    data?: Record<string, unknown>;
+    errors?: { message: string }[];
+  };
+  if (errors) {
+    const messages = Array.isArray(errors)
+      ? errors.map((e: { message: string }) => e.message).join("; ")
+      : String(errors);
+    return { ok: false, error: messages };
+  }
   const payload = Object.values(data ?? {})[0] as
     { userErrors: { message: string; code?: string }[] } | undefined;
-  const userErrors = payload?.userErrors ?? [];
+  if (!payload) {
+    return { ok: false, error: "Shopify returned an unexpected response." };
+  }
+  const userErrors = payload.userErrors ?? [];
   if (userErrors.length === 0) return { ok: true };
   if (userErrors.some((e) => e.code === "TAKEN")) {
     return { ok: true, skipped: true };
@@ -261,13 +282,22 @@ export async function syncToTarget({
 
     // Definition confirmed on the target (created or already there) — now
     // ride the value along, SHOP owner only (see syncShopMetafieldValue).
-    if (result.ok && def.ownerType === "SHOP" && targetShopId) {
-      const valueResult = await syncShopMetafieldValue({
-        sourceAdmin,
-        targetAdmin,
-        targetShopId,
-        def,
-      });
+    // A missing targetShopId (the resolveTargetShopId call above failed —
+    // permissions, a bad response) used to just skip this silently, which
+    // let the job report SUCCEEDED even though the value never copied;
+    // record it as a failed VALUE item instead so tallies/history show it.
+    if (result.ok && def.ownerType === "SHOP") {
+      const valueResult: CreateResult = targetShopId
+        ? await syncShopMetafieldValue({
+            sourceAdmin,
+            targetAdmin,
+            targetShopId,
+            def,
+          })
+        : {
+            ok: false,
+            error: "Could not resolve the target store's Shop id.",
+          };
       tally({ tallies, items, key, kind: "VALUE", result: valueResult });
     }
   }
