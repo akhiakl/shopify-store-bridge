@@ -5,8 +5,20 @@ import type { MetaobjectDefinitionRow } from "../definitions.server";
 import { MetaobjectDefinitionsSection } from "./MetaobjectDefinitionsSection";
 
 const definitions: MetaobjectDefinitionRow[] = [
-  { id: "1", type: "size_chart", name: "Size chart", fieldCount: 3 },
-  { id: "2", type: "faq_entry", name: "FAQ entry", fieldCount: 2 },
+  {
+    id: "1",
+    type: "size_chart",
+    name: "Size chart",
+    fieldDefinitions: [],
+    fieldCount: 3,
+  },
+  {
+    id: "2",
+    type: "faq_entry",
+    name: "FAQ entry",
+    fieldDefinitions: [],
+    fieldCount: 2,
+  },
 ];
 
 // See MetafieldDefinitionsSection.test.tsx for why interaction isn't

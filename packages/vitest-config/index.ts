@@ -46,10 +46,12 @@ export function createVitestConfig(
             "**/*.d.ts",
             "drizzle/**",
             // Declarative table/relation definitions, not testable logic —
-            // tests import real table objects from here (e.g. to assert
+            // tests import real table objects from these (e.g. to assert
             // `db.insert` was called with the right table) which would
-            // otherwise drag it into the coverage report.
+            // otherwise drag them into the coverage report.
             "**/db/schema.server.ts",
+            "**/db/syncJobsSchema.server.ts",
+            "**/db/rls.server.ts",
             "extensions/**",
             "e2e/**",
           ],

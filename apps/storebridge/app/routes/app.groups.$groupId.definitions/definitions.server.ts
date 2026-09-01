@@ -5,11 +5,10 @@ import db from "~/db.server";
 import { syncGroups } from "~/db/schema.server";
 
 /**
- * UNVERIFIED — confirm via Shopify Dev MCP before merge (unavailable this
- * session, see AGENTS.md §2). Metafield definitions are queried per
- * `MetafieldOwnerType`, not as one flat list — this is a reduced set of the
- * most common owner types, not the full enum. Extend as needed; each entry
- * is one extra query, not a schema change.
+ * Metafield definitions are queried per `MetafieldOwnerType`, not as one
+ * flat list — this is a reduced set of the most common owner types, not
+ * the full enum. Extend as needed; each entry is one extra query, not a
+ * schema change.
  */
 const METAFIELD_OWNER_TYPES = [
   "PRODUCT",
@@ -24,11 +23,11 @@ const METAFIELD_OWNER_TYPES = [
 ] as const;
 
 /**
- * UNVERIFIED — query shape not validated via Shopify Dev MCP's
- * validate_graphql_codeblocks (unavailable this session). Access scope is
- * also unconfirmed — likely varies per MetafieldOwnerType (e.g.
- * read_products for PRODUCT/PRODUCTVARIANT), see shopify.app.toml's
- * comment.
+ * Query shape confirmed via `validate_graphql_codeblocks` against
+ * Shopify's live schema. It reported no required-scope line for this
+ * particular query — Shopify's own docs say reading definitions needs
+ * scope appropriate to the owner type, so that's not treated as "no scope
+ * needed"; see shopify.app.toml's comment for what's actually declared.
  */
 const METAFIELD_DEFINITIONS_QUERY = `#graphql
   query MetafieldDefinitionsByOwner($ownerType: MetafieldOwnerType!) {
@@ -46,11 +45,8 @@ const METAFIELD_DEFINITIONS_QUERY = `#graphql
 `;
 
 /**
- * Access scope confirmed: read_metaobject_definitions (Shopify's
- * metaobjectDefinitions docs, "Requires read_metaobject_definitions
- * access scope" — see shopify.app.toml). Query shape itself is still
- * UNVERIFIED against validate_graphql_codeblocks (Shopify Dev MCP
- * unavailable this session).
+ * Confirmed via `validate_graphql_codeblocks`: valid query shape,
+ * required scope read_metaobject_definitions (see shopify.app.toml).
  */
 const METAOBJECT_DEFINITIONS_QUERY = `#graphql
   query MetaobjectDefinitionsList {
@@ -62,6 +58,7 @@ const METAOBJECT_DEFINITIONS_QUERY = `#graphql
         fieldDefinitions {
           name
           key
+          required
           type { name }
         }
       }
@@ -79,15 +76,27 @@ export interface MetafieldDefinitionRow {
   ownerType: (typeof METAFIELD_OWNER_TYPES)[number];
 }
 
+export interface MetaobjectFieldDefinition {
+  name: string;
+  key: string;
+  required: boolean;
+  type: string;
+}
+
 export interface MetaobjectDefinitionRow {
   id: string;
   type: string;
   name: string;
+  /** Full field list — needed to recreate this type on a target store
+   * (sync.server.ts); `fieldCount` below is just its length, kept so the
+   * browse-only UI (MetaobjectDefinitionsSection) doesn't need to know
+   * that. */
+  fieldDefinitions: MetaobjectFieldDefinition[];
   fieldCount: number;
 }
 
 /** One `metafieldDefinitions` call per owner type — the API has no single
- * "all owner types" query (see the UNVERIFIED note above `METAFIELD_*`). */
+ * "all owner types" query (see the note above `METAFIELD_OWNER_TYPES`). */
 async function fetchMetafieldDefinitions(
   admin: AdminApiContext,
 ): Promise<MetafieldDefinitionRow[]> {
@@ -132,11 +141,22 @@ async function fetchMetaobjectDefinitions(
       id: string;
       type: string;
       name: string;
-      fieldDefinitions: unknown[];
+      fieldDefinitions: {
+        name: string;
+        key: string;
+        required: boolean;
+        type: { name: string };
+      }[];
     }) => ({
       id: node.id,
       type: node.type,
       name: node.name,
+      fieldDefinitions: node.fieldDefinitions.map((field) => ({
+        name: field.name,
+        key: field.key,
+        required: field.required,
+        type: field.type.name,
+      })),
       fieldCount: node.fieldDefinitions.length,
     }),
   );

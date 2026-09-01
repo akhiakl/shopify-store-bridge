@@ -16,14 +16,30 @@ vi.mock("./definitions.server", () => ({
   getDefinitionCatalog,
 }));
 
-const { loader } = await import("./route");
+const { getJobHistory, runSyncJob } = vi.hoisted(() => ({
+  getJobHistory: vi.fn(),
+  runSyncJob: vi.fn(),
+}));
+vi.mock("./sync.server", () => ({ getJobHistory, runSyncJob }));
+
+const { loader, action } = await import("./route");
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
+function formDataRequest(fields: [string, string][]) {
+  const formData = new FormData();
+  for (const [key, value] of fields) formData.append(key, value);
+  return {
+    request: { formData: () => Promise.resolve(formData) },
+    params: { groupId: "group-1" },
+    context: {},
+  } as never;
+}
+
 describe("app.groups.$groupId.definitions loader", () => {
-  it("returns the group and definition catalog for a group the shop owns", async () => {
+  it("returns the group, definition catalog, and job history for a group the shop owns", async () => {
     const admin = { graphql: vi.fn() };
     authenticateAdmin.mockResolvedValue({
       session: { shop: "source.myshopify.com" },
@@ -34,6 +50,7 @@ describe("app.groups.$groupId.definitions loader", () => {
       metafieldDefinitions: [],
       metaobjectDefinitions: [],
     });
+    getJobHistory.mockResolvedValue([]);
 
     const result = await loader({
       request: new Request(
@@ -48,8 +65,10 @@ describe("app.groups.$groupId.definitions loader", () => {
       "source.myshopify.com",
     );
     expect(getDefinitionCatalog).toHaveBeenCalledWith(admin);
+    expect(getJobHistory).toHaveBeenCalledWith("group-1");
     expect(result).toEqual({
       group: { id: "group-1", name: "EU stores" },
+      jobs: [],
       metafieldDefinitions: [],
       metaobjectDefinitions: [],
     });
@@ -73,5 +92,81 @@ describe("app.groups.$groupId.definitions loader", () => {
     ).rejects.toMatchObject({ init: { status: 404 } });
 
     expect(getDefinitionCatalog).not.toHaveBeenCalled();
+  });
+});
+
+describe("app.groups.$groupId.definitions action", () => {
+  const admin = { graphql: vi.fn() };
+  const approvedGroup = {
+    id: "group-1",
+    targets: [{ status: "APPROVED" }],
+  };
+
+  beforeEach(() => {
+    authenticateAdmin.mockResolvedValue({
+      session: { shop: "source.myshopify.com" },
+      admin,
+    });
+  });
+
+  it("runs a sync job for the selected definitions", async () => {
+    getOwnedGroup.mockResolvedValue(approvedGroup);
+    runSyncJob.mockResolvedValue({ id: "job-1", status: "SUCCEEDED" });
+
+    const result = await action(
+      formDataRequest([
+        ["intent", "sync"],
+        ["selection", "metaobject:size_chart"],
+      ]),
+    );
+
+    expect(runSyncJob).toHaveBeenCalledWith({
+      group: approvedGroup,
+      selection: ["metaobject:size_chart"],
+      sourceAdmin: admin,
+    });
+    expect(result).toEqual({ ok: true, jobId: "job-1", status: "SUCCEEDED" });
+  });
+
+  it("rejects an empty selection without touching the sync engine", async () => {
+    getOwnedGroup.mockResolvedValue(approvedGroup);
+
+    const result = await action(formDataRequest([["intent", "sync"]]));
+
+    expect(runSyncJob).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: false,
+      error: "Select at least one definition.",
+    });
+  });
+
+  it("rejects when the group has no approved targets", async () => {
+    getOwnedGroup.mockResolvedValue({ id: "group-1", targets: [] });
+
+    const result = await action(
+      formDataRequest([
+        ["intent", "sync"],
+        ["selection", "metaobject:size_chart"],
+      ]),
+    );
+
+    expect(runSyncJob).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: false,
+      error: "This group has no approved target stores yet.",
+    });
+  });
+
+  it("404s when the group doesn't belong to the authenticated shop", async () => {
+    getOwnedGroup.mockResolvedValue(null);
+
+    await expect(
+      action(
+        formDataRequest([
+          ["intent", "sync"],
+          ["selection", "metaobject:size_chart"],
+        ]),
+      ),
+    ).rejects.toMatchObject({ init: { status: 404 } });
   });
 });
