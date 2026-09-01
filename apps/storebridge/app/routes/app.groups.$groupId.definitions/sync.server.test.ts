@@ -101,7 +101,7 @@ describe("runSyncJob", () => {
 
   it("syncs selected definitions only to APPROVED targets and records success", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValueOnce(chain(undefined));
+    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
     dbMock.update.mockReturnValueOnce(chain(undefined));
 
     const targetAdmin = {
@@ -134,7 +134,7 @@ describe("runSyncJob", () => {
 
   it("marks the job FAILED and records the error when a target can't be reached", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValueOnce(chain(undefined));
+    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
     dbMock.update.mockReturnValueOnce(chain(undefined));
     unauthenticatedMock.admin.mockRejectedValue(new Error("no session"));
 
@@ -150,7 +150,7 @@ describe("runSyncJob", () => {
 
   it("records a target FAILED when its mutation returns a real userError", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValueOnce(chain(undefined));
+    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
     dbMock.update.mockReturnValueOnce(chain(undefined));
 
     const targetAdmin = {
@@ -182,7 +182,7 @@ describe("runSyncJob", () => {
 
   it("rolls up to SUCCEEDED, not FAILED, when a target's only outcome is TAKEN (already exists)", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValueOnce(chain(undefined));
+    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
     dbMock.update.mockReturnValueOnce(chain(undefined));
 
     const targetAdmin = {
@@ -223,7 +223,7 @@ describe("runSyncJob", () => {
       ],
     };
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValue(chain(undefined));
+    dbMock.insert.mockReturnValue(chain([{ id: "target-row" }]));
     dbMock.update.mockReturnValueOnce(chain(undefined));
 
     const succeedingAdmin = {
@@ -265,7 +265,7 @@ describe("runSyncJob", () => {
 
   it("also syncs selected metafield definitions", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValueOnce(chain(undefined));
+    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
     dbMock.update.mockReturnValueOnce(chain(undefined));
 
     const admin = {
@@ -335,7 +335,7 @@ describe("getJobHistory", () => {
 
     expect(dbMock.query.syncJobs.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        with: { targets: { with: { store: true } } },
+        with: { targets: { with: { store: true, items: true } } },
       }),
     );
     expect(history).toEqual([{ id: "job-1" }]);

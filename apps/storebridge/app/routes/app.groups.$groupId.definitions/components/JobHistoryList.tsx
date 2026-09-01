@@ -67,6 +67,17 @@ export function JobHistoryList({ jobs }: JobHistoryListProps) {
                 )}
               </s-stack>
             ))}
+            {job.targets
+              .flatMap((target) =>
+                target.items
+                  .filter((item) => item.status === "FAILED")
+                  .map((item) => ({ ...item, shop: target.store.shop })),
+              )
+              .map((item) => (
+                <s-paragraph key={`${item.shop}-${item.key}`}>
+                  {item.shop} — {item.key}: {item.errorMessage}
+                </s-paragraph>
+              ))}
           </s-stack>
         </s-box>
       ))}
