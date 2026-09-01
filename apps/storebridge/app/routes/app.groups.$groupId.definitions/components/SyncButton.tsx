@@ -36,7 +36,13 @@ export function SyncButton({ selected, approvedTargetCount }: SyncButtonProps) {
       )}
       {data?.ok && (
         <s-banner
-          tone={data.status === "FAILED" ? "critical" : "success"}
+          tone={
+            data.status === "FAILED"
+              ? "critical"
+              : data.status === "PARTIAL"
+                ? "warning"
+                : "success"
+          }
           heading={`Sync ${data.status.toLowerCase()}`}
         ></s-banner>
       )}
