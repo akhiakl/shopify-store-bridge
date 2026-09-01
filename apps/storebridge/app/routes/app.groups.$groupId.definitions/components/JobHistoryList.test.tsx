@@ -29,6 +29,7 @@ describe("JobHistoryList", () => {
                   itemsFailed: 0,
                   errorMessage: null,
                   store: { shop: "target-1.myshopify.com" },
+                  items: [],
                 },
                 {
                   id: "t-2",
@@ -38,6 +39,14 @@ describe("JobHistoryList", () => {
                   itemsFailed: 1,
                   errorMessage: "Something went wrong",
                   store: { shop: "target-2.myshopify.com" },
+                  items: [
+                    {
+                      key: "metaobject:size_chart",
+                      kind: "DEFINITION",
+                      status: "FAILED",
+                      errorMessage: "Name can't be blank",
+                    },
+                  ],
                 },
               ],
             },
@@ -51,5 +60,10 @@ describe("JobHistoryList", () => {
     expect(screen.getByText("1 synced, 2 already existed")).toBeInTheDocument();
     expect(screen.getByText("0 synced, 1 failed")).toBeInTheDocument();
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "target-2.myshopify.com — metaobject:size_chart: Name can't be blank",
+      ),
+    ).toBeInTheDocument();
   });
 });
