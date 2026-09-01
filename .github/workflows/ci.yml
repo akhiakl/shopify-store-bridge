@@ -127,6 +127,16 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         working-directory: apps/storebridge
         run: pnpm exec playwright install-deps chromium
+      # Production Postgres is Supabase, which ships a built-in
+      # `service_role` role — the RLS policies in schema.server.ts
+      # (`serviceRoleOnly`, via drizzle-orm/supabase's `serviceRole`) all
+      # grant access `TO "service_role"`. This plain postgres:16 service
+      # container has no such role, so `drizzle-kit migrate` fails on the
+      # first `CREATE POLICY ... TO "service_role"` statement without it.
+      - name: Create Supabase roles for RLS policies
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d storebridge_e2e \
+            -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role; END IF; END \$\$;"
       - name: Run database migrations
         working-directory: apps/storebridge
         run: pnpm exec drizzle-kit migrate
