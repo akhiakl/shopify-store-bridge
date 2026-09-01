@@ -1,12 +1,16 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-import * as schema from "~/db/schema.server";
+import * as pairingSchema from "~/db/schema.server";
+import * as syncJobsSchema from "~/db/syncJobsSchema.server";
 
 // Supabase Postgres — see app/db/schema.server.ts's doc comment for what
-// lives here. Use the pooled/pgbouncer DATABASE_URL (same variable Prisma
-// used); migrations need the direct connection instead (DIRECT_URL, see
+// lives here (and syncJobsSchema.server.ts for the sync-job domain,
+// split into its own file once schema.server.ts hit the 300-line limit).
+// Use the pooled/pgbouncer DATABASE_URL (same variable Prisma used);
+// migrations need the direct connection instead (DIRECT_URL, see
 // drizzle.config.ts).
+const schema = { ...pairingSchema, ...syncJobsSchema };
 
 declare global {
   // eslint-disable-next-line no-var
