@@ -84,14 +84,36 @@ No new selection UI: this rides along automatically with the existing
 means "sync this and its value," since for Shop (unlike Product/Customer/Order) there's
 no ambiguity about _which_ value that means.
 
-## Job/job-target schema
+## Job/job-target/job-item schema
 
 One `SyncJob` row per "Sync now" click (group, requested selection, overall status,
-timing) and one `SyncJobTarget` row per target that was APPROVED when the job ran
-(per-target status, item counts, error). Same reasoning as `Store`/`SyncGroup`/
-`SyncGroupTarget`'s split in `data-model.md`: a job's overall status and one target's
-result are genuinely different things — a run can succeed for one target and fail for
-another.
+timing), one `SyncJobTarget` row per target that was APPROVED when the job ran
+(per-target status, item counts, error), and one `SyncJobItem` row per definition-or-value
+attempt within that target (`key` — the same `metaobject:<type>` /
+`metafield:<ownerType>:<namespace>:<key>` format the selection UI uses, unchanged for
+both steps of a SHOP metafield; `kind`: `DEFINITION` | `VALUE` is what distinguishes the
+definition-create attempt from the value-copy attempt that can follow it for the same
+key; `status`: `SUCCEEDED` | `SKIPPED` | `FAILED`; `errorMessage`). Same reasoning as `Store`/
+`SyncGroup`/`SyncGroupTarget`'s split in `data-model.md`: a job's overall status, one
+target's result, and one item's outcome within that target are genuinely different
+things — a run can succeed for one target and fail for another, and within a failed
+target only one of several selected items might be the actual problem.
+`syncTarget.server.ts`'s `syncToTarget` returns `{ tallies, items }` — the counts and the
+per-item detail travel together, but `SyncJobTarget` keeps only the counts (cheap to
+render a summary line from) while the per-item detail is `SyncJobItem` rows, joined in by
+`getJobHistory` and rendered by `JobHistoryList` (only failed items are surfaced there
+today — "N synced, M already existed, K failed" plus a line per failure — since a
+successful or skipped item's `key`/`kind` alone isn't yet useful to show).
+
+Schema file split: `SyncJob`/`SyncJobTarget`/`SyncJobItem` live in
+`app/db/syncJobsSchema.server.ts`, not `schema.server.ts` (which holds the pairing domain:
+`Session`/`Store`/`SyncGroup`/`SyncGroupTarget`) — adding `SyncJobItem` would have pushed
+`schema.server.ts` past the 300-line file limit (AGENTS.md §5). The import graph is
+strictly one-directional to avoid an ESM circular-import risk: `syncJobsSchema.server.ts`
+imports `stores`/`syncGroups` from `schema.server.ts`, never the reverse; the shared
+`serviceRoleOnly` RLS-policy helper lives in its own leaf file (`rls.server.ts`) so both
+schema files can import it without importing each other. `db.server.ts` combines both via
+object spread into one `schema` object for Drizzle's relational query API.
 
 ## Things intentionally _not_ built (YAGNI)
 
@@ -99,6 +121,3 @@ another.
   decision this feature shipped with. Revisit once merchants actually ask for it.
 - **Resource-level metafield value sync** (Product/Customer/Order/…). Needs a
   record-matching step this app doesn't have yet — see "Scope" above.
-- **Per-item sync log.** `SyncJobTarget` keeps counts (`itemsSynced`/`itemsSkipped`/
-  `itemsFailed`), not a row per definition attempted — nothing today needs to know
-  _which_ definition failed within a target, just how many did.
