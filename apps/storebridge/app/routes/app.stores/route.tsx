@@ -9,6 +9,7 @@ import { OwnedGroupsList } from "./components/OwnedGroupsList";
 import {
   declinePairingRequest,
   getDashboardData,
+  regeneratePairingRequest,
   requestPairing,
 } from "./pairing.server";
 
@@ -17,13 +18,31 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return getDashboardData(session.shop);
 };
 
+/** Shared by the "connect" and "regenerate" intents — both end up handing
+ * the merchant the same shareable authorize link shape. */
+function buildAuthorizeUrl(
+  token: string,
+  targetShop: string,
+  requestUrl: string,
+): string {
+  const authorizeUrl = new URL(
+    "/app/stores/authorize",
+    process.env.SHOPIFY_APP_URL || requestUrl,
+  );
+  authorizeUrl.searchParams.set("token", token);
+  authorizeUrl.searchParams.set("shop", targetShop);
+  return authorizeUrl.toString();
+}
+
 /**
- * Handles the two form intents this route posts: inviting a target store
- * into a sync group ("connect"), and declining an incoming pairing
- * request ("decline") — approving one happens on app.stores.authorize
- * instead, since it requires the one-time token from the invite (see
- * pairing.server.ts). `session.shop` — never form input — is the caller's
- * identity, so a store can only act on its own behalf.
+ * Handles the three form intents this route posts: inviting a target
+ * store into a sync group ("connect"), declining an incoming pairing
+ * request ("decline"), and reissuing a lost/expired authorize link for a
+ * still-pending request the source sent ("regenerate") — approving one
+ * happens on app.stores.authorize instead, since it requires the one-time
+ * token from the invite (see pairing.server.ts). `session.shop` — never
+ * form input — is the caller's identity, so a store can only act on its
+ * own behalf.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -41,13 +60,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
     if (!result.ok) return result;
 
-    const authorizeUrl = new URL(
-      "/app/stores/authorize",
-      process.env.SHOPIFY_APP_URL || request.url,
-    );
-    authorizeUrl.searchParams.set("token", result.authToken);
-    authorizeUrl.searchParams.set("shop", result.targetShop);
-    return { ok: true, authorizeUrl: authorizeUrl.toString() } as const;
+    return {
+      ok: true,
+      authorizeUrl: buildAuthorizeUrl(
+        result.authToken,
+        result.targetShop,
+        request.url,
+      ),
+    } as const;
   }
 
   if (intent === "decline") {
@@ -55,6 +75,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       targetId: String(formData.get("targetId") ?? ""),
       shop: session.shop,
     });
+  }
+
+  if (intent === "regenerate") {
+    const result = await regeneratePairingRequest({
+      targetId: String(formData.get("targetId") ?? ""),
+      shop: session.shop,
+    });
+    if (!result.ok) return result;
+
+    return {
+      ok: true,
+      authorizeUrl: buildAuthorizeUrl(
+        result.authToken,
+        result.targetShop,
+        request.url,
+      ),
+    } as const;
   }
 
   return { ok: false, error: "Unknown action." };
