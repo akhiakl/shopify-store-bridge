@@ -216,6 +216,10 @@ export const syncJobTargets = pgTable(
       .references(() => stores.id, { onDelete: "cascade" }),
     status: syncJobTargetStatusEnum("status").notNull(),
     itemsSynced: integer("itemsSynced").notNull().default(0),
+    /** Already existed on the target (Shopify's `TAKEN` userError code) —
+     * counted separately from itemsFailed so a clean re-run doesn't read
+     * as an error; see sync.server.ts's createOne. */
+    itemsSkipped: integer("itemsSkipped").notNull().default(0),
     itemsFailed: integer("itemsFailed").notNull().default(0),
     errorMessage: text("errorMessage"),
   },

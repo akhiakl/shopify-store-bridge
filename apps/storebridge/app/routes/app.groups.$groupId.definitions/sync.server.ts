@@ -5,39 +5,8 @@ import db from "~/db.server";
 import { syncJobs, syncJobTargets } from "~/db/schema.server";
 import { unauthenticated } from "~/shopify.server";
 
-import {
-  getDefinitionCatalog,
-  type getOwnedGroup,
-  type MetafieldDefinitionRow,
-  type MetaobjectDefinitionRow,
-} from "./definitions.server";
-
-/**
- * Mutation shapes confirmed via Shopify's Admin GraphQL schema
- * (`graphql_schema` on `MetaobjectDefinitionCreateInput` /
- * `MetafieldDefinitionInput`) and `search_docs_chunks` for required scopes:
- * `write_metaobject_definitions` for the metaobject mutation (confirmed);
- * metafield definitions need the write scope matching their owner type
- * (e.g. `write_products`) — same "confirm per owner type as it's actually
- * used" stance `definitions.server.ts` already takes for the read side.
- */
-const METAOBJECT_DEFINITION_CREATE_MUTATION = `#graphql
-  mutation MetaobjectDefinitionCreate($definition: MetaobjectDefinitionCreateInput!) {
-    metaobjectDefinitionCreate(definition: $definition) {
-      metaobjectDefinition { id }
-      userErrors { field message code }
-    }
-  }
-`;
-
-const METAFIELD_DEFINITION_CREATE_MUTATION = `#graphql
-  mutation MetafieldDefinitionCreate($definition: MetafieldDefinitionInput!) {
-    metafieldDefinitionCreate(definition: $definition) {
-      createdDefinition { id }
-      userErrors { field message code }
-    }
-  }
-`;
+import { getDefinitionCatalog, type getOwnedGroup } from "./definitions.server";
+import { syncToTarget } from "./syncTarget.server";
 
 interface ParsedSelection {
   metaobjectTypes: string[];
@@ -85,76 +54,6 @@ async function resolveSelectedDefinitions(
   return { metaobjectDefinitions, metafieldDefinitions };
 }
 
-/** Runs one create mutation and reports success/fail — no special
- * "already exists" handling in v1 (see docs/architecture/definition-sync.md):
- * a re-run just surfaces Shopify's own userError message. */
-async function createOne(
-  admin: AdminApiContext,
-  query: string,
-  variables: { definition: Record<string, unknown> },
-): Promise<{ ok: boolean; error?: string }> {
-  const response = await admin.graphql(query, { variables });
-  const { data } = await response.json();
-  const payload = Object.values(data ?? {})[0] as
-    { userErrors: { message: string }[] } | undefined;
-  const userErrors = payload?.userErrors ?? [];
-  if (userErrors.length > 0) {
-    return { ok: false, error: userErrors.map((e) => e.message).join("; ") };
-  }
-  return { ok: true };
-}
-
-async function syncToTarget(
-  targetAdmin: AdminApiContext,
-  metaobjectDefinitions: MetaobjectDefinitionRow[],
-  metafieldDefinitions: MetafieldDefinitionRow[],
-): Promise<{ itemsSynced: number; itemsFailed: number }> {
-  let itemsSynced = 0;
-  let itemsFailed = 0;
-
-  for (const def of metaobjectDefinitions) {
-    const result = await createOne(
-      targetAdmin,
-      METAOBJECT_DEFINITION_CREATE_MUTATION,
-      {
-        definition: {
-          type: def.type,
-          name: def.name,
-          fieldDefinitions: def.fieldDefinitions.map((field) => ({
-            key: field.key,
-            name: field.name,
-            type: field.type,
-            required: field.required,
-          })),
-        },
-      },
-    );
-    if (result.ok) itemsSynced++;
-    else itemsFailed++;
-  }
-
-  for (const def of metafieldDefinitions) {
-    const result = await createOne(
-      targetAdmin,
-      METAFIELD_DEFINITION_CREATE_MUTATION,
-      {
-        definition: {
-          namespace: def.namespace,
-          key: def.key,
-          name: def.name,
-          description: def.description ?? undefined,
-          type: def.type,
-          ownerType: def.ownerType,
-        },
-      },
-    );
-    if (result.ok) itemsSynced++;
-    else itemsFailed++;
-  }
-
-  return { itemsSynced, itemsFailed };
-}
-
 type OwnedGroup = NonNullable<Awaited<ReturnType<typeof getOwnedGroup>>>;
 
 /**
@@ -166,6 +65,9 @@ type OwnedGroup = NonNullable<Awaited<ReturnType<typeof getOwnedGroup>>>;
  * that shop made (see `@shopify/shopify-app-react-router`'s own docs on
  * `unauthenticated.admin`). No queue/worker involved — see
  * docs/architecture/definition-sync.md for why synchronous is fine here.
+ * Per-target mutation logic (creating definitions, syncing SHOP metafield
+ * values) lives in syncTarget.server.ts — this file is just orchestration
+ * and persistence.
  */
 export async function runSyncJob({
   group,
@@ -196,11 +98,12 @@ export async function runSyncJob({
       const { admin: targetAdmin } = await unauthenticated.admin(
         target.store.shop,
       );
-      const { itemsSynced, itemsFailed } = await syncToTarget(
+      const { itemsSynced, itemsSkipped, itemsFailed } = await syncToTarget({
+        sourceAdmin,
         targetAdmin,
         metaobjectDefinitions,
         metafieldDefinitions,
-      );
+      });
       const status = itemsFailed === 0 ? "SUCCEEDED" : "FAILED";
       targetStatuses.push(status);
       await db.insert(syncJobTargets).values({
@@ -208,6 +111,7 @@ export async function runSyncJob({
         storeId: target.storeId,
         status,
         itemsSynced,
+        itemsSkipped,
         itemsFailed,
       });
     } catch (error) {

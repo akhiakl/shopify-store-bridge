@@ -1,0 +1,1 @@
+ALTER TABLE "SyncJobTarget" ADD COLUMN "itemsSkipped" integer DEFAULT 0 NOT NULL;

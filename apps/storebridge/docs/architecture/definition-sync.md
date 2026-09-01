@@ -3,15 +3,22 @@
 Once a sync group has an APPROVED target (`store-pairing.md`), the source can push its
 metaobject/metafield definitions to that target from
 `app.groups.$groupId.definitions`. This doc covers the design decisions that aren't
-obvious from the code — the CRUD itself lives in `sync.server.ts`.
+obvious from the code — the job orchestration lives in `sync.server.ts`, the actual
+per-target mutations in `syncTarget.server.ts`.
 
-## Scope: definitions only, manual trigger only
+## Scope: definitions (+ shop metafield values), manual trigger only
 
 The first sync-execution feature syncs **definitions** (the schema: a metaobject's
-`type`/`fieldDefinitions`, a metafield's `namespace`/`key`/`type`), not the metaobject or
-metafield _values_ that use them. Definitions are the natural next step after the
-existing read-only browser (`definitions.server.ts`) and are a much smaller surface than
-syncing actual product/metaobject data.
+`type`/`fieldDefinitions`, a metafield's `namespace`/`key`/`type`) — the natural next step
+after the existing read-only browser (`definitions.server.ts`) and a much smaller surface
+than syncing actual product/metaobject data.
+
+One exception: **SHOP-owned metafield values do sync**, riding along with their
+definition (see "Shop metafield value sync" below). Resource-level values (Product,
+Customer, Order, …) don't, and won't until something solves the harder problem those
+need — matching which record on the target corresponds to which record on the source,
+since the two stores have entirely separate catalogs with no shared IDs. Shop is the one
+owner type where that problem doesn't exist: there's exactly one Shop per store.
 
 Every job is manually triggered: the merchant selects definitions on the checkbox UI and
 clicks "Sync now." There's no webhook or scheduler — see "Things intentionally not
@@ -45,14 +52,37 @@ source store's own admin session right before syncing and filters it down to the
 selected keys. A client could otherwise submit an arbitrary "field list" for a
 type it doesn't actually control.
 
-## No idempotency detection (v1)
+## Idempotency: `TAKEN` means skipped, not failed
 
-Re-running a sync that already created a definition on the target just surfaces
-whatever `userErrors` message Shopify itself returns (typically some form of "already
-exists" per Shopify's own duplicate-detection) — `sync.server.ts` doesn't special-case
-that message today. The alternative (query the target first, skip already-present types)
-adds a network round-trip per definition per target for a case that's self-explanatory
-from the error text. Revisit if merchants find the raw error confusing.
+Re-running a sync that already created a definition on the target used to just surface
+whatever `userErrors` message Shopify returned as a target-level failure. Confirmed via
+Shopify's schema (`MetaobjectUserErrorCode`/`MetafieldDefinitionCreateUserErrorCode`
+enums) that a duplicate-definition error carries `code: "TAKEN"` on both mutations —
+`syncTarget.server.ts`'s `createOne` now checks for that code and counts it as
+`itemsSkipped`, not `itemsFailed`. A target's status only goes `FAILED` when something
+_actually_ went wrong; a clean re-run reports `SUCCEEDED` with a "N already existed" note
+instead of reading as an error.
+
+`metafieldsSet` (the shop-value-sync mutation) needed none of this — it's an upsert with
+no `TAKEN`-style duplicate error to begin with.
+
+## Shop metafield value sync
+
+For each selected metafield definition with `ownerType: SHOP`, once its definition step
+succeeds or is skipped-as-`TAKEN` on a target, `syncTarget.server.ts` also copies its
+_value_:
+
+1. Read the source's current value: `shop { metafield(namespace, key) { value type } }`.
+   `null` (no value set yet) is a no-op, not a failure.
+2. Fetch the target's own Shop id once per target (`{ shop { id } }`) — not per
+   definition — the first time a SHOP-owned def needs it.
+3. Write it with `metafieldsSet([{ ownerId: <target Shop id>, namespace, key, value,
+type }])`.
+
+No new selection UI: this rides along automatically with the existing
+`metafield:SHOP:<namespace>:<key>` checkbox — selecting a shop metafield definition
+means "sync this and its value," since for Shop (unlike Product/Customer/Order) there's
+no ambiguity about _which_ value that means.
 
 ## Job/job-target schema
 
@@ -67,7 +97,8 @@ another.
 
 - **Webhooks/automatic sync on source change.** Manual-trigger only, per the product
   decision this feature shipped with. Revisit once merchants actually ask for it.
-- **Idempotency detection.** See above.
-- **Per-item sync log.** `SyncJobTarget` keeps counts (`itemsSynced`/`itemsFailed`), not
-  a row per definition attempted — nothing today needs to know _which_ definition failed
-  within a target, just how many did.
+- **Resource-level metafield value sync** (Product/Customer/Order/…). Needs a
+  record-matching step this app doesn't have yet — see "Scope" above.
+- **Per-item sync log.** `SyncJobTarget` keeps counts (`itemsSynced`/`itemsSkipped`/
+  `itemsFailed`), not a row per definition attempted — nothing today needs to know
+  _which_ definition failed within a target, just how many did.
