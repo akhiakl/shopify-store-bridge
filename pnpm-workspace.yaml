@@ -2,14 +2,20 @@ packages:
   - "apps/*"
   - "packages/*"
   - "apps/storebridge/extensions/*"
-allowBuilds:
-  '@parcel/watcher': true
-  esbuild: true
-  unrs-resolver: true
-
 # Packages whose install-time build scripts pnpm runs. The first three are
 # well-known, necessary native-binary build steps from their packages'
 # actual maintainers (not arbitrary transitive postinstalls) — esbuild and
 # @parcel/watcher (used by Vite's dev server) ship native binaries,
 # unrs-resolver backs eslint-import-resolver-typescript's TS-aware module
 # resolution.
+allowBuilds:
+  "@parcel/watcher": true
+  esbuild: true
+  unrs-resolver: true
+  # drizzle-orm declares @prisma/client/prisma as an optional peer (its
+  # Prisma adapter) — pulled in by pnpm's peer resolution even though
+  # nothing here uses it (session storage is Drizzle-only, see
+  # app/db.server.ts). No build step of theirs needs to run.
+  "@prisma/client": false
+  "@prisma/engines": false
+  prisma: false
