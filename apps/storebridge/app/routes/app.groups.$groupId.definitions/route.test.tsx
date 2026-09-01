@@ -169,4 +169,14 @@ describe("app.groups.$groupId.definitions action", () => {
       ),
     ).rejects.toMatchObject({ init: { status: 404 } });
   });
+
+  it("rejects a post with a missing or unexpected intent", async () => {
+    getOwnedGroup.mockResolvedValue(approvedGroup);
+
+    await expect(
+      action(formDataRequest([["selection", "metaobject:size_chart"]])),
+    ).rejects.toMatchObject({ init: { status: 400 } });
+
+    expect(runSyncJob).not.toHaveBeenCalled();
+  });
 });

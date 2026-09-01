@@ -29,7 +29,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 /** Handles the "sync" intent — kicks off one `runSyncJob` run for the
  * selected definitions. `session.shop` (never form input) re-confirms
  * group ownership via `getOwnedGroup`, same guard the loader already
- * applies, since an action can be posted independently of the loader. */
+ * applies, since an action can be posted independently of the loader.
+ * Only one intent exists today (`SyncButton`'s hidden `intent=sync`
+ * field), but the action is guarded on it explicitly rather than assuming
+ * every POST means "sync" — resilient to an unexpected post, and keeps
+ * behavior consistent if more intents are added later. */
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
   const groupId = params.groupId as string;
@@ -40,6 +44,9 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   }
 
   const formData = await request.formData();
+  if (formData.get("intent") !== "sync") {
+    throw data("Unknown intent.", { status: 400 });
+  }
   const selection = formData.getAll("selection").map(String);
   if (selection.length === 0) {
     return { ok: false, error: "Select at least one definition." } as const;
