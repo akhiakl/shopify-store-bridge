@@ -298,10 +298,26 @@ export async function regeneratePairingRequest({
   }
 
   const { raw, hash, expiresAt } = generateAuthToken();
-  await db
+  // Guard the write on status too, not just id — the read above is stale by
+  // the time this runs, and without this a concurrent approve/decline could
+  // land between the check and the update, reintroducing a token on a
+  // request that's no longer PENDING (breaking the "token cleared after
+  // response" invariant approvePairingRequest/declinePairingRequest rely
+  // on). No matched row means it was responded to in that window.
+  const [updated] = await db
     .update(syncGroupTargets)
     .set({ authTokenHash: hash, authTokenExpiresAt: expiresAt })
-    .where(eq(syncGroupTargets.id, targetId));
+    .where(
+      and(
+        eq(syncGroupTargets.id, targetId),
+        eq(syncGroupTargets.status, "PENDING"),
+      ),
+    )
+    .returning();
+
+  if (!updated) {
+    return { ok: false, error: "This request was already responded to." };
+  }
 
   return { ok: true, authToken: raw, targetShop: target.store.shop };
 }
