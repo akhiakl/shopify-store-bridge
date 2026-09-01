@@ -23,6 +23,7 @@ vi.mock("~/shopify.server", () => ({ unauthenticated: unauthenticatedMock }));
 
 const { parseSelection, runSyncJob, getJobHistory } =
   await import("./sync.server");
+const { syncJobItems } = await import("~/db/syncJobsSchema.server");
 
 function jsonResponse(data: unknown) {
   return { json: () => Promise.resolve({ data }) };
@@ -101,7 +102,8 @@ describe("runSyncJob", () => {
 
   it("syncs selected definitions only to APPROVED targets and records success", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValueOnce(chain(undefined));
+    const targetInsertChain = chain([{ id: "target-row-1" }]);
+    dbMock.insert.mockReturnValue(targetInsertChain);
     dbMock.update.mockReturnValueOnce(chain(undefined));
 
     const targetAdmin = {
@@ -130,11 +132,25 @@ describe("runSyncJob", () => {
     );
     expect(targetAdmin.graphql).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ id: "job-1", status: "SUCCEEDED" });
+
+    // The per-item result also has to actually reach SyncJobItem, not just
+    // flow through syncToTarget's return value — Copilot flagged that
+    // nothing here asserted the insert itself.
+    expect(dbMock.insert).toHaveBeenCalledWith(syncJobItems);
+    expect(targetInsertChain.values).toHaveBeenCalledWith([
+      {
+        jobTargetId: "target-row-1",
+        key: "metaobject:size_chart",
+        kind: "DEFINITION",
+        status: "SUCCEEDED",
+        errorMessage: null,
+      },
+    ]);
   });
 
   it("marks the job FAILED and records the error when a target can't be reached", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValueOnce(chain(undefined));
+    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
     dbMock.update.mockReturnValueOnce(chain(undefined));
     unauthenticatedMock.admin.mockRejectedValue(new Error("no session"));
 
@@ -150,7 +166,7 @@ describe("runSyncJob", () => {
 
   it("records a target FAILED when its mutation returns a real userError", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValueOnce(chain(undefined));
+    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
     dbMock.update.mockReturnValueOnce(chain(undefined));
 
     const targetAdmin = {
@@ -182,7 +198,7 @@ describe("runSyncJob", () => {
 
   it("rolls up to SUCCEEDED, not FAILED, when a target's only outcome is TAKEN (already exists)", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValueOnce(chain(undefined));
+    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
     dbMock.update.mockReturnValueOnce(chain(undefined));
 
     const targetAdmin = {
@@ -223,7 +239,7 @@ describe("runSyncJob", () => {
       ],
     };
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValue(chain(undefined));
+    dbMock.insert.mockReturnValue(chain([{ id: "target-row" }]));
     dbMock.update.mockReturnValueOnce(chain(undefined));
 
     const succeedingAdmin = {
@@ -265,7 +281,7 @@ describe("runSyncJob", () => {
 
   it("also syncs selected metafield definitions", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValueOnce(chain(undefined));
+    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
     dbMock.update.mockReturnValueOnce(chain(undefined));
 
     const admin = {
@@ -335,7 +351,7 @@ describe("getJobHistory", () => {
 
     expect(dbMock.query.syncJobs.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        with: { targets: { with: { store: true } } },
+        with: { targets: { with: { store: true, items: true } } },
       }),
     );
     expect(history).toEqual([{ id: "job-1" }]);

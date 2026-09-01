@@ -35,6 +35,12 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Lint
         run: pnpm run lint
+      # Regenerates app/types/* from the live Admin API schema (AGENTS.md
+      # §7 — every GraphQL operation should pass codegen). Not checked in
+      # (see .gitignore) since it fetches from shopify.dev each run,
+      # keeping it current with whatever API version .graphqlrc.ts pins.
+      - name: GraphQL codegen
+        run: pnpm --filter storebridge run graphql-codegen
       - name: Typecheck
         run: pnpm run typecheck
       - name: Test

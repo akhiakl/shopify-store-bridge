@@ -1,23 +1,25 @@
+import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * A minimal stand-in for Drizzle's fluent query builders
  * (`db.insert(...).values(...).returning()`,
- * `db.update(...).set(...).where(...)`) — each chain method returns the
- * same mock object so calls can keep chaining, and the terminal method
- * resolves to `result` (awaiting a non-terminal call, e.g. a bare
- * `await db.insert(t).values(v)` with no `.returning()`, just resolves to
- * the chain object itself, which is fine since prod code never inspects
- * that case's resolved value).
+ * `db.update(...).set(...).where(...).returning()`) — every chain method
+ * returns the same mock object so calls can keep chaining (e.g. `.where()`
+ * followed by `.returning()`), and the object is itself thenable so a bare
+ * `await db.update(t).set(v).where(...)` with no `.returning()` resolves
+ * directly to `result` too, matching how Drizzle's real query builders
+ * work (chainable AND awaitable at any point in the chain).
  */
 function chain(result: unknown) {
-  const obj: Record<string, ReturnType<typeof vi.fn>> = {};
+  const obj: Record<string, unknown> = {};
   obj.values = vi.fn(() => obj);
   obj.onConflictDoUpdate = vi.fn(() => obj);
   obj.set = vi.fn(() => obj);
-  obj.where = vi.fn(() => Promise.resolve(result));
+  obj.where = vi.fn(() => obj);
   obj.returning = vi.fn(() => Promise.resolve(result));
-  return obj;
+  obj.then = (resolve: (value: unknown) => void) => resolve(result);
+  return obj as Record<string, ReturnType<typeof vi.fn>>;
 }
 
 const { dbMock } = vi.hoisted(() => ({
@@ -40,6 +42,7 @@ const {
   getPendingRequestByToken,
   approvePairingRequest,
   declinePairingRequest,
+  regeneratePairingRequest,
 } = await import("./pairing.server");
 const { stores, syncGroups, syncGroupTargets } =
   await import("~/db/schema.server");
@@ -361,6 +364,112 @@ describe("declinePairingRequest", () => {
       respondedAt: expect.any(Date),
       authTokenHash: null,
       authTokenExpiresAt: null,
+    });
+  });
+});
+
+describe("regeneratePairingRequest", () => {
+  it("errors when the request doesn't exist", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
+
+    const result = await regeneratePairingRequest({
+      targetId: "missing",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({ ok: false, error: "Pairing request not found." });
+  });
+
+  it("errors when the caller isn't the source store", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      id: "target-1",
+      status: "PENDING",
+      store: { shop: TARGET_SHOP },
+      group: { source: { shop: "someone-else.myshopify.com" } },
+    });
+
+    const result = await regeneratePairingRequest({
+      targetId: "target-1",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({ ok: false, error: "Pairing request not found." });
+  });
+
+  it("errors when the request was already responded to", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      id: "target-1",
+      status: "APPROVED",
+      store: { shop: TARGET_SHOP },
+      group: { source: { shop: SOURCE_SHOP } },
+    });
+
+    const result = await regeneratePairingRequest({
+      targetId: "target-1",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "This request was already responded to.",
+    });
+  });
+
+  it("issues a fresh token for a pending request from the source store", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      id: "target-1",
+      status: "PENDING",
+      store: { shop: TARGET_SHOP },
+      group: { source: { shop: SOURCE_SHOP } },
+    });
+    const updateChain = chain([{ id: "target-1" }]);
+    dbMock.update.mockReturnValueOnce(updateChain);
+
+    const result = await regeneratePairingRequest({
+      targetId: "target-1",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      authToken: expect.any(String),
+      targetShop: TARGET_SHOP,
+    });
+    expect(dbMock.update).toHaveBeenCalledWith(syncGroupTargets);
+    expect(updateChain.set).toHaveBeenCalledWith({
+      authTokenHash: expect.any(String),
+      authTokenExpiresAt: expect.any(Date),
+    });
+    expect(updateChain.where).toHaveBeenCalledWith(
+      and(
+        eq(syncGroupTargets.id, "target-1"),
+        eq(syncGroupTargets.status, "PENDING"),
+      ),
+    );
+  });
+
+  it("errors instead of reintroducing a token when the request was responded to between the read and the write", async () => {
+    // The read sees PENDING, but the guarded update matches nothing —
+    // e.g. a concurrent approve/decline landed in between. Regressing
+    // this to an unguarded `.where(eq(id, targetId))` would silently
+    // reintroduce a token on a request that's no longer PENDING instead
+    // of erroring here.
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      id: "target-1",
+      status: "PENDING",
+      store: { shop: TARGET_SHOP },
+      group: { source: { shop: SOURCE_SHOP } },
+    });
+    dbMock.update.mockReturnValueOnce(chain([]));
+
+    const result = await regeneratePairingRequest({
+      targetId: "target-1",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "This request was already responded to.",
     });
   });
 });

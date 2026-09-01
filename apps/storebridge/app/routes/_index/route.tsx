@@ -21,9 +21,10 @@ export default function App() {
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
+        <h1 className={styles.heading}>StoreBridge</h1>
         <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
+          Pair Shopify stores and keep their metaobject and metafield
+          definitions in sync.
         </p>
         {showForm && (
           <Form className={styles.form} method="post" action="/auth/login">
@@ -39,16 +40,19 @@ export default function App() {
         )}
         <ul className={styles.list}>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Store pairing</strong>. Connect a source store to one or
+            more target stores, with each pairing approved from the target side
+            before anything syncs.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Definition sync</strong>. Push metaobject and metafield
+            definitions — and SHOP-level metafield values — from a source store
+            to its approved targets with one click.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Job history</strong>. See exactly what synced, what was
+            skipped as already existing, and what failed, per target and per
+            item.
           </li>
         </ul>
       </div>

@@ -2,7 +2,11 @@ import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 import { desc, eq } from "drizzle-orm";
 
 import db from "~/db.server";
-import { syncJobs, syncJobTargets } from "~/db/schema.server";
+import {
+  syncJobItems,
+  syncJobs,
+  syncJobTargets,
+} from "~/db/syncJobsSchema.server";
 import { unauthenticated } from "~/shopify.server";
 
 import { getDefinitionCatalog, type getOwnedGroup } from "./definitions.server";
@@ -98,22 +102,25 @@ export async function runSyncJob({
       const { admin: targetAdmin } = await unauthenticated.admin(
         target.store.shop,
       );
-      const { itemsSynced, itemsSkipped, itemsFailed } = await syncToTarget({
+      const { tallies, items } = await syncToTarget({
         sourceAdmin,
         targetAdmin,
         metaobjectDefinitions,
         metafieldDefinitions,
       });
-      const status = itemsFailed === 0 ? "SUCCEEDED" : "FAILED";
+      const status = tallies.itemsFailed === 0 ? "SUCCEEDED" : "FAILED";
       targetStatuses.push(status);
-      await db.insert(syncJobTargets).values({
-        jobId: job.id,
-        storeId: target.storeId,
-        status,
-        itemsSynced,
-        itemsSkipped,
-        itemsFailed,
-      });
+      const [jobTarget] = await db
+        .insert(syncJobTargets)
+        .values({ jobId: job.id, storeId: target.storeId, status, ...tallies })
+        .returning();
+      if (items.length > 0) {
+        await db
+          .insert(syncJobItems)
+          .values(
+            items.map((item) => ({ jobTargetId: jobTarget.id, ...item })),
+          );
+      }
     } catch (error) {
       targetStatuses.push("FAILED");
       await db.insert(syncJobTargets).values({
@@ -146,7 +153,7 @@ export async function runSyncJob({
 export async function getJobHistory(groupId: string) {
   return db.query.syncJobs.findMany({
     where: eq(syncJobs.groupId, groupId),
-    with: { targets: { with: { store: true } } },
+    with: { targets: { with: { store: true, items: true } } },
     orderBy: [desc(syncJobs.startedAt)],
     limit: 20,
   });
