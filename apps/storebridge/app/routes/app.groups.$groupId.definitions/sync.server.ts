@@ -95,6 +95,18 @@ export async function runSyncJob({
   const { metaobjectDefinitions, metafieldDefinitions } =
     await resolveSelectedDefinitions(sourceAdmin, parsed);
 
+  // None of the submitted selection keys matched anything in the source's
+  // current catalog (stale UI, or a forged post) — syncToTarget would do
+  // zero work per target and still report SUCCEEDED, making job history
+  // misleading. Fail the job outright instead of running a no-op sync.
+  if (metaobjectDefinitions.length === 0 && metafieldDefinitions.length === 0) {
+    await db
+      .update(syncJobs)
+      .set({ status: "FAILED", finishedAt: new Date() })
+      .where(eq(syncJobs.id, job.id));
+    return { id: job.id, status: "FAILED" as const };
+  }
+
   const targetStatuses: ("SUCCEEDED" | "FAILED" | "SKIPPED")[] = [];
 
   for (const target of approvedTargets) {
