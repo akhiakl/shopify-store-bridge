@@ -301,6 +301,61 @@ describe("syncToTarget", () => {
     ).toBe(true);
   });
 
+  it("records a failed VALUE item when reading the source value errors, not skipped", async () => {
+    const sourceAdmin = {
+      graphql: vi.fn(() =>
+        Promise.resolve(
+          jsonResponse(null, [
+            { message: "Access denied for shop metafield reads" },
+          ]),
+        ),
+      ),
+    };
+    const targetAdmin = {
+      graphql: vi.fn((query: string) => {
+        if (query.includes("MetafieldDefinitionCreate")) {
+          return Promise.resolve(
+            jsonResponse({
+              metafieldDefinitionCreate: {
+                createdDefinition: { id: "gid://1" },
+                userErrors: [],
+              },
+            }),
+          );
+        }
+        return Promise.resolve(
+          jsonResponse({ shop: { id: "gid://shopify/Shop/1" } }),
+        );
+      }),
+    };
+
+    const result = await syncToTarget({
+      sourceAdmin: sourceAdmin as never,
+      targetAdmin: targetAdmin as never,
+      metaobjectDefinitions: [],
+      metafieldDefinitions: [shopMetafieldDef],
+    });
+
+    const key = "metafield:SHOP:custom:support_email";
+    expect(result.items).toEqual([
+      { key, kind: "DEFINITION", status: "SUCCEEDED", errorMessage: null },
+      {
+        key,
+        kind: "VALUE",
+        status: "FAILED",
+        errorMessage: "Access denied for shop metafield reads",
+      },
+    ]);
+    expect(result.tallies).toEqual({
+      itemsSynced: 1,
+      itemsSkipped: 0,
+      itemsFailed: 1,
+    });
+    expect(
+      targetAdmin.graphql.mock.calls.some(([q]) => q.includes("MetafieldsSet")),
+    ).toBe(false);
+  });
+
   it("skips the value copy when the source has no value set", async () => {
     const sourceAdmin = {
       graphql: vi.fn(() =>

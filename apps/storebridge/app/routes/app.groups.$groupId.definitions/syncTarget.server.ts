@@ -4,72 +4,32 @@ import type {
   MetafieldDefinitionRow,
   MetaobjectDefinitionRow,
 } from "./definitions.server";
-
-/**
- * Mutation shapes confirmed via Shopify's Admin GraphQL schema
- * (`graphql_schema` on `MetaobjectDefinitionCreateInput` /
- * `MetafieldDefinitionInput`) and `search_docs_chunks` for required scopes:
- * `write_metaobject_definitions` for the metaobject mutation (confirmed);
- * metafield definitions need the write scope matching their owner type
- * (e.g. `write_products`) — same "confirm per owner type as it's actually
- * used" stance `definitions.server.ts` already takes for the read side.
- */
-const METAOBJECT_DEFINITION_CREATE_MUTATION = `#graphql
-  mutation MetaobjectDefinitionCreate($definition: MetaobjectDefinitionCreateInput!) {
-    metaobjectDefinitionCreate(definition: $definition) {
-      metaobjectDefinition { id }
-      userErrors { field message code }
-    }
-  }
-`;
-
-const METAFIELD_DEFINITION_CREATE_MUTATION = `#graphql
-  mutation MetafieldDefinitionCreate($definition: MetafieldDefinitionInput!) {
-    metafieldDefinitionCreate(definition: $definition) {
-      createdDefinition { id }
-      userErrors { field message code }
-    }
-  }
-`;
-
-/**
- * Shop metafield value sync: once a SHOP-owned metafield definition exists
- * on a target (created or already there), also copy its current value —
- * there's exactly one Shop per store, so unlike Product/Customer/Order
- * metafields there's no cross-store record to match up first. Confirmed
- * via schema: `Shop.metafield(namespace, key)`, `MetafieldsSetInput`/
- * `MetafieldsSetPayload`. `metafieldsSet` is itself an upsert — no
- * `TAKEN`-style duplicate error exists for it, so it needs no idempotency
- * handling of its own.
- */
-const SHOP_METAFIELD_VALUE_QUERY = `#graphql
-  query ShopMetafieldValue($namespace: String!, $key: String!) {
-    shop {
-      metafield(namespace: $namespace, key: $key) {
-        value
-        type
-      }
-    }
-  }
-`;
-
-const SHOP_ID_QUERY = `#graphql
-  query ShopId {
-    shop { id }
-  }
-`;
-
-const METAFIELDS_SET_MUTATION = `#graphql
-  mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
-    metafieldsSet(metafields: $metafields) {
-      metafields { id }
-      userErrors { field message code }
-    }
-  }
-`;
+import {
+  METAFIELD_DEFINITION_CREATE_MUTATION,
+  METAFIELDS_SET_MUTATION,
+  METAOBJECT_DEFINITION_CREATE_MUTATION,
+  SHOP_ID_QUERY,
+  SHOP_METAFIELD_VALUE_QUERY,
+} from "./syncQueries.server";
 
 type CreateResult =
   { ok: true; skipped?: boolean } | { ok: false; error: string };
+
+/** Top-level GraphQL `errors` (a bad query, a missing scope) joined into one
+ * message, or `undefined` when the response carried none. Shared by every
+ * caller below that reads a raw `admin.graphql(...).then(r => r.json())`
+ * response — `admin.graphql`'s return type only declares `data` on the
+ * parsed body, but the runtime response can carry this too, so it's cast
+ * the same loose way `payload` in `createOne` is (this codebase doesn't
+ * have generated types wired into these hand-written calls yet — see
+ * shopify.app.toml's TODO on that). */
+function readTopLevelErrors(body: unknown): string | undefined {
+  const { errors } = body as { errors?: { message: string }[] };
+  if (!errors) return undefined;
+  return Array.isArray(errors)
+    ? errors.map((e: { message: string }) => e.message).join("; ")
+    : String(errors);
+}
 
 /** Runs one create mutation. A `TAKEN` userError code — confirmed via
  * `MetaobjectUserErrorCode`/`MetafieldDefinitionCreateUserErrorCode` — means
@@ -85,22 +45,12 @@ async function createOne(
   variables: Record<string, unknown>,
 ): Promise<CreateResult> {
   const response = await admin.graphql(query, { variables });
-  // `admin.graphql`'s return type only declares `data` on the parsed body,
-  // but the raw GraphQL response can carry a top-level `errors` array too
-  // (a bad query, a missing scope) — this codebase doesn't have generated
-  // types wired into these hand-written calls yet (see shopify.app.toml's
-  // TODO on that), so this is cast the same loose way `payload` below is.
-  const { data, errors } = (await response.json()) as {
-    data?: Record<string, unknown>;
-    errors?: { message: string }[];
-  };
-  if (errors) {
-    const messages = Array.isArray(errors)
-      ? errors.map((e: { message: string }) => e.message).join("; ")
-      : String(errors);
-    return { ok: false, error: messages };
+  const body = (await response.json()) as { data?: Record<string, unknown> };
+  const errorMessage = readTopLevelErrors(body);
+  if (errorMessage) {
+    return { ok: false, error: errorMessage };
   }
-  const payload = Object.values(data ?? {})[0] as
+  const payload = Object.values(body.data ?? {})[0] as
     { userErrors: { message: string; code?: string }[] } | undefined;
   if (!payload) {
     return { ok: false, error: "Shopify returned an unexpected response." };
@@ -114,7 +64,10 @@ async function createOne(
 }
 
 /** Copies one SHOP metafield's current value from source to target — a
- * no-op (not a failure) if the source has no value set yet for it. */
+ * no-op (not a failure) if the source has no value set yet for it. A
+ * top-level GraphQL error reading the source (missing scope, bad query) is
+ * a real failure, not "no value set" — reported the same way `createOne`
+ * reports one on the write side, rather than silently recording SKIPPED. */
 async function syncShopMetafieldValue({
   sourceAdmin,
   targetAdmin,
@@ -129,9 +82,14 @@ async function syncShopMetafieldValue({
   const sourceResponse = await sourceAdmin.graphql(SHOP_METAFIELD_VALUE_QUERY, {
     variables: { namespace: def.namespace, key: def.key },
   });
-  const { data: sourceData } = await sourceResponse.json();
-  const metafield = sourceData?.shop?.metafield as
-    { value: string; type: string } | null | undefined;
+  const sourceBody = (await sourceResponse.json()) as {
+    data?: { shop?: { metafield?: { value: string; type: string } | null } };
+  };
+  const errorMessage = readTopLevelErrors(sourceBody);
+  if (errorMessage) {
+    return { ok: false, error: errorMessage };
+  }
+  const metafield = sourceBody.data?.shop?.metafield;
   if (!metafield) return { ok: true, skipped: true };
 
   return createOne(targetAdmin, METAFIELDS_SET_MUTATION, {
