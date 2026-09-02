@@ -328,6 +328,23 @@ describe("runSyncJob", () => {
     expect(result.status).toBe("SUCCEEDED");
   });
 
+  it("fails the job when none of the selected keys resolve to a current definition", async () => {
+    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
+    dbMock.update.mockReturnValueOnce(chain(undefined));
+
+    const result = await runSyncJob({
+      group,
+      // Not in sourceAdminWithCatalog()'s catalog — a stale UI or forged
+      // post referencing a definition that no longer (or never did) exist.
+      selection: ["metaobject:no_longer_exists"],
+      sourceAdmin: sourceAdminWithCatalog(),
+    } as never);
+
+    expect(result).toEqual({ id: "job-1", status: "FAILED" });
+    // Never even tries to reach a target — nothing resolved to sync.
+    expect(unauthenticatedMock.admin).not.toHaveBeenCalled();
+  });
+
   it("succeeds trivially when the group has no approved targets", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
     dbMock.update.mockReturnValueOnce(chain(undefined));
