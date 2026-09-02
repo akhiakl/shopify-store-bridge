@@ -15,15 +15,27 @@ name: Deploy Shopify app config
 # Manual workflow_dispatch runs can still target either environment
 # on-demand, independent of the above.
 #
+# Both environments run `drizzle-kit migrate` as this job's first real step,
+# before either the Shopify app deploy or the Vercel deploy — a failed
+# migration fails the job and nothing downstream runs. This exists because
+# neither Vercel's build nor `shopify app deploy` ever ran migrations on
+# their own, so a schema change could ship code that reads a table/column
+# that was never actually created (see DEPLOYMENT.md).
+#
 # Requires:
 #   SHOPIFY_APP_AUTOMATION_TOKEN — Partner/Dev Dashboard app -> Automation
 #     tokens. The older SHOPIFY_CLI_PARTNERS_TOKEN is deprecated as of the
 #     CLI 4.x / May 2026 rollout — don't use it here.
-#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID — only needed for the
-#     production leg's Vercel deploy step. Vercel's own Git integration
-#     must have `main` removed from its auto-deploy-to-production branches
-#     (Project Settings -> Git) or it'll keep shipping production on every
-#     push there regardless of this workflow.
+#   DATABASE_URL, DIRECT_URL — the environment's Supabase connection
+#     strings, same ones used locally (see .env.example) — set per GitHub
+#     Environment (`staging` / `production`), not as a repo-wide secret,
+#     since the two environments must not share a database.
+#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID — needed on both
+#     environments now that this workflow deploys staging's Vercel Preview
+#     too, not just production. Vercel's own Git integration must have
+#     auto-deploy disabled for both `main` and `staging` (Project Settings
+#     -> Git) or it'll keep shipping deployments on every push there,
+#     ungated by the migration step above, regardless of this workflow.
 
 on:
   push:
@@ -83,6 +95,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Gate everything below on the schema actually matching what the code
+      # about to ship expects — a table/column the new code reads that a
+      # forgotten migration never created is exactly the class of bug this
+      # step exists to catch before it reaches a real deploy (see the
+      # `SyncJob` staging incident this was added after). `DIRECT_URL`/
+      # `DATABASE_URL` are per-environment secrets on the matching GitHub
+      # Environment (`staging` / `production`) — see DEPLOYMENT.md. A
+      # non-zero exit here fails the job and skips every later step,
+      # including both the Shopify app deploy and the Vercel deploy below.
+      - name: Run database migrations
+        working-directory: apps/storebridge
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: pnpm exec drizzle-kit migrate
+
       # Shopify CLI 4.x is required for SHOPIFY_APP_AUTOMATION_TOKEN support
       # and the --allow-updates flag. It's intentionally not a project
       # dependency (see AGENTS.md / Dockerfile) — install it fresh here.
@@ -138,17 +166,29 @@ jobs:
             --source-control-url "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}" \
             --allow-updates
 
-      # Production hosting only — staging's Vercel Preview deployment is
-      # already handled by Vercel's own Git integration on push to
-      # `staging` (see DEPLOYMENT.md), no separate step needed here.
-      - name: Deploy to Vercel (production)
-        if: needs.resolve-environment.outputs.environment == 'production'
+      # Both environments now deploy to Vercel from here, behind the
+      # migration gate above — staging no longer relies on Vercel's own
+      # Git integration to auto-deploy on push (that path deployed
+      # independently of whether migrations had run, which is exactly how
+      # the `SyncJob`-missing-table incident on staging happened). Vercel's
+      # automatic Git deployment for the `staging` branch must be disabled
+      # in the Vercel project's Git settings — see DEPLOYMENT.md — or this
+      # step and that integration will double-deploy on every push.
+      - name: Deploy to Vercel
         working-directory: apps/storebridge
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
-          npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
-          npx --yes vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          ENV="${{ needs.resolve-environment.outputs.environment }}"
+          if [ "$ENV" = "production" ]; then
+            VERCEL_ENV=production
+            PROD_FLAG=--prod
+          else
+            VERCEL_ENV=preview
+            PROD_FLAG=
+          fi
+          npx --yes vercel@latest pull --yes --environment="$VERCEL_ENV" --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest build $PROD_FLAG --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest deploy --prebuilt $PROD_FLAG --token="$VERCEL_TOKEN"
