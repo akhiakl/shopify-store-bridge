@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "build": "react-router build",
+    "vercel-build": "drizzle-kit migrate && react-router build",
     "dev": "shopify app dev --config staging",
     "config:link": "shopify app config link",
     "config:link:staging": "shopify app config link --config staging",

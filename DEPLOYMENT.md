@@ -10,10 +10,13 @@ StoreBridge runs two environments, each backed by its own Shopify app registrati
 **Both environments now deploy exclusively through `deploy.yml`** — neither relies on
 Vercel's own Git integration to auto-deploy on push anymore. That integration deployed
 independently of whether database migrations had actually run, which is how a schema change
-once shipped code against a table that was never created on staging (see §3's migration
-step). `deploy.yml` runs `drizzle-kit migrate` as its first real step, before either the
-Shopify app deploy or the Vercel deploy — a failed migration fails the job and nothing
-downstream runs.
+once shipped code against a table that was never created on staging (see §3). Database
+migrations run _inside_ the Vercel build itself — `apps/storebridge/package.json`'s
+`vercel-build` script runs `drizzle-kit migrate` before `react-router build`, and Vercel's
+build convention picks that script up automatically instead of the plain `build` one. A
+failed migration fails the build, so nothing gets deployed. The Shopify app config deploy is
+decoupled from this: it never touches the database, so `deploy.yml` runs it unconditionally
+rather than gating it on the Vercel build's success.
 
 **Merging a PR to `main` does not deploy anything by itself** — deliberately. Staging is
 continuous (every push to the `staging` branch ships immediately, that's the point of having
@@ -69,9 +72,9 @@ env var, so local dev and the Docker/`react-router-serve` path are unaffected.
    Settings → Git → Production Branch) and for `staging` (Project Settings → Git → Ignored
    Build Step, set to always skip, or remove the Git connection's auto-deploy for that
    branch). Every deploy for both environments now goes through `deploy.yml`'s explicit
-   `vercel deploy` step instead, gated behind the migration step — leaving either branch on
-   Vercel's automatic path means it ships on every push regardless of whether migrations
-   succeeded, which defeats the whole point.
+   `vercel deploy` step instead — leaving either branch on Vercel's automatic path means it
+   ships on every push through a separately-triggered build, duplicating what `deploy.yml`
+   already does.
 3. Create a Vercel API token (Account Settings → Tokens) and add it as a `VERCEL_TOKEN`
    secret on **both** the `staging` and `production` GitHub Environments. Get
    `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` from Project Settings → General (or
@@ -87,26 +90,33 @@ env var, so local dev and the Docker/`react-router-serve` path are unaffected.
      `apps/storebridge/app/db/schema.server.ts`'s comment and `apps/storebridge/.env.example`).
      **Use a separate Supabase project (or at least a separate database) per environment** —
      staging and production must not share session storage.
+   - `DIRECT_URL` — the same database's non-pooled connection string. The `vercel-build`
+     script's `drizzle-kit migrate` step (see `drizzle.config.ts`) prefers this over
+     `DATABASE_URL` for running DDL, since some poolers reject schema changes in transaction
+     mode; falls back to `DATABASE_URL` if unset, but setting both avoids relying on that
+     fallback.
 5. Vercel Functions run on the Node.js runtime by default, which is what
    `@shopify/shopify-app-remix`'s (now `shopify-app-react-router`'s) Node adapter needs — no
    runtime config to change.
 
 ## 3. What's automated vs manual
 
-- **Automated, continuous**: staging — `drizzle-kit migrate`, `shopify app deploy --config
-staging`, and `vercel deploy` (Preview) all fire in that order on every push to the
-  `staging` branch, all in `.github/workflows/deploy.yml`. A failed migration stops the job
-  before either deploy runs.
-- **Automated, release-gated**: production — the same three steps (`drizzle-kit migrate`,
-  `shopify app deploy --config production`, `vercel deploy --prod`) fire on pushing a `v*`
-  tag, or manually via `workflow_dispatch`. **Not** on merging to `main` — see the table
-  above.
+- **Automated, continuous**: staging — `shopify app deploy --config staging` and
+  `vercel deploy` (Preview) both fire on every push to the `staging` branch, in
+  `.github/workflows/deploy.yml`. The Vercel deploy's build runs `drizzle-kit migrate`
+  (via the `vercel-build` package.json script) before `react-router build` — a failed
+  migration fails the build, so nothing ships from that step. The Shopify app deploy is
+  independent of this and runs regardless, since it never touches the database.
+- **Automated, release-gated**: production — the same two deploys (`shopify app deploy
+--config production`, `vercel deploy --prod`, with the same migrate-then-build sequence
+  inside the latter) fire on pushing a `v*` tag, or manually via `workflow_dispatch`.
+  **Not** on merging to `main` — see the table above.
 - **Manual, one-time**: everything in steps 1–4 above (dashboard app creation, CLI linking,
   secrets, Vercel project setup, disabling Vercel's Git-integration auto-deploy for both
   branches) — none of it can be done from an unattended session since it requires
   interactive browser auth or dashboard clicks.
-- **`DATABASE_URL`/`DIRECT_URL` as GitHub Environment secrets**: `deploy.yml`'s migration
-  step needs these set on both the `staging` and `production` GitHub Environments (same
-  values as the matching Vercel project's env vars from step 2.4) — without them the
-  migration step fails closed and blocks the deploy, which is the point, but it means these
-  can't be skipped like they effectively were before this step existed.
+- **`DATABASE_URL`/`DIRECT_URL` as Vercel project environment variables**: these live on the
+  Vercel project (step 2.4/2.5 above), set per Vercel environment (Production vs Preview),
+  not as GitHub Environment secrets — the build that runs migrations is `vercel build`
+  itself, so that's where they need to be visible. Missing/wrong values fail the Vercel
+  build closed, which is the point.
