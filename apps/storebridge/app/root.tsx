@@ -1,4 +1,5 @@
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { Analytics } from "@vercel/analytics/react";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Outlet />
         <ScrollRestoration />
         <Scripts />
+        <Analytics />
       </body>
     </html>
   );
