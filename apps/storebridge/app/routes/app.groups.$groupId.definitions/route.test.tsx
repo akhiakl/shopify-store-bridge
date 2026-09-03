@@ -22,6 +22,9 @@ const { getJobHistory, runSyncJob } = vi.hoisted(() => ({
 }));
 vi.mock("./sync.server", () => ({ getJobHistory, runSyncJob }));
 
+const { runStatusCheck } = vi.hoisted(() => ({ runStatusCheck: vi.fn() }));
+vi.mock("./syncStatus.server", () => ({ runStatusCheck }));
+
 const { loader, action } = await import("./route");
 
 beforeEach(() => {
@@ -177,6 +180,29 @@ describe("app.groups.$groupId.definitions action", () => {
       action(formDataRequest([["selection", "metaobject:size_chart"]])),
     ).rejects.toMatchObject({ init: { status: 400 } });
 
+    expect(runSyncJob).not.toHaveBeenCalled();
+  });
+
+  it("runs a live status check for the checkStatus intent", async () => {
+    getOwnedGroup.mockResolvedValue(approvedGroup);
+    const statuses = {
+      "metaobject:size_chart": {
+        inSyncCount: 1,
+        totalTargets: 1,
+        perTarget: [
+          { targetId: "t1", shop: "target.myshopify.com", status: "IN_SYNC" },
+        ],
+      },
+    };
+    runStatusCheck.mockResolvedValue(statuses);
+
+    const result = await action(formDataRequest([["intent", "checkStatus"]]));
+
+    expect(runStatusCheck).toHaveBeenCalledWith({
+      group: approvedGroup,
+      sourceAdmin: admin,
+    });
+    expect(result).toEqual({ ok: true, statuses });
     expect(runSyncJob).not.toHaveBeenCalled();
   });
 });

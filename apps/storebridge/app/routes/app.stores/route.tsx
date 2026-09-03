@@ -2,13 +2,13 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 
 import { authenticate } from "~/shopify.server";
+import { getDashboardData } from "~/utils/dashboard.server";
 import { ConnectStoreForm } from "./components/ConnectStoreForm";
 import { IncomingRequestsList } from "./components/IncomingRequestsList";
 import { MembershipsList } from "./components/MembershipsList";
 import { OwnedGroupsList } from "./components/OwnedGroupsList";
 import {
   declinePairingRequest,
-  getDashboardData,
   regeneratePairingRequest,
   requestPairing,
 } from "./pairing.server";

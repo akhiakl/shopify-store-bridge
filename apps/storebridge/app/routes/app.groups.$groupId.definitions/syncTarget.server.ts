@@ -5,6 +5,10 @@ import type {
   MetaobjectDefinitionRow,
 } from "./definitions.server";
 import {
+  metafieldDefinitionKey,
+  metaobjectDefinitionKey,
+} from "./definitionKey";
+import {
   METAFIELD_DEFINITION_CREATE_MUTATION,
   METAFIELDS_SET_MUTATION,
   METAOBJECT_DEFINITION_CREATE_MUTATION,
@@ -115,20 +119,13 @@ export interface SyncTally {
  * as a `SyncJobItem` row by runSyncJob, so job history can show which
  * item failed, not just how many. `key` reuses the same
  * `metaobject:<type>` / `metafield:<ownerType>:<namespace>:<key>` format
- * the checkbox UI and sync.server.ts's parseSelection already use. */
+ * the checkbox UI and sync.server.ts's parseSelection already use (see
+ * definitionKey.ts). */
 export interface SyncItemResult {
   key: string;
   kind: "DEFINITION" | "VALUE";
   status: "SUCCEEDED" | "SKIPPED" | "FAILED";
   errorMessage: string | null;
-}
-
-function metaobjectKey(def: MetaobjectDefinitionRow): string {
-  return `metaobject:${def.type}`;
-}
-
-function metafieldKey(def: MetafieldDefinitionRow): string {
-  return `metafield:${def.ownerType}:${def.namespace}:${def.key}`;
 }
 
 function tally({
@@ -209,7 +206,7 @@ export async function syncToTarget({
     tally({
       tallies,
       items,
-      key: metaobjectKey(def),
+      key: metaobjectDefinitionKey(def),
       kind: "DEFINITION",
       result,
     });
@@ -221,7 +218,7 @@ export async function syncToTarget({
   const targetShopId = await resolveTargetShopId(targetAdmin, shopOwnedDefs);
 
   for (const def of metafieldDefinitions) {
-    const key = metafieldKey(def);
+    const key = metafieldDefinitionKey(def);
     const result = await createOne(
       targetAdmin,
       METAFIELD_DEFINITION_CREATE_MUTATION,

@@ -11,19 +11,18 @@ vi.mock("~/shopify.server", () => ({
   authenticate: { admin: authenticateAdmin },
 }));
 
-const {
-  getDashboardData,
-  requestPairing,
-  declinePairingRequest,
-  regeneratePairingRequest,
-} = vi.hoisted(() => ({
+const { getDashboardData } = vi.hoisted(() => ({
   getDashboardData: vi.fn(),
-  requestPairing: vi.fn(),
-  declinePairingRequest: vi.fn(),
-  regeneratePairingRequest: vi.fn(),
 }));
+vi.mock("~/utils/dashboard.server", () => ({ getDashboardData }));
+
+const { requestPairing, declinePairingRequest, regeneratePairingRequest } =
+  vi.hoisted(() => ({
+    requestPairing: vi.fn(),
+    declinePairingRequest: vi.fn(),
+    regeneratePairingRequest: vi.fn(),
+  }));
 vi.mock("./pairing.server", () => ({
-  getDashboardData,
   requestPairing,
   declinePairingRequest,
   regeneratePairingRequest,

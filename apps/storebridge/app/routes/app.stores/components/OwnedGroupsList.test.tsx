@@ -3,7 +3,8 @@ import { createRoutesStub } from "react-router";
 import type { ActionFunction } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
-import type { DashboardData } from "../pairing.server";
+import type { DashboardData } from "~/utils/dashboard.server";
+
 import { OwnedGroupsList } from "./OwnedGroupsList";
 
 const baseStore = {
@@ -65,10 +66,43 @@ describe("OwnedGroupsList", () => {
     const badge = document.querySelector("s-badge");
     expect(badge).toHaveAttribute("tone", "warning");
     expect(badge).toHaveTextContent("PENDING");
-    expect(screen.getByText("Sync definitions")).toHaveAttribute(
+    expect(screen.getByText("View")).toHaveAttribute(
       "href",
       "/app/groups/group-1/definitions",
     );
+  });
+
+  it('collapses target lists longer than 3 to "and N more"', () => {
+    const groups: DashboardData["ownedGroups"] = [
+      {
+        id: "group-1",
+        name: "EU stores",
+        sourceId: "source-1",
+        createdAt: new Date(),
+        targets: Array.from({ length: 5 }, (_, i) => ({
+          id: `target-${i}`,
+          groupId: "group-1",
+          storeId: `store-${i}`,
+          status: "APPROVED" as const,
+          requestedAt: new Date(),
+          respondedAt: new Date(),
+          authTokenHash: null,
+          authTokenExpiresAt: null,
+          store: {
+            ...baseStore,
+            id: `store-${i}`,
+            shop: `store-${i}.myshopify.com`,
+          },
+        })),
+      },
+    ];
+
+    renderAtRoute(groups);
+
+    expect(screen.getByText("store-0.myshopify.com")).toBeInTheDocument();
+    expect(screen.getByText("store-2.myshopify.com")).toBeInTheDocument();
+    expect(screen.queryByText("store-3.myshopify.com")).not.toBeInTheDocument();
+    expect(screen.getByText("and 2 more")).toBeInTheDocument();
   });
 
   it("shows a placeholder when a group has no targets yet", () => {
@@ -133,8 +167,10 @@ describe("OwnedGroupsList", () => {
 
     renderAtRoute(groups, action);
 
-    const buttons = document.querySelectorAll("s-button");
-    expect(buttons).toHaveLength(1);
+    // The "View" button (no submit type) plus one "Resend link" submit
+    // button — only the PENDING target gets one.
+    const submitButtons = document.querySelectorAll('s-button[type="submit"]');
+    expect(submitButtons).toHaveLength(1);
 
     fireEvent.submit(document.querySelector("form") as HTMLFormElement);
 
