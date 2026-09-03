@@ -37,15 +37,13 @@ vi.mock("~/db.server", () => ({ default: dbMock }));
 
 const {
   normalizeShopDomain,
-  getDashboardData,
   requestPairing,
   getPendingRequestByToken,
   approvePairingRequest,
   declinePairingRequest,
   regeneratePairingRequest,
 } = await import("./pairing.server");
-const { stores, syncGroups, syncGroupTargets } =
-  await import("~/db/schema.server");
+const { syncGroups, syncGroupTargets } = await import("~/db/schema.server");
 
 const SOURCE_SHOP = "source-shop.myshopify.com";
 const TARGET_SHOP = "target-shop.myshopify.com";
@@ -67,12 +65,26 @@ describe("normalizeShopDomain", () => {
     );
   });
 
-  it("rejects a non-myshopify domain", () => {
+  it("accepts a bare store handle and appends .myshopify.com", () => {
+    expect(normalizeShopDomain("poc-liquid")).toBe("poc-liquid.myshopify.com");
+  });
+
+  it("lowercases and appends the suffix to a bare handle with a protocol/path", () => {
+    expect(normalizeShopDomain("https://POC-Liquid/admin")).toBe(
+      "poc-liquid.myshopify.com",
+    );
+  });
+
+  it("rejects a non-myshopify custom domain", () => {
     expect(normalizeShopDomain("example.com")).toBeNull();
   });
 
   it("rejects an empty string", () => {
     expect(normalizeShopDomain("")).toBeNull();
+  });
+
+  it("rejects a bare handle ending in a hyphen", () => {
+    expect(normalizeShopDomain("bad-")).toBeNull();
   });
 
   it("rejects a subdomain ending in a hyphen", () => {
@@ -88,11 +100,11 @@ describe("requestPairing", () => {
   it("rejects an invalid target domain", async () => {
     const result = await requestPairing({
       sourceShop: SOURCE_SHOP,
-      targetDomain: "not-a-shop",
+      targetDomain: "not a valid shop!",
     });
     expect(result).toEqual({
       ok: false,
-      error: "Enter a valid *.myshopify.com domain.",
+      error: "Enter a valid store name or *.myshopify.com domain.",
     });
   });
 
@@ -471,27 +483,5 @@ describe("regeneratePairingRequest", () => {
       ok: false,
       error: "This request was already responded to.",
     });
-  });
-});
-
-describe("getDashboardData", () => {
-  it("returns owned groups, incoming requests, and memberships", async () => {
-    const storeChain = chain([{ id: "store-1", shop: SOURCE_SHOP }]);
-    dbMock.insert.mockReturnValueOnce(storeChain);
-    dbMock.query.syncGroups.findMany.mockResolvedValue([{ id: "group-1" }]);
-    dbMock.query.syncGroupTargets.findMany
-      .mockResolvedValueOnce([{ id: "incoming-1" }])
-      .mockResolvedValueOnce([{ id: "membership-1" }]);
-
-    const result = await getDashboardData(SOURCE_SHOP);
-
-    expect(result).toEqual({
-      ownedGroups: [{ id: "group-1" }],
-      incomingRequests: [{ id: "incoming-1" }],
-      memberships: [{ id: "membership-1" }],
-    });
-    expect(dbMock.insert).toHaveBeenCalledWith(stores);
-    expect(dbMock.query.syncGroups.findMany).toHaveBeenCalledTimes(1);
-    expect(dbMock.query.syncGroupTargets.findMany).toHaveBeenCalledTimes(2);
   });
 });

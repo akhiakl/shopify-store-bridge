@@ -1,4 +1,4 @@
-import type { DashboardData } from "../pairing.server";
+import type { DashboardData } from "~/utils/dashboard.server";
 
 interface MembershipsListProps {
   memberships: DashboardData["memberships"];

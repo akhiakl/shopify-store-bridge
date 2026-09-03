@@ -1,6 +1,6 @@
 import { useFetcher } from "react-router";
 
-import type { DashboardData } from "../pairing.server";
+import type { DashboardData } from "~/utils/dashboard.server";
 
 interface OwnedGroupsListProps {
   groups: DashboardData["ownedGroups"];
@@ -12,6 +12,10 @@ const STATUS_TONE = {
   DECLINED: "critical",
 } as const;
 
+/** Inline target-shop count before the row collapses to "and N more" — a
+ * group with many targets shouldn't blow out its row height. */
+const INLINE_TARGET_LIMIT = 3;
+
 /** Sync groups the current store owns as a source, with each target's status. */
 export function OwnedGroupsList({ groups }: OwnedGroupsListProps) {
   if (groups.length === 0) {
@@ -22,25 +26,43 @@ export function OwnedGroupsList({ groups }: OwnedGroupsListProps) {
 
   return (
     <s-stack gap="base">
-      {groups.map((group) => (
-        <s-box key={group.id} padding="base" border="base" borderRadius="base">
-          <s-stack gap="small-100">
-            <s-stack direction="inline" gap="small-100" alignItems="center">
-              <s-heading>{group.name || "Untitled group"}</s-heading>
-              <s-link href={`/app/groups/${group.id}/definitions`}>
-                Sync definitions
-              </s-link>
+      {groups.map((group) => {
+        const visibleTargets = group.targets.slice(0, INLINE_TARGET_LIMIT);
+        const remaining = group.targets.length - visibleTargets.length;
+        return (
+          <s-box
+            key={group.id}
+            padding="base"
+            border="base"
+            borderRadius="base"
+          >
+            <s-stack gap="small-100">
+              <s-stack direction="inline" gap="small-100" alignItems="center">
+                <s-heading>{group.name || "Untitled group"}</s-heading>
+                {/* `href` confirmed against @shopify/polaris-types'
+                    custom-elements.json — a documented s-button attribute,
+                    not previously used elsewhere in this codebase (which
+                    only passes type="submit"). */}
+                <s-button href={`/app/groups/${group.id}/definitions`}>
+                  View
+                </s-button>
+              </s-stack>
+              {group.targets.length === 0 ? (
+                <s-paragraph>No target stores invited yet.</s-paragraph>
+              ) : (
+                <>
+                  {visibleTargets.map((target) => (
+                    <TargetRow key={target.id} target={target} />
+                  ))}
+                  {remaining > 0 && (
+                    <s-paragraph>and {remaining} more</s-paragraph>
+                  )}
+                </>
+              )}
             </s-stack>
-            {group.targets.length === 0 ? (
-              <s-paragraph>No target stores invited yet.</s-paragraph>
-            ) : (
-              group.targets.map((target) => (
-                <TargetRow key={target.id} target={target} />
-              ))
-            )}
-          </s-stack>
-        </s-box>
-      ))}
+          </s-box>
+        );
+      })}
     </s-stack>
   );
 }
