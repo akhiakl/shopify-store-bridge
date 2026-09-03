@@ -1,3 +1,5 @@
+import { JOB_STATUS_TONE } from "~/utils/syncJobStatusTone";
+
 import type { getJobHistory } from "../sync.server";
 
 type JobHistory = Awaited<ReturnType<typeof getJobHistory>>;
@@ -5,13 +7,6 @@ type JobHistory = Awaited<ReturnType<typeof getJobHistory>>;
 interface JobHistoryListProps {
   jobs: JobHistory;
 }
-
-const JOB_STATUS_TONE = {
-  RUNNING: "info",
-  SUCCEEDED: "success",
-  FAILED: "critical",
-  PARTIAL: "warning",
-} as const;
 
 const TARGET_STATUS_TONE = {
   SUCCEEDED: "success",
