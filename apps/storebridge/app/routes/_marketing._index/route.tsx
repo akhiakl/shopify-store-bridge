@@ -50,13 +50,19 @@ export default function MarketingHome() {
                     className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
                     type="text"
                     name="shop"
+                    placeholder="my-shop-domain.myshopify.com"
+                    required
+                    aria-describedby="shop-domain-hint"
                   />
                   <button type="submit" className={cn(buttonVariants())}>
                     Log in
                   </button>
                 </div>
               </label>
-              <span className="mt-2 block text-xs text-neutral-500">
+              <span
+                id="shop-domain-hint"
+                className="mt-2 block text-xs text-neutral-500"
+              >
                 e.g: my-shop-domain.myshopify.com
               </span>
             </Form>
