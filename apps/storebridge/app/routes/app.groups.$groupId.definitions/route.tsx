@@ -1,11 +1,23 @@
 import { useState } from "react";
-import type { LoaderFunctionArgs } from "react-router";
-import { data, useLoaderData } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import { data, useFetcher, useLoaderData } from "react-router";
 
 import { authenticate } from "~/shopify.server";
+import { CheckStatusButton } from "./components/CheckStatusButton";
+import { JobHistoryList } from "./components/JobHistoryList";
 import { MetafieldDefinitionsSection } from "./components/MetafieldDefinitionsSection";
 import { MetaobjectDefinitionsSection } from "./components/MetaobjectDefinitionsSection";
+import { SyncButton } from "./components/SyncButton";
 import { getDefinitionCatalog, getOwnedGroup } from "./definitions.server";
+import { getJobHistory, runSyncJob } from "./sync.server";
+import {
+  runStatusCheck,
+  type DefinitionStatusSummary,
+} from "./syncStatus.server";
+
+export type StatusCheckResult =
+  | { ok: true; statuses: Record<string, DefinitionStatusSummary> }
+  | { ok: false; error: string };
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
@@ -16,14 +28,61 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     throw data("Sync group not found.", { status: 404 });
   }
 
-  const catalog = await getDefinitionCatalog(admin);
-  return { group, ...catalog };
+  const [catalog, jobs] = await Promise.all([
+    getDefinitionCatalog(admin),
+    getJobHistory(group.id),
+  ]);
+  return { group, jobs, ...catalog };
+};
+
+/** Handles the "sync" and "checkStatus" intents. `session.shop` (never
+ * form input) re-confirms group ownership via `getOwnedGroup`, same guard
+ * the loader already applies, since an action can be posted independently
+ * of the loader — resilient to an unexpected post, and keeps behavior
+ * consistent if more intents are added later. */
+export const action = async ({ request, params }: ActionFunctionArgs) => {
+  const { session, admin } = await authenticate.admin(request);
+  const groupId = params.groupId as string;
+
+  const group = await getOwnedGroup(groupId, session.shop);
+  if (!group) {
+    throw data("Sync group not found.", { status: 404 });
+  }
+
+  const formData = await request.formData();
+  const intent = formData.get("intent");
+
+  if (intent === "checkStatus") {
+    const statuses = await runStatusCheck({ group, sourceAdmin: admin });
+    return { ok: true, statuses } satisfies StatusCheckResult;
+  }
+
+  if (intent !== "sync") {
+    throw data("Unknown intent.", { status: 400 });
+  }
+  const selection = formData.getAll("selection").map(String);
+  if (selection.length === 0) {
+    return { ok: false, error: "Select at least one definition." } as const;
+  }
+  if (!group.targets.some((target) => target.status === "APPROVED")) {
+    return {
+      ok: false,
+      error: "This group has no approved target stores yet.",
+    } as const;
+  }
+
+  const job = await runSyncJob({ group, selection, sourceAdmin: admin });
+  return { ok: true, jobId: job.id, status: job.status } as const;
 };
 
 export default function GroupDefinitions() {
-  const { group, metafieldDefinitions, metaobjectDefinitions } =
+  const { group, jobs, metafieldDefinitions, metaobjectDefinitions } =
     useLoaderData<typeof loader>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const statusFetcher = useFetcher<StatusCheckResult>();
+  const approvedTargetCount = group.targets.filter(
+    (target) => target.status === "APPROVED",
+  ).length;
 
   const toggleKeys = (keys: string[], select: boolean) => {
     setSelected((current) => {
@@ -36,14 +95,33 @@ export default function GroupDefinitions() {
     });
   };
 
+  const statuses =
+    statusFetcher.data?.ok === true ? statusFetcher.data.statuses : undefined;
+
+  const selectOutOfDate = () => {
+    if (!statuses) return;
+    const keys = Object.entries(statuses)
+      .filter(([, summary]) => summary.inSyncCount < summary.totalTargets)
+      .map(([key]) => key);
+    toggleKeys(keys, true);
+  };
+
   return (
     <s-page heading={`Sync definitions — ${group.name || "Untitled group"}`}>
       <s-section heading="Source">
         <s-paragraph>
-          Browsing definitions on {group.source.shop}. Selected definitions will
-          be migrated to this group&apos;s approved target stores once migration
-          is available.
+          Browsing definitions on {group.source.shop}. Select definitions below
+          and sync them to this group&apos;s approved target stores.
         </s-paragraph>
+        <CheckStatusButton
+          fetcher={statusFetcher}
+          approvedTargetCount={approvedTargetCount}
+        />
+        {statuses && (
+          <s-button onClick={selectOutOfDate}>
+            Select what needs syncing
+          </s-button>
+        )}
       </s-section>
 
       <s-section heading="Metafield definitions">
@@ -51,6 +129,7 @@ export default function GroupDefinitions() {
           definitions={metafieldDefinitions}
           selected={selected}
           onToggle={toggleKeys}
+          statusByKey={statuses}
         />
       </s-section>
 
@@ -59,14 +138,19 @@ export default function GroupDefinitions() {
           definitions={metaobjectDefinitions}
           selected={selected}
           onToggle={toggleKeys}
+          statusByKey={statuses}
         />
       </s-section>
 
-      <s-section heading="Selection">
-        <s-paragraph>{selected.size} definition(s) selected.</s-paragraph>
-        <s-button disabled variant="primary">
-          Migrate selected (coming soon)
-        </s-button>
+      <s-section heading="Sync">
+        <SyncButton
+          selected={selected}
+          approvedTargetCount={approvedTargetCount}
+        />
+      </s-section>
+
+      <s-section heading="Job history">
+        <JobHistoryList jobs={jobs} />
       </s-section>
     </s-page>
   );

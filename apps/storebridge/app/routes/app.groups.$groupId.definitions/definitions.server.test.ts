@@ -81,7 +81,14 @@ describe("getDefinitionCatalog", () => {
                 id: "gid://shopify/MetaobjectDefinition/1",
                 type: "size_chart",
                 name: "Size chart",
-                fieldDefinitions: [{ name: "Label", key: "label" }],
+                fieldDefinitions: [
+                  {
+                    name: "Label",
+                    key: "label",
+                    required: true,
+                    type: { name: "single_line_text_field" },
+                  },
+                ],
               },
             ],
           },
@@ -111,6 +118,14 @@ describe("getDefinitionCatalog", () => {
         id: "gid://shopify/MetaobjectDefinition/1",
         type: "size_chart",
         name: "Size chart",
+        fieldDefinitions: [
+          {
+            name: "Label",
+            key: "label",
+            required: true,
+            type: "single_line_text_field",
+          },
+        ],
         fieldCount: 1,
       },
     ]);

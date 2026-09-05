@@ -1,13 +1,13 @@
+import { metaobjectDefinitionKey } from "../definitionKey";
 import type { MetaobjectDefinitionRow } from "../definitions.server";
+import type { DefinitionStatusSummary } from "../syncStatus.server";
+import { SyncStatusBadge } from "./SyncStatusBadge";
 
 interface MetaobjectDefinitionsSectionProps {
   definitions: MetaobjectDefinitionRow[];
   selected: Set<string>;
   onToggle: (keys: string[], select: boolean) => void;
-}
-
-function definitionKey(def: MetaobjectDefinitionRow): string {
-  return `metaobject:${def.type}`;
+  statusByKey?: Record<string, DefinitionStatusSummary>;
 }
 
 /**
@@ -19,12 +19,13 @@ export function MetaobjectDefinitionsSection({
   definitions,
   selected,
   onToggle,
+  statusByKey,
 }: MetaobjectDefinitionsSectionProps) {
   if (definitions.length === 0) {
     return <s-paragraph>No metaobject definitions found.</s-paragraph>;
   }
 
-  const keys = definitions.map(definitionKey);
+  const keys = definitions.map(metaobjectDefinitionKey);
   const selectedCount = keys.filter((key) => selected.has(key)).length;
 
   return (
@@ -36,15 +37,22 @@ export function MetaobjectDefinitionsSection({
         onChange={(e) => onToggle(keys, e.currentTarget.checked)}
       ></s-checkbox>
       {definitions.map((def) => {
-        const key = definitionKey(def);
+        const key = metaobjectDefinitionKey(def);
         return (
-          <s-checkbox
+          <s-stack
             key={key}
-            label={`${def.name} (${def.type})`}
-            details={`${def.fieldCount} field(s)`}
-            checked={selected.has(key)}
-            onChange={(e) => onToggle([key], e.currentTarget.checked)}
-          ></s-checkbox>
+            direction="inline"
+            gap="small-100"
+            alignItems="center"
+          >
+            <s-checkbox
+              label={`${def.name} (${def.type})`}
+              details={`${def.fieldCount} field(s)`}
+              checked={selected.has(key)}
+              onChange={(e) => onToggle([key], e.currentTarget.checked)}
+            ></s-checkbox>
+            <SyncStatusBadge summary={statusByKey?.[key]} />
+          </s-stack>
         );
       })}
     </s-stack>

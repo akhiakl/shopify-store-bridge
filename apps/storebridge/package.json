@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "build": "react-router build",
+    "vercel-build": "drizzle-kit migrate && react-router build",
     "dev": "shopify app dev --config staging",
     "config:link": "shopify app config link",
     "config:link:staging": "shopify app config link --config staging",
@@ -59,6 +60,7 @@
     "vite-tsconfig-paths": "^5.1.4"
   },
   "devDependencies": {
+    "@graphql-codegen/cli": "^5.0.7",
     "@playwright/test": "^1.62.1",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",

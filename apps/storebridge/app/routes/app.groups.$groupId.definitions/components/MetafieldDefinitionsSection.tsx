@@ -1,13 +1,13 @@
+import { metafieldDefinitionKey } from "../definitionKey";
 import type { MetafieldDefinitionRow } from "../definitions.server";
+import type { DefinitionStatusSummary } from "../syncStatus.server";
+import { SyncStatusBadge } from "./SyncStatusBadge";
 
 interface MetafieldDefinitionsSectionProps {
   definitions: MetafieldDefinitionRow[];
   selected: Set<string>;
   onToggle: (keys: string[], select: boolean) => void;
-}
-
-function definitionKey(def: MetafieldDefinitionRow): string {
-  return `metafield:${def.ownerType}:${def.namespace}:${def.key}`;
+  statusByKey?: Record<string, DefinitionStatusSummary>;
 }
 
 /** ownerType -> namespace -> definitions, so the UI can offer a "select all
@@ -28,6 +28,7 @@ export function MetafieldDefinitionsSection({
   definitions,
   selected,
   onToggle,
+  statusByKey,
 }: MetafieldDefinitionsSectionProps) {
   if (definitions.length === 0) {
     return <s-paragraph>No metafield definitions found.</s-paragraph>;
@@ -41,7 +42,7 @@ export function MetafieldDefinitionsSection({
         <s-stack key={ownerType} gap="small-100">
           <s-heading>{ownerType}</s-heading>
           {[...byNamespace.entries()].map(([namespace, rows]) => {
-            const keys = rows.map(definitionKey);
+            const keys = rows.map(metafieldDefinitionKey);
             const selectedCount = keys.filter((key) =>
               selected.has(key),
             ).length;
@@ -62,17 +63,24 @@ export function MetafieldDefinitionsSection({
                 ></s-checkbox>
                 <s-stack gap="small-100">
                   {rows.map((def) => {
-                    const key = definitionKey(def);
+                    const key = metafieldDefinitionKey(def);
                     return (
-                      <s-checkbox
+                      <s-stack
                         key={key}
-                        label={`${def.name} (${def.key})`}
-                        details={def.type}
-                        checked={selected.has(key)}
-                        onChange={(e) =>
-                          onToggle([key], e.currentTarget.checked)
-                        }
-                      ></s-checkbox>
+                        direction="inline"
+                        gap="small-100"
+                        alignItems="center"
+                      >
+                        <s-checkbox
+                          label={`${def.name} (${def.key})`}
+                          details={def.type}
+                          checked={selected.has(key)}
+                          onChange={(e) =>
+                            onToggle([key], e.currentTarget.checked)
+                          }
+                        ></s-checkbox>
+                        <SyncStatusBadge summary={statusByKey?.[key]} />
+                      </s-stack>
                     );
                   })}
                 </s-stack>

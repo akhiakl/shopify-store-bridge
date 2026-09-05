@@ -10,7 +10,7 @@ if (!migrationUrl) {
 }
 
 export default defineConfig({
-  schema: "./app/db/schema.server.ts",
+  schema: ["./app/db/schema.server.ts", "./app/db/syncJobsSchema.server.ts"],
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
