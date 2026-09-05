@@ -24,8 +24,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { topic, shop } = await authenticate.webhook(request);
   console.log(`Received ${topic} webhook for ${shop}`);
 
-  await db.delete(sessions).where(eq(sessions.shop, shop));
-  await db.delete(stores).where(eq(stores.shop, shop));
+  await db.transaction(async (tx) => {
+    await tx.delete(sessions).where(eq(sessions.shop, shop));
+    await tx.delete(stores).where(eq(stores.shop, shop));
+  });
 
   return new Response();
 };
