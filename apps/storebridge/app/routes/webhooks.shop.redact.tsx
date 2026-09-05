@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
-import { authenticate } from "../shopify.server";
-import db from "../db.server";
-import { sessions, stores } from "../db/schema.server";
+import db from "~/db.server";
+import { sessions, stores } from "~/db/schema.server";
+import { authenticate } from "~/shopify.server";
 
 /**
  * Mandatory compliance webhook (shop/redact) — required before public App
