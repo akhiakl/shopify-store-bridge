@@ -46,7 +46,9 @@ describe("marketing home page", () => {
         name: /store definitions, in sync/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText(/shop domain/i)).toBeInTheDocument();
+    // Required so an empty submit never leaves this page for the plain
+    // Polaris /auth/login error screen — see AGENTS.md UX conventions.
+    expect(screen.getByLabelText(/shop domain/i)).toBeRequired();
     expect(screen.getByText("Store pairing")).toBeInTheDocument();
     expect(screen.getByText("Definition sync")).toBeInTheDocument();
     expect(screen.getByText("Job history")).toBeInTheDocument();
