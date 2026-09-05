@@ -34,7 +34,8 @@ Use the official generator when one exists, then tune its output to match §5–
 
 - **One logical step per commit** — don't bundle unrelated changes.
 - **Conventional Commits**: `type(scope): subject` — `feat|fix|refactor|test|docs|chore|build|ci|perf`. Enforced by commitlint.
-- **No AI attribution.** Never add `Co-Authored-By: Claude`, "Generated with Claude Code," or similar. Commits read as the engineer's own.
+- **No AI attribution.** Never add `Co-Authored-By: Claude`, "Generated with Claude Code," or similar — in commits, PR descriptions, or PR/issue comments. Commits read as the engineer's own.
+- **Commit author**: `Akhil K <akhilk4k@gmail.com>` — set local `git config user.name`/`user.email` to this before committing if they aren't already (harness defaults are not this repo's identity).
 - Commit body explains _why_ when it isn't obvious from the diff.
 
 ## 5. Hard limits (enforced by tooling, not convention)

@@ -1,27 +1,32 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import db from "~/db.server";
-import {
-  sessions,
-  stores,
-  syncGroups,
-  syncGroupTargets,
-} from "~/db/schema.server";
+import { sessions, syncGroups, syncGroupTargets } from "~/db/schema.server";
+import { getOrCreateStore } from "~/utils/dashboard.server";
 
 import { generateAuthToken, hashAuthToken } from "./authToken.server";
 
 /**
- * Narrow, deliberately conservative shop-domain format check for the
- * "connect a store" input — *.myshopify.com only, not the broader set
- * Shopify itself accepts (custom/Plus domains). Widen later if needed;
- * this isn't Admin API surface, so it doesn't need Shopify Dev MCP
- * verification, just basic input sanitization.
+ * Shop-domain format check for the "connect a store" input. Accepts either
+ * a bare store handle (just the name, e.g. "poc-liquid" — the common case
+ * a merchant will actually type) or the full `*.myshopify.com` domain;
+ * a bare handle gets the suffix appended. Doesn't accept a custom domain:
+ * Shopify sessions are always keyed by the `*.myshopify.com` handle, never
+ * a custom domain, and this app has no way to resolve one to the other
+ * before a session exists for that shop (see `isShopInstalled` below) —
+ * accepting custom-domain input would just fail there every time, which
+ * is worse than not offering it. Not Admin API surface, so this doesn't
+ * need Shopify Dev MCP verification, just input sanitization.
  */
 export function normalizeShopDomain(input: string): string | null {
   const trimmed = input.trim().toLowerCase();
   const shop = trimmed.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
   // Labels can't start OR end with a hyphen (RFC 1035) - the trailing
   // alnum is required separately since a bare `*` would let "bad-" through.
+  const handlePattern = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+  if (handlePattern.test(shop)) {
+    return `${shop}.myshopify.com`;
+  }
   return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?\.myshopify\.com$/.test(shop)
     ? shop
     : null;
@@ -33,49 +38,6 @@ async function isShopInstalled(shop: string): Promise<boolean> {
     where: and(eq(sessions.shop, shop), eq(sessions.isOnline, false)),
   });
   return session !== undefined;
-}
-
-/** Upsert-by-shop — the update is a no-op (self-assign) purely to make the
- * insert return the existing row on conflict, mirroring Prisma's upsert. */
-async function getOrCreateStore(shop: string) {
-  const [store] = await db
-    .insert(stores)
-    .values({ shop })
-    .onConflictDoUpdate({ target: stores.shop, set: { shop } })
-    .returning();
-  return store;
-}
-
-export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;
-
-export async function getDashboardData(shop: string) {
-  const store = await getOrCreateStore(shop);
-
-  const [ownedGroups, incomingRequests, memberships] = await Promise.all([
-    db.query.syncGroups.findMany({
-      where: eq(syncGroups.sourceId, store.id),
-      with: { targets: { with: { store: true } } },
-      orderBy: [desc(syncGroups.createdAt)],
-    }),
-    db.query.syncGroupTargets.findMany({
-      where: and(
-        eq(syncGroupTargets.storeId, store.id),
-        eq(syncGroupTargets.status, "PENDING"),
-      ),
-      with: { group: { with: { source: true } } },
-      orderBy: [desc(syncGroupTargets.requestedAt)],
-    }),
-    db.query.syncGroupTargets.findMany({
-      where: and(
-        eq(syncGroupTargets.storeId, store.id),
-        inArray(syncGroupTargets.status, ["APPROVED", "DECLINED"]),
-      ),
-      with: { group: { with: { source: true } } },
-      orderBy: [desc(syncGroupTargets.respondedAt)],
-    }),
-  ]);
-
-  return { ownedGroups, incomingRequests, memberships };
 }
 
 type RequestPairingResult =
@@ -107,7 +69,10 @@ export async function requestPairing({
 }): Promise<RequestPairingResult> {
   const targetShop = normalizeShopDomain(targetDomain);
   if (!targetShop) {
-    return { ok: false, error: "Enter a valid *.myshopify.com domain." };
+    return {
+      ok: false,
+      error: "Enter a valid store name or *.myshopify.com domain.",
+    };
   }
   if (targetShop === sourceShop) {
     return { ok: false, error: "A store can't be paired with itself." };
@@ -264,4 +229,60 @@ export async function declinePairingRequest({
     })
     .where(eq(syncGroupTargets.id, targetId));
   return { ok: true };
+}
+
+/**
+ * Issues a fresh authorization token for a still-PENDING request whose
+ * original link expired (48h) or got lost — the alternative today is
+ * decline-and-reinvite, which loses the request's place if the source
+ * wanted to keep it. Source-authorized, not target-authorized (unlike
+ * declinePairingRequest): only the source decides to resend a link,
+ * since the source is who shares it out-of-band in the first place.
+ * `shop` must be the caller's session.shop, never form input.
+ */
+export async function regeneratePairingRequest({
+  targetId,
+  shop,
+}: {
+  targetId: string;
+  shop: string;
+}): Promise<
+  | { ok: true; authToken: string; targetShop: string }
+  | { ok: false; error: string }
+> {
+  const target = await db.query.syncGroupTargets.findFirst({
+    where: eq(syncGroupTargets.id, targetId),
+    with: { store: true, group: { with: { source: true } } },
+  });
+
+  if (!target || target.group.source.shop !== shop) {
+    return { ok: false, error: "Pairing request not found." };
+  }
+  if (target.status !== "PENDING") {
+    return { ok: false, error: "This request was already responded to." };
+  }
+
+  const { raw, hash, expiresAt } = generateAuthToken();
+  // Guard the write on status too, not just id — the read above is stale by
+  // the time this runs, and without this a concurrent approve/decline could
+  // land between the check and the update, reintroducing a token on a
+  // request that's no longer PENDING (breaking the "token cleared after
+  // response" invariant approvePairingRequest/declinePairingRequest rely
+  // on). No matched row means it was responded to in that window.
+  const [updated] = await db
+    .update(syncGroupTargets)
+    .set({ authTokenHash: hash, authTokenExpiresAt: expiresAt })
+    .where(
+      and(
+        eq(syncGroupTargets.id, targetId),
+        eq(syncGroupTargets.status, "PENDING"),
+      ),
+    )
+    .returning();
+
+  if (!updated) {
+    return { ok: false, error: "This request was already responded to." };
+  }
+
+  return { ok: true, authToken: raw, targetShop: target.store.shop };
 }

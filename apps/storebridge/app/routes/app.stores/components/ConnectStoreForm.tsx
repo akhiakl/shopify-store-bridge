@@ -54,7 +54,7 @@ export function ConnectStoreForm() {
           <s-text-field
             name="targetDomain"
             label="Store domain"
-            details="example.myshopify.com"
+            details="your-store or your-store.myshopify.com"
             autocomplete="off"
             required
           ></s-text-field>
