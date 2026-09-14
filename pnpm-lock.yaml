@@ -87,8 +87,8 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0(react-dom@18.3.1(react@18.3.1))(react-router@7.18.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       '@shopify/shopify-app-session-storage-drizzle':
-        specifier: ^5.0.0
-        version: 5.0.0(@shopify/shopify-api@14.0.0)(@shopify/shopify-app-session-storage@6.0.0(@shopify/shopify-api@14.0.0))(drizzle-orm@0.45.2(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(@types/pg@8.23.1)(pg@8.23.0)(prisma@6.19.3(typescript@5.9.3)))
+        specifier: ^5.0.1
+        version: 5.0.1(@shopify/shopify-api@14.0.0)(@shopify/shopify-app-session-storage@6.0.0(@shopify/shopify-api@14.0.0))(drizzle-orm@0.45.2(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(@types/pg@8.23.1)(pg@8.23.0)(prisma@6.19.3(typescript@5.9.3)))
       '@vercel/analytics':
         specifier: ^2.0.1
         version: 2.0.1(react@18.3.1)
@@ -1800,8 +1800,8 @@ packages:
       react-dom: '>=18'
       react-router: ^7.6.2
 
-  '@shopify/shopify-app-session-storage-drizzle@5.0.0':
-    resolution: {integrity: sha512-L+1bdxF2aIMn0ObfO5ReFgKEdqEUY+OtwZsMsG9Zs+UZTI9S0ohfR/HaAuDA/hgyEsPEloJ6Y9VL4hs/D5tUaw==}
+  '@shopify/shopify-app-session-storage-drizzle@5.0.1':
+    resolution: {integrity: sha512-RLEW1kMDuLNDP7NdNGeQZ0Da/s8JCXo2JI/hPKKBL58Bgf0hK8hGfw0RhPR9nTEjc5rOjB+I4gEx03T5vEcPXw==}
     peerDependencies:
       '@shopify/shopify-api': ^14.0.0
       '@shopify/shopify-app-session-storage': ^6.0.0
@@ -6782,7 +6782,7 @@ snapshots:
       react-dom: 18.3.1(react@18.3.1)
       react-router: 7.18.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
 
-  '@shopify/shopify-app-session-storage-drizzle@5.0.0(@shopify/shopify-api@14.0.0)(@shopify/shopify-app-session-storage@6.0.0(@shopify/shopify-api@14.0.0))(drizzle-orm@0.45.2(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(@types/pg@8.23.1)(pg@8.23.0)(prisma@6.19.3(typescript@5.9.3)))':
+  '@shopify/shopify-app-session-storage-drizzle@5.0.1(@shopify/shopify-api@14.0.0)(@shopify/shopify-app-session-storage@6.0.0(@shopify/shopify-api@14.0.0))(drizzle-orm@0.45.2(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(@types/pg@8.23.1)(pg@8.23.0)(prisma@6.19.3(typescript@5.9.3)))':
     dependencies:
       '@shopify/shopify-api': 14.0.0
       '@shopify/shopify-app-session-storage': 6.0.0(@shopify/shopify-api@14.0.0)
@@ -7111,7 +7111,7 @@ snapshots:
       obug: 2.1.4
       std-env: 4.2.0
       tinyrainbow: 3.1.1
-      vitest: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
+      vitest: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
 
   '@vitest/expect@4.1.11':
     dependencies:
