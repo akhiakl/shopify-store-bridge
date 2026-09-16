@@ -51,14 +51,9 @@ Full detail lives in `AGENTS.md` at the repo root — read it once per session b
 
 Don't add: a config knob nothing reads yet, a resource type or extension
 point for a "phase 2" that isn't scheduled, an abstraction layer over a
-single implementation "in case we need a second one." One concrete
-precedent already in this repo: `AGENTS.md` §5 explicitly defers turning on
-`coverage.all: true` until there's enough tested surface area to not
-immediately fail the pre-push hook — the flag exists, but flipping it is
-deferred until it's actually useful, and that's written down as an open
-decision rather than silently done "for completeness." Follow that pattern:
-when you're tempted to build ahead of current scope, either don't, or write
-down the open decision the way that one is written down.
+single implementation "in case we need a second one." When you're tempted
+to build ahead of current scope, either don't, or write down the open
+decision explicitly rather than silently doing it "for completeness."
 
 ### Folder structure — colocate, then promote (AGENTS.md §6)
 
@@ -82,8 +77,7 @@ down the open decision the way that one is written down.
 
 ## Before pushing
 
-- Type-check, build, and full test suite (≥80% coverage on touched files) all pass — these run automatically via Husky `pre-push`, fanned out across the monorepo via `turbo run <task>`.
-- Note: coverage currently only counts files a test imports (`coverage.all: false`) — see AGENTS.md §5 for when to revisit this.
+- Type-check, build, and full test suite (≥80% coverage across every source file, `coverage.all: true`) all pass — these run automatically via Husky `pre-push`, fanned out across the monorepo via `turbo run <task>`.
 - Unit tests (Vitest + RTL) and e2e tests (Playwright) are separate suites — `pnpm run test:coverage` runs unit only; `pnpm run test:e2e` (from `apps/storebridge`) runs e2e. Both must pass, but only unit tests gate the 80% coverage floor.
 
 ## Repo layout (Turborepo monorepo)

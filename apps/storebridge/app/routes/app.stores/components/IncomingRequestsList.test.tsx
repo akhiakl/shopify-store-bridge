@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
-import type { DashboardData } from "../pairing.server";
+import type { DashboardData } from "~/utils/dashboard.server";
 import { IncomingRequestsList } from "./IncomingRequestsList";
 
 const requests: DashboardData["incomingRequests"] = [

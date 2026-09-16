@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useFetcher } from "react-router";
 
+import { PairingLinkPanel } from "./PairingLinkPanel";
+
 type ConnectActionData =
   | { ok: true; authorizeUrl: string }
   | { ok: false; error: string; installUrl?: string };
@@ -39,13 +41,9 @@ export function ConnectStoreForm() {
         <s-banner tone="success" heading="Pairing request created">
           <s-paragraph>
             Send this link to whoever runs the target store — only they can
-            approve it, and it expires in 48 hours.
+            approve it.
           </s-paragraph>
-          <s-text-field
-            label="Authorization link"
-            value={data.authorizeUrl}
-            readOnly
-          ></s-text-field>
+          <PairingLinkPanel authorizeUrl={data.authorizeUrl} />
         </s-banner>
       )}
       <fetcher.Form method="post" ref={formRef}>
@@ -54,7 +52,7 @@ export function ConnectStoreForm() {
           <s-text-field
             name="targetDomain"
             label="Store domain"
-            details="example.myshopify.com"
+            details="your-store or your-store.myshopify.com"
             autocomplete="off"
             required
           ></s-text-field>

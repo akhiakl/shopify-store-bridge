@@ -1,23 +1,25 @@
+import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * A minimal stand-in for Drizzle's fluent query builders
  * (`db.insert(...).values(...).returning()`,
- * `db.update(...).set(...).where(...)`) — each chain method returns the
- * same mock object so calls can keep chaining, and the terminal method
- * resolves to `result` (awaiting a non-terminal call, e.g. a bare
- * `await db.insert(t).values(v)` with no `.returning()`, just resolves to
- * the chain object itself, which is fine since prod code never inspects
- * that case's resolved value).
+ * `db.update(...).set(...).where(...).returning()`) — every chain method
+ * returns the same mock object so calls can keep chaining (e.g. `.where()`
+ * followed by `.returning()`), and the object is itself thenable so a bare
+ * `await db.update(t).set(v).where(...)` with no `.returning()` resolves
+ * directly to `result` too, matching how Drizzle's real query builders
+ * work (chainable AND awaitable at any point in the chain).
  */
 function chain(result: unknown) {
-  const obj: Record<string, ReturnType<typeof vi.fn>> = {};
+  const obj: Record<string, unknown> = {};
   obj.values = vi.fn(() => obj);
   obj.onConflictDoUpdate = vi.fn(() => obj);
   obj.set = vi.fn(() => obj);
-  obj.where = vi.fn(() => Promise.resolve(result));
+  obj.where = vi.fn(() => obj);
   obj.returning = vi.fn(() => Promise.resolve(result));
-  return obj;
+  obj.then = (resolve: (value: unknown) => void) => resolve(result);
+  return obj as Record<string, ReturnType<typeof vi.fn>>;
 }
 
 const { dbMock } = vi.hoisted(() => ({
@@ -35,14 +37,13 @@ vi.mock("~/db.server", () => ({ default: dbMock }));
 
 const {
   normalizeShopDomain,
-  getDashboardData,
   requestPairing,
   getPendingRequestByToken,
   approvePairingRequest,
   declinePairingRequest,
+  regeneratePairingRequest,
 } = await import("./pairing.server");
-const { stores, syncGroups, syncGroupTargets } =
-  await import("~/db/schema.server");
+const { syncGroups, syncGroupTargets } = await import("~/db/schema.server");
 
 const SOURCE_SHOP = "source-shop.myshopify.com";
 const TARGET_SHOP = "target-shop.myshopify.com";
@@ -64,12 +65,26 @@ describe("normalizeShopDomain", () => {
     );
   });
 
-  it("rejects a non-myshopify domain", () => {
+  it("accepts a bare store handle and appends .myshopify.com", () => {
+    expect(normalizeShopDomain("poc-liquid")).toBe("poc-liquid.myshopify.com");
+  });
+
+  it("lowercases and appends the suffix to a bare handle with a protocol/path", () => {
+    expect(normalizeShopDomain("https://POC-Liquid/admin")).toBe(
+      "poc-liquid.myshopify.com",
+    );
+  });
+
+  it("rejects a non-myshopify custom domain", () => {
     expect(normalizeShopDomain("example.com")).toBeNull();
   });
 
   it("rejects an empty string", () => {
     expect(normalizeShopDomain("")).toBeNull();
+  });
+
+  it("rejects a bare handle ending in a hyphen", () => {
+    expect(normalizeShopDomain("bad-")).toBeNull();
   });
 
   it("rejects a subdomain ending in a hyphen", () => {
@@ -85,11 +100,11 @@ describe("requestPairing", () => {
   it("rejects an invalid target domain", async () => {
     const result = await requestPairing({
       sourceShop: SOURCE_SHOP,
-      targetDomain: "not-a-shop",
+      targetDomain: "not a valid shop!",
     });
     expect(result).toEqual({
       ok: false,
-      error: "Enter a valid *.myshopify.com domain.",
+      error: "Enter a valid store name or *.myshopify.com domain.",
     });
   });
 
@@ -365,24 +380,108 @@ describe("declinePairingRequest", () => {
   });
 });
 
-describe("getDashboardData", () => {
-  it("returns owned groups, incoming requests, and memberships", async () => {
-    const storeChain = chain([{ id: "store-1", shop: SOURCE_SHOP }]);
-    dbMock.insert.mockReturnValueOnce(storeChain);
-    dbMock.query.syncGroups.findMany.mockResolvedValue([{ id: "group-1" }]);
-    dbMock.query.syncGroupTargets.findMany
-      .mockResolvedValueOnce([{ id: "incoming-1" }])
-      .mockResolvedValueOnce([{ id: "membership-1" }]);
+describe("regeneratePairingRequest", () => {
+  it("errors when the request doesn't exist", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
 
-    const result = await getDashboardData(SOURCE_SHOP);
+    const result = await regeneratePairingRequest({
+      targetId: "missing",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({ ok: false, error: "Pairing request not found." });
+  });
+
+  it("errors when the caller isn't the source store", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      id: "target-1",
+      status: "PENDING",
+      store: { shop: TARGET_SHOP },
+      group: { source: { shop: "someone-else.myshopify.com" } },
+    });
+
+    const result = await regeneratePairingRequest({
+      targetId: "target-1",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({ ok: false, error: "Pairing request not found." });
+  });
+
+  it("errors when the request was already responded to", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      id: "target-1",
+      status: "APPROVED",
+      store: { shop: TARGET_SHOP },
+      group: { source: { shop: SOURCE_SHOP } },
+    });
+
+    const result = await regeneratePairingRequest({
+      targetId: "target-1",
+      shop: SOURCE_SHOP,
+    });
 
     expect(result).toEqual({
-      ownedGroups: [{ id: "group-1" }],
-      incomingRequests: [{ id: "incoming-1" }],
-      memberships: [{ id: "membership-1" }],
+      ok: false,
+      error: "This request was already responded to.",
     });
-    expect(dbMock.insert).toHaveBeenCalledWith(stores);
-    expect(dbMock.query.syncGroups.findMany).toHaveBeenCalledTimes(1);
-    expect(dbMock.query.syncGroupTargets.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  it("issues a fresh token for a pending request from the source store", async () => {
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      id: "target-1",
+      status: "PENDING",
+      store: { shop: TARGET_SHOP },
+      group: { source: { shop: SOURCE_SHOP } },
+    });
+    const updateChain = chain([{ id: "target-1" }]);
+    dbMock.update.mockReturnValueOnce(updateChain);
+
+    const result = await regeneratePairingRequest({
+      targetId: "target-1",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      authToken: expect.any(String),
+      targetShop: TARGET_SHOP,
+    });
+    expect(dbMock.update).toHaveBeenCalledWith(syncGroupTargets);
+    expect(updateChain.set).toHaveBeenCalledWith({
+      authTokenHash: expect.any(String),
+      authTokenExpiresAt: expect.any(Date),
+    });
+    expect(updateChain.where).toHaveBeenCalledWith(
+      and(
+        eq(syncGroupTargets.id, "target-1"),
+        eq(syncGroupTargets.status, "PENDING"),
+      ),
+    );
+  });
+
+  it("errors instead of reintroducing a token when the request was responded to between the read and the write", async () => {
+    // The read sees PENDING, but the guarded update matches nothing —
+    // e.g. a concurrent approve/decline landed in between. Regressing
+    // this to an unguarded `.where(eq(id, targetId))` would silently
+    // reintroduce a token on a request that's no longer PENDING instead
+    // of erroring here.
+    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+      id: "target-1",
+      status: "PENDING",
+      store: { shop: TARGET_SHOP },
+      group: { source: { shop: SOURCE_SHOP } },
+    });
+    dbMock.update.mockReturnValueOnce(chain([]));
+
+    const result = await regeneratePairingRequest({
+      targetId: "target-1",
+      shop: SOURCE_SHOP,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "This request was already responded to.",
+    });
   });
 });

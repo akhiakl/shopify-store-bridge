@@ -1,6 +1,6 @@
 import { useFetcher } from "react-router";
 
-import type { DashboardData } from "../pairing.server";
+import type { DashboardData } from "~/utils/dashboard.server";
 
 interface IncomingRequestsListProps {
   requests: DashboardData["incomingRequests"];

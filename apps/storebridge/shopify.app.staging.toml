@@ -20,9 +20,8 @@ embedded = true
 
 [access_scopes]
 # Keep in sync with shopify.app.toml — same access needs, different app.
-# See that file's comment: read_metaobject_definitions confirmed via
-# Shopify's docs; metafieldDefinitions' scope(s) still TODO(unverified).
-scopes = "read_metaobject_definitions"
+# See that file's comment for what's confirmed vs. still TODO(unverified).
+scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content"
 use_legacy_install_flow = false
 
 [webhooks]
@@ -38,6 +37,24 @@ topics = ["app/uninstalled"]
 [[webhooks.subscriptions]]
 topics = ["app/scopes_update"]
 uri = "/webhooks/app/scopes_update"
+
+# Mandatory for public apps — keep in sync with shopify.app.toml's
+# compliance-webhook comment.
+
+# Handled by: /app/routes/webhooks.customers.data_request.tsx
+[[webhooks.subscriptions]]
+uri = "/webhooks/customers/data_request"
+compliance_topics = ["customers/data_request"]
+
+# Handled by: /app/routes/webhooks.customers.redact.tsx
+[[webhooks.subscriptions]]
+uri = "/webhooks/customers/redact"
+compliance_topics = ["customers/redact"]
+
+# Handled by: /app/routes/webhooks.shop.redact.tsx
+[[webhooks.subscriptions]]
+uri = "/webhooks/shop/redact"
+compliance_topics = ["shop/redact"]
 
 [auth]
 redirect_urls = []

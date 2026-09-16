@@ -2,14 +2,14 @@ import {
   bigint,
   boolean,
   pgEnum,
-  pgPolicy,
   pgTable,
   text,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
-import { serviceRole } from "drizzle-orm/supabase";
+
+import { serviceRoleOnly } from "./rls.server";
 
 // --- ENUMS ---
 export const syncGroupTargetStatusEnum = pgEnum("SyncGroupTargetStatus", [
@@ -18,34 +18,16 @@ export const syncGroupTargetStatusEnum = pgEnum("SyncGroupTargetStatus", [
   "DECLINED",
 ]);
 
-// --- ROW LEVEL SECURITY ---
-// RLS is enabled on every table below (defense-in-depth, tracked here so
-// drizzle-kit generate keeps the migration/snapshot in sync with intent).
-// The app itself never needs a policy to work: app/db.server.ts connects
-// with Supabase's `postgres` role, which has BYPASSRLS and ignores these
-// entirely. What this guards against is anything else reaching these
-// tables through Supabase's PostgREST/client-library path — a leaked
-// anon/authenticated key, or the connection ever being switched to
-// Supavisor's `service_role` transaction mode. Each table gets exactly
-// one explicit "service_role, full access" policy; `anon`/`authenticated`
-// get none, so RLS's default-deny applies to them. (`sessions` below
-// skips the `.enableRLS()` builder call for a type reason explained on
-// that table — RLS is still on for it, just enabled outside this schema.)
-function serviceRoleOnly(tableName: string) {
-  return pgPolicy(`${tableName}_service_role_only`, {
-    as: "permissive",
-    for: "all",
-    to: serviceRole,
-    using: sql`true`,
-    withCheck: sql`true`,
-  });
-}
-
 // --- TABLES ---
 // Table/column names below match the live Supabase tables 1:1 (originally
 // created by Prisma's migrations, now removed in favor of this schema) so
 // no data migration is needed. Don't "clean up" the PascalCase table names
 // or camelCase columns without a real rename migration against Supabase.
+//
+// This file holds the pairing domain (Session/Store/SyncGroup/
+// SyncGroupTarget) — see syncJobsSchema.server.ts for the sync-job
+// domain, split out once this file started pushing past the 300-line
+// limit. RLS policies for both live in rls.server.ts's serviceRoleOnly.
 
 /**
  * Shopify session/token storage. Column names/modifiers here also have to
@@ -154,6 +136,14 @@ export const syncGroupTargets = pgTable(
 ).enableRLS();
 
 // --- DRIZZLE RELATIONS ---
+// Sync-job-domain tables (SyncJob/SyncJobTarget/SyncJobItem) declare their
+// own `store`/`group` one() relations pointing at these tables in
+// syncJobsSchema.server.ts — a table's relations() can be declared in a
+// different file than the table itself, as long as both end up in the
+// combined schema object db.server.ts passes to drizzle(). No back-
+// reference (e.g. a `syncJobs` field here) is declared on stores/
+// syncGroups since nothing queries that direction today; add one there
+// if that changes, not here.
 
 export const storesRelations = relations(stores, ({ many }) => ({
   sourcedGroups: many(syncGroups, { relationName: "SyncGroupSource" }),

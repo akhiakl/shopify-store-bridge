@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { DashboardData } from "../pairing.server";
+import type { DashboardData } from "~/utils/dashboard.server";
 import { MembershipsList } from "./MembershipsList";
 
 describe("MembershipsList", () => {

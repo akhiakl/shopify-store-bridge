@@ -60,8 +60,10 @@ describe("ConnectStoreForm", () => {
         "Pairing request created",
       ),
     );
-    expect(
-      document.querySelector('s-text-field[label="Authorization link"]'),
-    ).toHaveAttribute("value", authorizeUrl);
+    expect(screen.getByText(authorizeUrl)).toHaveAttribute(
+      "href",
+      authorizeUrl,
+    );
+    expect(screen.getByText("Copy link")).toBeInTheDocument();
   });
 });

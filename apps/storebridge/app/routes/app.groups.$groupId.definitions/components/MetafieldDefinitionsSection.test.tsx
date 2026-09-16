@@ -109,4 +109,25 @@ describe("MetafieldDefinitionsSection", () => {
       "true",
     );
   });
+
+  it("renders a status badge for a definition once a status check has run", () => {
+    render(
+      <MetafieldDefinitionsSection
+        definitions={definitions}
+        selected={new Set()}
+        onToggle={vi.fn()}
+        statusByKey={{
+          "metafield:PRODUCT:custom:care": {
+            inSyncCount: 0,
+            totalTargets: 1,
+            perTarget: [
+              { targetId: "t1", shop: "a.myshopify.com", status: "NOT_SYNCED" },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(document.querySelector("s-badge")).toHaveTextContent("0/1 in sync");
+  });
 });
