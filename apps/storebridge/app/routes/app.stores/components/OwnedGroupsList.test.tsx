@@ -187,9 +187,11 @@ describe("OwnedGroupsList", () => {
       ),
     );
     expect(
-      document.querySelector('s-text-field[label="Authorization link"]'),
+      screen.getByText(
+        "https://app.example.com/app/stores/authorize?token=new",
+      ),
     ).toHaveAttribute(
-      "value",
+      "href",
       "https://app.example.com/app/stores/authorize?token=new",
     );
   });
