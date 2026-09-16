@@ -13,6 +13,12 @@ import tsconfigPaths from "vite-tsconfig-paths";
  *
  * The 80% coverage floor is a StoreBridge standard — see AGENTS.md §5 —
  * enforced here so every app gets it without having to remember to set it.
+ * By default Vitest's coverage only reports files a test actually imports
+ * — untested files simply don't appear rather than counting as 0%. Apps
+ * opt into "every real source file counts" by passing their own
+ * `coverage.include` glob in their overrides (see storebridge's
+ * `vitest.config.ts`); this shared config can't hardcode that glob since
+ * it doesn't know an app's source layout.
  */
 export function createVitestConfig(
   overrides: ViteUserConfig = {},
