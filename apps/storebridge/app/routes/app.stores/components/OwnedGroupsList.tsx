@@ -2,6 +2,8 @@ import { useFetcher } from "react-router";
 
 import type { DashboardData } from "~/utils/dashboard.server";
 
+import { PairingLinkPanel } from "./PairingLinkPanel";
+
 interface OwnedGroupsListProps {
   groups: DashboardData["ownedGroups"];
 }
@@ -105,14 +107,9 @@ function TargetRow({
       {data?.ok && (
         <s-banner tone="success" heading="New link generated">
           <s-paragraph>
-            The old link no longer works — send this one instead. Expires in 48
-            hours.
+            The old link no longer works — send this one instead.
           </s-paragraph>
-          <s-text-field
-            label="Authorization link"
-            value={data.authorizeUrl}
-            readOnly
-          ></s-text-field>
+          <PairingLinkPanel authorizeUrl={data.authorizeUrl} />
         </s-banner>
       )}
     </s-stack>
