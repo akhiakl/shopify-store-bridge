@@ -20,3 +20,7 @@ export function metaobjectDefinitionKey(def: MetaobjectDefinitionRow): string {
 export function metafieldDefinitionKey(def: MetafieldDefinitionRow): string {
   return `metafield:${def.ownerType}:${def.namespace}:${def.key}`;
 }
+
+export function shopPolicyKey(type: string): string {
+  return `policy:${type}`;
+}

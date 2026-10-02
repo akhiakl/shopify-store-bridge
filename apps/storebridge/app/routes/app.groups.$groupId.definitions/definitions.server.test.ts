@@ -5,7 +5,7 @@ const { dbMock } = vi.hoisted(() => ({
 }));
 vi.mock("~/db.server", () => ({ default: dbMock }));
 
-const { getDefinitionCatalog, getOwnedGroup } =
+const { getDefinitionCatalog, getOwnedGroup, getShopPolicies } =
   await import("./definitions.server");
 
 function jsonResponse(data: unknown) {
@@ -138,5 +138,43 @@ describe("getDefinitionCatalog", () => {
 
     expect(catalog.metafieldDefinitions).toEqual([]);
     expect(catalog.metaobjectDefinitions).toEqual([]);
+  });
+});
+
+describe("getShopPolicies", () => {
+  it("fetches the shop's policies", async () => {
+    const graphql = vi.fn(() =>
+      Promise.resolve(
+        jsonResponse({
+          shop: {
+            shopPolicies: [
+              {
+                type: "REFUND_POLICY",
+                title: "Refund policy",
+                body: "<p>Refunds within 30 days.</p>",
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+    const policies = await getShopPolicies({ graphql } as never);
+
+    expect(policies).toEqual([
+      {
+        type: "REFUND_POLICY",
+        title: "Refund policy",
+        body: "<p>Refunds within 30 days.</p>",
+      },
+    ]);
+  });
+
+  it("returns an empty list when the API returns no policies", async () => {
+    const graphql = vi.fn(() => Promise.resolve(jsonResponse({})));
+
+    const policies = await getShopPolicies({ graphql } as never);
+
+    expect(policies).toEqual([]);
   });
 });

@@ -47,7 +47,15 @@ embedded = true
 # wasn't confirmed this session. If sync calls start failing with a
 # permissions error on SHOP-owned metafields specifically, this is why —
 # confirm via Shopify Dev MCP and add the real scope name here.
-scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content"
+#
+# read_legal_policies / write_legal_policies: confirmed via
+# `graphql_schema` + `validate_graphql_codeblocks` against Shopify's live
+# Admin API (shopify.dev itself was unreachable this session) —
+# `shopPolicies` requires read_legal_policies, `shopPolicyUpdate` requires
+# write_legal_policies and read_legal_policies. Used by
+# definitions.server.ts's fetchShopPolicies and syncTarget.server.ts's
+# shop-policy sync.
+scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content,read_legal_policies,write_legal_policies"
 use_legacy_install_flow = false
 
 [webhooks]

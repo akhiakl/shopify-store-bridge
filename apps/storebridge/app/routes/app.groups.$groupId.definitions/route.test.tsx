@@ -7,13 +7,17 @@ vi.mock("~/shopify.server", () => ({
   authenticate: { admin: authenticateAdmin },
 }));
 
-const { getOwnedGroup, getDefinitionCatalog } = vi.hoisted(() => ({
-  getOwnedGroup: vi.fn(),
-  getDefinitionCatalog: vi.fn(),
-}));
+const { getOwnedGroup, getDefinitionCatalog, getShopPolicies } = vi.hoisted(
+  () => ({
+    getOwnedGroup: vi.fn(),
+    getDefinitionCatalog: vi.fn(),
+    getShopPolicies: vi.fn(),
+  }),
+);
 vi.mock("./definitions.server", () => ({
   getOwnedGroup,
   getDefinitionCatalog,
+  getShopPolicies,
 }));
 
 const { getJobHistory, runSyncJob } = vi.hoisted(() => ({
@@ -53,6 +57,7 @@ describe("app.groups.$groupId.definitions loader", () => {
       metafieldDefinitions: [],
       metaobjectDefinitions: [],
     });
+    getShopPolicies.mockResolvedValue([]);
     getJobHistory.mockResolvedValue([]);
 
     const result = await loader({
@@ -68,10 +73,12 @@ describe("app.groups.$groupId.definitions loader", () => {
       "source.myshopify.com",
     );
     expect(getDefinitionCatalog).toHaveBeenCalledWith(admin);
+    expect(getShopPolicies).toHaveBeenCalledWith(admin);
     expect(getJobHistory).toHaveBeenCalledWith("group-1");
     expect(result).toEqual({
       group: { id: "group-1", name: "EU stores" },
       jobs: [],
+      shopPolicies: [],
       metafieldDefinitions: [],
       metaobjectDefinitions: [],
     });

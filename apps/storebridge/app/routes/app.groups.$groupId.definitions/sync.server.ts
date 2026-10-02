@@ -9,21 +9,29 @@ import {
 } from "~/db/syncJobsSchema.server";
 import { unauthenticated } from "~/shopify.server";
 
-import { getDefinitionCatalog, type getOwnedGroup } from "./definitions.server";
+import {
+  getDefinitionCatalog,
+  getShopPolicies,
+  type getOwnedGroup,
+} from "./definitions.server";
 import { syncToTarget } from "./syncTarget.server";
 
 interface ParsedSelection {
   metaobjectTypes: string[];
   metafieldSelectors: { ownerType: string; namespace: string; key: string }[];
+  policyTypes: string[];
 }
 
 /** Inverse of the `definitionKey` helpers in the checkbox components
- * (`metaobject:<type>`, `metafield:<ownerType>:<namespace>:<key>`) — safe
- * to split on ":" since Shopify's own validation rules for type/namespace/
- * key (alphanumeric, hyphen, underscore only) rule out embedded colons. */
+ * (`metaobject:<type>`, `metafield:<ownerType>:<namespace>:<key>`,
+ * `policy:<type>`) — safe to split on ":" since Shopify's own validation
+ * rules for type/namespace/key (alphanumeric, hyphen, underscore only) rule
+ * out embedded colons, and `ShopPolicyType` is itself an enum of bare
+ * uppercase names. */
 export function parseSelection(keys: string[]): ParsedSelection {
   const metaobjectTypes: string[] = [];
   const metafieldSelectors: ParsedSelection["metafieldSelectors"] = [];
+  const policyTypes: string[] = [];
   for (const key of keys) {
     const [kind, ...rest] = key.split(":");
     if (kind === "metaobject") {
@@ -31,9 +39,11 @@ export function parseSelection(keys: string[]): ParsedSelection {
     } else if (kind === "metafield") {
       const [ownerType, namespace, fieldKey] = rest;
       metafieldSelectors.push({ ownerType, namespace, key: fieldKey });
+    } else if (kind === "policy") {
+      policyTypes.push(rest[0]);
     }
   }
-  return { metaobjectTypes, metafieldSelectors };
+  return { metaobjectTypes, metafieldSelectors, policyTypes };
 }
 
 /** Never trusts the browser for the actual definition shape — only the
@@ -43,7 +53,10 @@ async function resolveSelectedDefinitions(
   sourceAdmin: AdminApiContext,
   selection: ParsedSelection,
 ) {
-  const catalog = await getDefinitionCatalog(sourceAdmin);
+  const [catalog, shopPolicies] = await Promise.all([
+    getDefinitionCatalog(sourceAdmin),
+    getShopPolicies(sourceAdmin),
+  ]);
   const metaobjectDefinitions = catalog.metaobjectDefinitions.filter((def) =>
     selection.metaobjectTypes.includes(def.type),
   );
@@ -55,7 +68,10 @@ async function resolveSelectedDefinitions(
         sel.key === def.key,
     ),
   );
-  return { metaobjectDefinitions, metafieldDefinitions };
+  const selectedPolicies = shopPolicies.filter((policy) =>
+    selection.policyTypes.includes(policy.type),
+  );
+  return { metaobjectDefinitions, metafieldDefinitions, selectedPolicies };
 }
 
 type OwnedGroup = NonNullable<Awaited<ReturnType<typeof getOwnedGroup>>>;
@@ -92,14 +108,18 @@ export async function runSyncJob({
     .returning();
 
   const parsed = parseSelection(selection);
-  const { metaobjectDefinitions, metafieldDefinitions } =
+  const { metaobjectDefinitions, metafieldDefinitions, selectedPolicies } =
     await resolveSelectedDefinitions(sourceAdmin, parsed);
 
   // None of the submitted selection keys matched anything in the source's
   // current catalog (stale UI, or a forged post) — syncToTarget would do
   // zero work per target and still report SUCCEEDED, making job history
   // misleading. Fail the job outright instead of running a no-op sync.
-  if (metaobjectDefinitions.length === 0 && metafieldDefinitions.length === 0) {
+  if (
+    metaobjectDefinitions.length === 0 &&
+    metafieldDefinitions.length === 0 &&
+    selectedPolicies.length === 0
+  ) {
     await db
       .update(syncJobs)
       .set({ status: "FAILED", finishedAt: new Date() })
@@ -119,6 +139,7 @@ export async function runSyncJob({
         targetAdmin,
         metaobjectDefinitions,
         metafieldDefinitions,
+        shopPolicies: selectedPolicies,
       });
       const status = tallies.itemsFailed === 0 ? "SUCCEEDED" : "FAILED";
       targetStatuses.push(status);

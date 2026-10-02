@@ -402,6 +402,99 @@ describe("syncToTarget", () => {
     ).toBe(false);
   });
 
+  it("counts a successful shop policy update as synced", async () => {
+    const targetAdmin = {
+      graphql: vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({
+            shopPolicyUpdate: {
+              shopPolicy: { id: "gid://shopify/ShopPolicy/1" },
+              userErrors: [],
+            },
+          }),
+        ),
+      ),
+    };
+
+    const result = await syncToTarget({
+      sourceAdmin: { graphql: vi.fn() } as never,
+      targetAdmin: targetAdmin as never,
+      metaobjectDefinitions: [],
+      metafieldDefinitions: [],
+      shopPolicies: [
+        {
+          type: "REFUND_POLICY",
+          title: "Refund policy",
+          body: "Refunds within 30 days.",
+        },
+      ],
+    });
+
+    expect(result.tallies).toEqual({
+      itemsSynced: 1,
+      itemsSkipped: 0,
+      itemsFailed: 0,
+    });
+    expect(result.items).toEqual([
+      {
+        key: "policy:REFUND_POLICY",
+        kind: "VALUE",
+        status: "SUCCEEDED",
+        errorMessage: null,
+      },
+    ]);
+    expect(targetAdmin.graphql).toHaveBeenCalledWith(
+      expect.stringContaining("ShopPolicyUpdate"),
+      {
+        variables: {
+          shopPolicy: {
+            type: "REFUND_POLICY",
+            body: "Refunds within 30 days.",
+          },
+        },
+      },
+    );
+  });
+
+  it("counts a shop policy update userError as failed", async () => {
+    const targetAdmin = {
+      graphql: vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({
+            shopPolicyUpdate: {
+              shopPolicy: null,
+              userErrors: [{ message: "Body can't be blank" }],
+            },
+          }),
+        ),
+      ),
+    };
+
+    const result = await syncToTarget({
+      sourceAdmin: { graphql: vi.fn() } as never,
+      targetAdmin: targetAdmin as never,
+      metaobjectDefinitions: [],
+      metafieldDefinitions: [],
+      shopPolicies: [
+        { type: "REFUND_POLICY", title: "Refund policy", body: "" },
+      ],
+    });
+
+    expect(result.tallies).toEqual({
+      itemsSynced: 0,
+      itemsSkipped: 0,
+      itemsFailed: 1,
+    });
+    expect(result.items).toEqual([
+      {
+        key: "policy:REFUND_POLICY",
+        kind: "VALUE",
+        status: "FAILED",
+        errorMessage: "Body can't be blank",
+      },
+    ]);
+  });
+
   it("never fetches the target's shop id when nothing selected is SHOP-owned", async () => {
     const nonShopDef = { ...shopMetafieldDef, ownerType: "PRODUCT" as const };
     const graphql = vi.fn<

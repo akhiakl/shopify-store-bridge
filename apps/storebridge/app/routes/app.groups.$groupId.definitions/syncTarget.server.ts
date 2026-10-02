@@ -3,10 +3,12 @@ import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 import type {
   MetafieldDefinitionRow,
   MetaobjectDefinitionRow,
+  ShopPolicyRow,
 } from "./definitions.server";
 import {
   metafieldDefinitionKey,
   metaobjectDefinitionKey,
+  shopPolicyKey,
 } from "./definitionKey";
 import {
   METAFIELD_DEFINITION_CREATE_MUTATION,
@@ -14,6 +16,7 @@ import {
   METAOBJECT_DEFINITION_CREATE_MUTATION,
   SHOP_ID_QUERY,
   SHOP_METAFIELD_VALUE_QUERY,
+  SHOP_POLICY_UPDATE_MUTATION,
 } from "./syncQueries.server";
 
 type CreateResult =
@@ -173,11 +176,13 @@ export async function syncToTarget({
   targetAdmin,
   metaobjectDefinitions,
   metafieldDefinitions,
+  shopPolicies = [],
 }: {
   sourceAdmin: AdminApiContext;
   targetAdmin: AdminApiContext;
   metaobjectDefinitions: MetaobjectDefinitionRow[];
   metafieldDefinitions: MetafieldDefinitionRow[];
+  shopPolicies?: ShopPolicyRow[];
 }): Promise<{ tallies: SyncTally; items: SyncItemResult[] }> {
   const tallies: SyncTally = {
     itemsSynced: 0,
@@ -255,6 +260,25 @@ export async function syncToTarget({
           };
       tally({ tallies, items, key, kind: "VALUE", result: valueResult });
     }
+  }
+
+  // Shop policies are pure text (no cross-store record reference), and
+  // `shopPolicyUpdate` is itself an upsert keyed by `type` — no separate
+  // create-vs-update step, and no "already exists" case to treat as
+  // skipped. Tallied as `kind: "VALUE"` (reusing the existing enum value
+  // rather than adding a DB migration) since a policy's body is content,
+  // not a schema/definition.
+  for (const policy of shopPolicies) {
+    const result = await createOne(targetAdmin, SHOP_POLICY_UPDATE_MUTATION, {
+      shopPolicy: { type: policy.type, body: policy.body },
+    });
+    tally({
+      tallies,
+      items,
+      key: shopPolicyKey(policy.type),
+      kind: "VALUE",
+      result,
+    });
   }
 
   return { tallies, items };
