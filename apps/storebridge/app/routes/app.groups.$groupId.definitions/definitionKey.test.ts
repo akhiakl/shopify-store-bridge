@@ -4,6 +4,8 @@ import {
   collectionKey,
   metafieldDefinitionKey,
   metaobjectDefinitionKey,
+  metaobjectEntriesKey,
+  metaobjectEntryKey,
   shopPolicyKey,
 } from "./definitionKey";
 
@@ -16,6 +18,7 @@ describe("metaobjectDefinitionKey", () => {
         name: "Size chart",
         fieldDefinitions: [],
         fieldCount: 0,
+        entryCount: 0,
       }),
     ).toBe("metaobject:size_chart");
   });
@@ -46,5 +49,17 @@ describe("shopPolicyKey", () => {
 describe("collectionKey", () => {
   it("keys by handle", () => {
     expect(collectionKey("summer-sale")).toBe("collection:summer-sale");
+  });
+});
+
+describe("metaobject entry keys", () => {
+  it("keys a type's entry selection separately from its definition", () => {
+    expect(metaobjectEntriesKey("faq")).toBe("metaobjectEntries:faq");
+  });
+
+  it("keys one entry by type and handle", () => {
+    expect(metaobjectEntryKey({ type: "faq", handle: "q1" })).toBe(
+      "metaobjectEntry:faq:q1",
+    );
   });
 });

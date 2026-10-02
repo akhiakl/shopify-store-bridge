@@ -11,6 +11,7 @@ const definitions: MetaobjectDefinitionRow[] = [
     name: "Size chart",
     fieldDefinitions: [],
     fieldCount: 3,
+    entryCount: 0,
   },
   {
     id: "2",
@@ -18,6 +19,7 @@ const definitions: MetaobjectDefinitionRow[] = [
     name: "FAQ entry",
     fieldDefinitions: [],
     fieldCount: 2,
+    entryCount: 0,
   },
 ];
 

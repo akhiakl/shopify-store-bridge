@@ -31,6 +31,7 @@ const metaobjectDef = {
     },
   ],
   fieldCount: 1,
+  entryCount: 0,
 };
 
 const metafieldDef = {

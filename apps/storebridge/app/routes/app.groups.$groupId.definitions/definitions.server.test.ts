@@ -81,6 +81,7 @@ describe("getDefinitionCatalog", () => {
                 id: "gid://shopify/MetaobjectDefinition/1",
                 type: "size_chart",
                 name: "Size chart",
+                metaobjectsCount: 4,
                 fieldDefinitions: [
                   {
                     name: "Label",
@@ -127,6 +128,7 @@ describe("getDefinitionCatalog", () => {
           },
         ],
         fieldCount: 1,
+        entryCount: 4,
       },
     ]);
   });

@@ -28,3 +28,17 @@ export function shopPolicyKey(type: string): string {
 export function collectionKey(handle: string): string {
   return `collection:${handle}`;
 }
+
+/** Selection key for "sync this type's entries", distinct from the
+ * `metaobject:<type>` key that syncs only the definition. */
+export function metaobjectEntriesKey(type: string): string {
+  return `metaobjectEntries:${type}`;
+}
+
+/** Job-history key for one synced entry. */
+export function metaobjectEntryKey(entry: {
+  type: string;
+  handle: string;
+}): string {
+  return `metaobjectEntry:${entry.type}:${entry.handle}`;
+}

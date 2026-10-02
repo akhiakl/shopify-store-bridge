@@ -7,6 +7,7 @@ import { CheckStatusButton } from "./components/CheckStatusButton";
 import { JobHistoryList } from "./components/JobHistoryList";
 import { MetafieldDefinitionsSection } from "./components/MetafieldDefinitionsSection";
 import { MetaobjectDefinitionsSection } from "./components/MetaobjectDefinitionsSection";
+import { MetaobjectEntriesSection } from "./components/MetaobjectEntriesSection";
 import { getCollections } from "./collections.server";
 import { CollectionsSection } from "./components/CollectionsSection";
 import { ShopPoliciesSection } from "./components/ShopPoliciesSection";
@@ -154,6 +155,14 @@ export default function GroupDefinitions() {
           selected={selected}
           onToggle={toggleKeys}
           statusByKey={statuses}
+        />
+      </s-section>
+
+      <s-section heading="Metaobject entries">
+        <MetaobjectEntriesSection
+          definitions={metaobjectDefinitions}
+          selected={selected}
+          onToggle={toggleKeys}
         />
       </s-section>
 

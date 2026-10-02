@@ -87,6 +87,7 @@ describe("parseSelection", () => {
         "metafield:PRODUCT:custom:care",
         "policy:REFUND_POLICY",
         "collection:summer-sale",
+        "metaobjectEntries:faq",
       ]),
     ).toEqual({
       metaobjectTypes: ["size_chart"],
@@ -95,6 +96,7 @@ describe("parseSelection", () => {
       ],
       policyTypes: ["REFUND_POLICY"],
       collectionHandles: ["summer-sale"],
+      metaobjectEntryTypes: ["faq"],
     });
   });
 });
