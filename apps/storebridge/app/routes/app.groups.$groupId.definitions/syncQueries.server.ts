@@ -64,3 +64,20 @@ export const METAFIELDS_SET_MUTATION = `#graphql
     }
   }
 `;
+
+/**
+ * Shop policy sync: pure text content (no cross-store record reference,
+ * unlike Product/Customer/Order-owned data), so unlike menus it needs no
+ * record-matching story — `shopPolicyUpdate` is itself an upsert keyed by
+ * `type`. Confirmed via `validate_graphql_codeblocks` against Shopify's
+ * live schema: `ShopPolicyInput`/`ShopPolicyUpdatePayload`, required scopes
+ * write_legal_policies + read_legal_policies (see shopify.app.toml).
+ */
+export const SHOP_POLICY_UPDATE_MUTATION = `#graphql
+  mutation ShopPolicyUpdate($shopPolicy: ShopPolicyInput!) {
+    shopPolicyUpdate(shopPolicy: $shopPolicy) {
+      shopPolicy { id }
+      userErrors { field message }
+    }
+  }
+`;

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   metafieldDefinitionKey,
   metaobjectDefinitionKey,
+  shopPolicyKey,
 } from "./definitionKey";
 
 describe("metaobjectDefinitionKey", () => {
@@ -32,5 +33,11 @@ describe("metafieldDefinitionKey", () => {
         ownerType: "PRODUCT",
       }),
     ).toBe("metafield:PRODUCT:custom:care");
+  });
+});
+
+describe("shopPolicyKey", () => {
+  it("keys by policy type", () => {
+    expect(shopPolicyKey("REFUND_POLICY")).toBe("policy:REFUND_POLICY");
   });
 });

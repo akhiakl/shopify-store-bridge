@@ -7,8 +7,13 @@ import { CheckStatusButton } from "./components/CheckStatusButton";
 import { JobHistoryList } from "./components/JobHistoryList";
 import { MetafieldDefinitionsSection } from "./components/MetafieldDefinitionsSection";
 import { MetaobjectDefinitionsSection } from "./components/MetaobjectDefinitionsSection";
+import { ShopPoliciesSection } from "./components/ShopPoliciesSection";
 import { SyncButton } from "./components/SyncButton";
-import { getDefinitionCatalog, getOwnedGroup } from "./definitions.server";
+import {
+  getDefinitionCatalog,
+  getOwnedGroup,
+  getShopPolicies,
+} from "./definitions.server";
 import { getJobHistory, runSyncJob } from "./sync.server";
 import {
   runStatusCheck,
@@ -28,11 +33,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     throw data("Sync group not found.", { status: 404 });
   }
 
-  const [catalog, jobs] = await Promise.all([
+  const [catalog, shopPolicies, jobs] = await Promise.all([
     getDefinitionCatalog(admin),
+    getShopPolicies(admin),
     getJobHistory(group.id),
   ]);
-  return { group, jobs, ...catalog };
+  return { group, jobs, shopPolicies, ...catalog };
 };
 
 /** Handles the "sync" and "checkStatus" intents. `session.shop` (never
@@ -76,8 +82,13 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 };
 
 export default function GroupDefinitions() {
-  const { group, jobs, metafieldDefinitions, metaobjectDefinitions } =
-    useLoaderData<typeof loader>();
+  const {
+    group,
+    jobs,
+    metafieldDefinitions,
+    metaobjectDefinitions,
+    shopPolicies,
+  } = useLoaderData<typeof loader>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const statusFetcher = useFetcher<StatusCheckResult>();
   const approvedTargetCount = group.targets.filter(
@@ -139,6 +150,14 @@ export default function GroupDefinitions() {
           selected={selected}
           onToggle={toggleKeys}
           statusByKey={statuses}
+        />
+      </s-section>
+
+      <s-section heading="Shop policies">
+        <ShopPoliciesSection
+          policies={shopPolicies}
+          selected={selected}
+          onToggle={toggleKeys}
         />
       </s-section>
 

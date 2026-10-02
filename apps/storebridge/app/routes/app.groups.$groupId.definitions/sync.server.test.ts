@@ -80,17 +80,19 @@ const group = {
 };
 
 describe("parseSelection", () => {
-  it("splits metaobject and metafield keys into their identifying parts", () => {
+  it("splits metaobject, metafield, and policy keys into their identifying parts", () => {
     expect(
       parseSelection([
         "metaobject:size_chart",
         "metafield:PRODUCT:custom:care",
+        "policy:REFUND_POLICY",
       ]),
     ).toEqual({
       metaobjectTypes: ["size_chart"],
       metafieldSelectors: [
         { ownerType: "PRODUCT", namespace: "custom", key: "care" },
       ],
+      policyTypes: ["REFUND_POLICY"],
     });
   });
 });
@@ -322,6 +324,52 @@ describe("runSyncJob", () => {
     const result = await runSyncJob({
       group,
       selection: ["metafield:PRODUCT:custom:care"],
+      sourceAdmin: admin,
+    } as never);
+
+    expect(result.status).toBe("SUCCEEDED");
+  });
+
+  it("also syncs selected shop policies", async () => {
+    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
+    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
+    dbMock.update.mockReturnValueOnce(chain(undefined));
+
+    const admin = {
+      graphql: vi.fn((query: string) => {
+        if (query.includes("ShopPoliciesList")) {
+          return Promise.resolve(
+            jsonResponse({
+              shop: {
+                shopPolicies: [
+                  {
+                    type: "REFUND_POLICY",
+                    title: "Refund policy",
+                    body: "Refunds within 30 days.",
+                  },
+                ],
+              },
+            }),
+          );
+        }
+        if (query.includes("MetaobjectDefinitionsList")) {
+          return Promise.resolve(jsonResponse({}));
+        }
+        if (query.includes("MetafieldDefinitionsByOwner")) {
+          return Promise.resolve(jsonResponse({}));
+        }
+        return Promise.resolve(
+          jsonResponse({
+            shopPolicyUpdate: { shopPolicy: { id: "gid://1" }, userErrors: [] },
+          }),
+        );
+      }),
+    };
+    unauthenticatedMock.admin.mockResolvedValue({ admin });
+
+    const result = await runSyncJob({
+      group,
+      selection: ["policy:REFUND_POLICY"],
       sourceAdmin: admin,
     } as never);
 

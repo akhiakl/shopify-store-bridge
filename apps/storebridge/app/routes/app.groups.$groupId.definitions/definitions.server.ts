@@ -83,6 +83,30 @@ export interface MetaobjectFieldDefinition {
   type: string;
 }
 
+/**
+ * Confirmed via `validate_graphql_codeblocks`: valid query shape, required
+ * scope read_legal_policies (see shopify.app.toml). `ShopPolicy.id` isn't
+ * needed here — `type` is the stable identifier `shopPolicyKey` and the
+ * update mutation both key off.
+ */
+const SHOP_POLICIES_QUERY = `#graphql
+  query ShopPoliciesList {
+    shop {
+      shopPolicies {
+        type
+        title
+        body
+      }
+    }
+  }
+`;
+
+export interface ShopPolicyRow {
+  type: string;
+  title: string;
+  body: string;
+}
+
 export interface MetaobjectDefinitionRow {
   id: string;
   type: string;
@@ -162,6 +186,14 @@ async function fetchMetaobjectDefinitions(
   );
 }
 
+async function fetchShopPolicies(
+  admin: AdminApiContext,
+): Promise<ShopPolicyRow[]> {
+  const response = await admin.graphql(SHOP_POLICIES_QUERY);
+  const { data } = await response.json();
+  return data?.shop?.shopPolicies ?? [];
+}
+
 /** Confirms `groupId` is a sync group the current shop actually owns as
  * source, before letting it browse (and later, migrate into) that group. */
 export async function getOwnedGroup(groupId: string, shop: string) {
@@ -178,4 +210,14 @@ export async function getDefinitionCatalog(admin: AdminApiContext) {
     fetchMetaobjectDefinitions(admin),
   ]);
   return { metafieldDefinitions, metaobjectDefinitions };
+}
+
+/** Kept separate from `getDefinitionCatalog` — shop policies are a distinct
+ * sync category (no cross-store record reference, unlike metaobjects/
+ * metafields) with their own section in the UI, not another field on the
+ * same catalog shape. */
+export async function getShopPolicies(
+  admin: AdminApiContext,
+): Promise<ShopPolicyRow[]> {
+  return fetchShopPolicies(admin);
 }
