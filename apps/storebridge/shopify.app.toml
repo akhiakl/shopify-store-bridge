@@ -31,9 +31,11 @@ embedded = true
 # metafields, or write_customers for customer metafields") — covers
 # METAFIELD_OWNER_TYPES' PRODUCT/PRODUCTVARIANT/COLLECTION, CUSTOMER, and
 # ORDER entries respectively. write_products also covers collection sync
-# (collections.server.ts / syncCollection.server.ts) — confirmed via
-# `validate_graphql_codeblocks`: collections/collectionByIdentifier need
-# read_products, collectionCreate/collectionUpdate need write_products.
+# (collections.server.ts / syncCollection.server.ts): collections/
+# collectionByIdentifier need read_products, collectionCreate/
+# collectionUpdate need write_products. Operation shapes checked against
+# the pinned 2026-07 schema (graphql-codegen in CI), not just the Dev MCP
+# validator, which validated against an older version.
 #
 # write_content: confirmed via shopify.dev — PAGE, BLOG, and ARTICLE
 # objects each "Requires read_content access scope" (or the narrower

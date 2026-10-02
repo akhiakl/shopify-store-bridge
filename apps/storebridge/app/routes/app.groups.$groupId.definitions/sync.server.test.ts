@@ -399,7 +399,6 @@ describe("runSyncJob", () => {
                         sortOrder: "MANUAL",
                         templateSuffix: null,
                         seo: { title: null, description: null },
-                        ruleSet: null,
                       },
                     ],
                   },

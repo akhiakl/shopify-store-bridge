@@ -7,15 +7,10 @@ interface CollectionsSectionProps {
   onToggle: (keys: string[], select: boolean) => void;
 }
 
-/** Spells out what actually syncs per collection type — a manual
- * collection arriving empty on a target would otherwise look like a bug. */
-function syncScopeDetails(collection: CollectionRow): string {
-  if (!collection.ruleSet) {
-    return "Manual: title, description and SEO only. Products aren't synced.";
-  }
-  const count = collection.ruleSet.rules.length;
-  return `Smart: ${count} rule(s). Matching products are picked up on the target automatically.`;
-}
+/** Spelled out per row: a collection arriving empty on a target would
+ * otherwise look like a bug. */
+const SYNC_SCOPE =
+  "Title, description, SEO and sort order. Products and smart-collection conditions aren't synced yet.";
 
 export function CollectionsSection({
   collections,
@@ -43,7 +38,7 @@ export function CollectionsSection({
           <s-checkbox
             key={key}
             label={`${collection.title} (${collection.handle})`}
-            details={syncScopeDetails(collection)}
+            details={SYNC_SCOPE}
             checked={selected.has(key)}
             onChange={(e) => onToggle([key], e.currentTarget.checked)}
           ></s-checkbox>

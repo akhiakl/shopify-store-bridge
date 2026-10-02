@@ -7,24 +7,13 @@ function jsonResponse(data: unknown, errors?: { message: string }[]) {
   return { json: () => Promise.resolve({ data, errors }) };
 }
 
-const manual: CollectionRow = {
+const collection: CollectionRow = {
   handle: "summer",
   title: "Summer",
   descriptionHtml: "<p>Hot</p>",
-  sortOrder: "MANUAL",
+  sortOrder: "BEST_SELLING",
   templateSuffix: null,
   seo: { title: "Summer sale", description: null },
-  ruleSet: null,
-};
-
-const smart: CollectionRow = {
-  ...manual,
-  handle: "hats",
-  sortOrder: "BEST_SELLING",
-  ruleSet: {
-    appliedDisjunctively: false,
-    rules: [{ column: "TAG", relation: "EQUALS", condition: "hat" }],
-  },
 };
 
 /** Target admin whose handle lookup returns `existingId` (or no match),
@@ -55,70 +44,52 @@ describe("syncCollection", () => {
   it("creates the collection when the target has no matching handle", async () => {
     const admin = targetAdmin(null);
 
-    const result = await syncCollection(admin as never, manual);
+    const result = await syncCollection(admin as never, collection);
 
     expect(result).toEqual({ ok: true });
     expect(admin.graphql).toHaveBeenLastCalledWith(
       expect.stringContaining("collectionCreate"),
-      {
-        variables: {
-          input: {
-            handle: "summer",
-            title: "Summer",
-            descriptionHtml: "<p>Hot</p>",
-            sortOrder: "MANUAL",
-            templateSuffix: null,
-            seo: { title: "Summer sale", description: null },
-          },
-        },
-      },
+      { variables: { collection } },
     );
   });
 
-  it("updates the existing collection, including its rule set, when the handle matches", async () => {
+  it("updates the existing collection when the handle matches", async () => {
     const admin = targetAdmin("gid://shopify/Collection/9");
 
-    const result = await syncCollection(admin as never, smart);
+    const result = await syncCollection(admin as never, collection);
 
     expect(result).toEqual({ ok: true });
     expect(admin.graphql).toHaveBeenLastCalledWith(
       expect.stringContaining("collectionUpdate"),
       {
         variables: {
-          input: expect.objectContaining({
-            id: "gid://shopify/Collection/9",
-            handle: "hats",
-            ruleSet: smart.ruleSet,
-          }),
+          collection: { ...collection, id: "gid://shopify/Collection/9" },
         },
       },
     );
   });
 
-  it("fails without touching the target when a rule references a metafield definition", async () => {
-    const admin = targetAdmin(null);
-    const withMetafieldRule: CollectionRow = {
-      ...smart,
-      ruleSet: {
-        appliedDisjunctively: false,
-        rules: [
-          {
-            column: "PRODUCT_METAFIELD_DEFINITION",
-            relation: "EQUALS",
-            condition: "red",
-          },
-        ],
-      },
+  it("reports a target userError as a failure", async () => {
+    const admin = {
+      graphql: vi.fn((query: string) =>
+        Promise.resolve(
+          jsonResponse(
+            query.includes("CollectionByHandle")
+              ? { collectionByIdentifier: null }
+              : {
+                  collectionCreate: {
+                    collection: null,
+                    userErrors: [{ message: "Title can't be blank" }],
+                  },
+                },
+          ),
+        ),
+      ),
     };
 
-    const result = await syncCollection(admin as never, withMetafieldRule);
+    const result = await syncCollection(admin as never, collection);
 
-    expect(result).toEqual({
-      ok: false,
-      error:
-        "Rule on PRODUCT_METAFIELD_DEFINITION references a metafield definition, which can't be synced yet.",
-    });
-    expect(admin.graphql).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: false, error: "Title can't be blank" });
   });
 
   it("fails when the handle lookup itself errors, rather than creating a duplicate", async () => {
@@ -128,7 +99,7 @@ describe("syncCollection", () => {
       ),
     };
 
-    const result = await syncCollection(admin as never, manual);
+    const result = await syncCollection(admin as never, collection);
 
     expect(result).toEqual({ ok: false, error: "Access denied" });
     expect(admin.graphql).toHaveBeenCalledTimes(1);

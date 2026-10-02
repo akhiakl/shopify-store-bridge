@@ -1,11 +1,11 @@
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 
 /**
- * Confirmed via `validate_graphql_codeblocks`: valid query shape, required
- * scope read_products (covered by write_products, see shopify.app.toml).
- * Product membership is deliberately not read — a manual collection's
- * product list is cross-store record matching (#63), and a smart
- * collection's membership is computed from `ruleSet` on the target anyway.
+ * Required scope read_products (covered by write_products, see
+ * shopify.app.toml). Only the collection's own shell is read: product
+ * membership is cross-store record matching (#63), and smart-collection
+ * conditions live in the 2026-07 `sources` model, which isn't synced yet
+ * (`ruleSet` is deprecated there and has no write-side equivalent).
  */
 const COLLECTIONS_QUERY = `#graphql
   query CollectionsList {
@@ -17,20 +17,10 @@ const COLLECTIONS_QUERY = `#graphql
         sortOrder
         templateSuffix
         seo { title description }
-        ruleSet {
-          appliedDisjunctively
-          rules { column relation condition }
-        }
       }
     }
   }
 `;
-
-export interface CollectionRule {
-  column: string;
-  relation: string;
-  condition: string;
-}
 
 export interface CollectionRow {
   handle: string;
@@ -39,8 +29,6 @@ export interface CollectionRow {
   sortOrder: string;
   templateSuffix: string | null;
   seo: { title: string | null; description: string | null };
-  /** `null` for a manual collection. */
-  ruleSet: { appliedDisjunctively: boolean; rules: CollectionRule[] } | null;
 }
 
 export async function getCollections(

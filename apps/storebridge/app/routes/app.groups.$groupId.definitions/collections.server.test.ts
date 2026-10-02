@@ -15,7 +15,6 @@ describe("getCollections", () => {
       sortOrder: "BEST_SELLING",
       templateSuffix: null,
       seo: { title: null, description: null },
-      ruleSet: null,
     };
     const graphql = vi.fn(() =>
       Promise.resolve(jsonResponse({ collections: { nodes: [collection] } })),

@@ -12,16 +12,8 @@ const base = {
 };
 
 const collections: CollectionRow[] = [
-  { ...base, handle: "summer", title: "Summer", ruleSet: null },
-  {
-    ...base,
-    handle: "hats",
-    title: "Hats",
-    ruleSet: {
-      appliedDisjunctively: false,
-      rules: [{ column: "TAG", relation: "EQUALS", condition: "hat" }],
-    },
-  },
+  { ...base, handle: "summer", title: "Summer" },
+  { ...base, handle: "hats", title: "Hats" },
 ];
 
 // See MetafieldDefinitionsSection.test.tsx for why interaction isn't
@@ -44,7 +36,7 @@ describe("CollectionsSection", () => {
     );
   });
 
-  it("explains what syncs for manual vs smart collections", () => {
+  it("explains on each row that products and conditions aren't synced", () => {
     render(
       <CollectionsSection
         collections={collections}
@@ -56,12 +48,9 @@ describe("CollectionsSection", () => {
     expect(checkboxByLabel("Select all (2)")).toBeInTheDocument();
     expect(checkboxByLabel("Summer (summer)")).toHaveAttribute(
       "details",
-      expect.stringMatching(/products aren't synced/i),
+      expect.stringMatching(/products and smart-collection conditions/i),
     );
-    expect(checkboxByLabel("Hats (hats)")).toHaveAttribute(
-      "details",
-      expect.stringMatching(/^Smart: 1 rule\(s\)/),
-    );
+    expect(checkboxByLabel("Hats (hats)")).toBeInTheDocument();
   });
 
   it("marks select-all indeterminate when only some collections are selected", () => {
