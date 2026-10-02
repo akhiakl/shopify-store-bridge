@@ -84,6 +84,34 @@ No new selection UI: this rides along automatically with the existing
 means "sync this and its value," since for Shop (unlike Product/Customer/Order) there's
 no ambiguity about _which_ value that means.
 
+## Metaobject entry sync (#63, phase 1)
+
+Selecting a type under "Metaobject entries" (`metaobjectEntries:<type>`)
+syncs its entries, not just its definition. Design record and the decisions
+behind it: issue #63. In short:
+
+- **Matched by `(type, handle)`.** `metaobjectUpsert` creates or updates by
+  handle natively, so there's no cross-store matching problem and no mapping
+  table. Source is authoritative for every field it has a value for.
+- **Not mirrored:** a field that's empty on the source is left as-is on the
+  target (the `metaobject:` argument updates only fields given; the
+  full-replacement `values:` argument's JSON shape isn't described by the
+  schema), and deleting a source entry never deletes it on a target.
+- **References.** `metaobject_reference` / `list.metaobject_reference`
+  values are source GIDs, meaningless on a target. They're read as
+  `(type, handle)` via one `nodes(ids:)` lookup on the source, then
+  resolved to the target's own GIDs with `metaobjectByHandle`. Selected
+  types are ordered so a referenced type syncs first; a reference that
+  still can't be resolved fails that entry and succeeds on a re-run. Any
+  other non-empty reference field (file, product, page, …) fails the entry
+  with an explicit reason: those records have no shared identity yet.
+- **Capped at `ENTRY_CAP_PER_TYPE` (250) entries per type per run**
+  (`entryCap.ts`), because sync still runs inside the request (see
+  "Execution model"). The UI shows each type's entry count and says when
+  the cap applies. Lifting it is #110 (a real job queue).
+- One `SyncJobItem` per entry (`metaobjectEntry:<type>:<handle>`,
+  `kind: VALUE`) — bounded by the cap.
+
 ## Job/job-target/job-item schema
 
 One `SyncJob` row per "Sync now" click (group, requested selection, overall status,
@@ -120,4 +148,5 @@ object spread into one `schema` object for Drizzle's relational query API.
 - **Webhooks/automatic sync on source change.** Manual-trigger only, per the product
   decision this feature shipped with. Revisit once merchants actually ask for it.
 - **Resource-level metafield value sync** (Product/Customer/Order/…). Needs a
-  record-matching step this app doesn't have yet — see "Scope" above.
+  record-matching step this app doesn't have yet — see "Scope" above. The
+  agreed approach (natural keys: handle/email) is phase 2 of #63.

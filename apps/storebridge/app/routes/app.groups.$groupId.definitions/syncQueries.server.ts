@@ -118,3 +118,28 @@ export const SHOP_POLICY_UPDATE_MUTATION = `#graphql
     }
   }
 `;
+
+/**
+ * Metaobject entry sync: upsert keyed by (type, handle), the identity both
+ * stores share. The `metaobject` argument updates only the fields given;
+ * the alternative `values` argument is a full replacement, but its JSON
+ * shape per field type isn't described by the schema, so it isn't used.
+ * Checked against the pinned 2026-07 schema: write_metaobjects.
+ */
+export const METAOBJECT_UPSERT_MUTATION = `#graphql
+  mutation MetaobjectUpsert(
+    $handle: MetaobjectHandleInput!
+    $metaobject: MetaobjectUpsertInput!
+  ) {
+    metaobjectUpsert(handle: $handle, metaobject: $metaobject) {
+      metaobject { id }
+      userErrors { field message code }
+    }
+  }
+`;
+
+export const METAOBJECT_ID_BY_HANDLE_QUERY = `#graphql
+  query MetaobjectIdByHandle($handle: MetaobjectHandleInput!) {
+    metaobjectByHandle(handle: $handle) { id }
+  }
+`;

@@ -60,7 +60,13 @@ embedded = true
 # write_legal_policies and read_legal_policies. Used by
 # definitions.server.ts's fetchShopPolicies and syncTarget.server.ts's
 # shop-policy sync.
-scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content,read_legal_policies,write_legal_policies"
+#
+# read_metaobjects / write_metaobjects: metaobject *entry* sync
+# (metaobjectEntries.server.ts / syncMetaobjectEntry.server.ts). The
+# `*_metaobject_definitions` scopes above only cover the schema. Reported
+# by validate_graphql_codeblocks: metaobjects/nodes/metaobjectByHandle need
+# read_metaobjects, metaobjectUpsert needs write_metaobjects.
+scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content,read_legal_policies,write_legal_policies,read_metaobjects,write_metaobjects"
 use_legacy_install_flow = false
 
 [webhooks]

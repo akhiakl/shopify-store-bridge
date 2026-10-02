@@ -55,6 +55,7 @@ const METAOBJECT_DEFINITIONS_QUERY = `#graphql
         id
         type
         name
+        metaobjectsCount
         fieldDefinitions {
           name
           key
@@ -117,6 +118,9 @@ export interface MetaobjectDefinitionRow {
    * that. */
   fieldDefinitions: MetaobjectFieldDefinition[];
   fieldCount: number;
+  /** How many entries of this type exist on the source — shown so a
+   * merchant can see when entry sync's per-run cap applies. */
+  entryCount: number;
 }
 
 /** One `metafieldDefinitions` call per owner type — the API has no single
@@ -165,6 +169,7 @@ async function fetchMetaobjectDefinitions(
       id: string;
       type: string;
       name: string;
+      metaobjectsCount: number | null;
       fieldDefinitions: {
         name: string;
         key: string;
@@ -182,6 +187,7 @@ async function fetchMetaobjectDefinitions(
         type: field.type.name,
       })),
       fieldCount: node.fieldDefinitions.length,
+      entryCount: node.metaobjectsCount ?? 0,
     }),
   );
 }

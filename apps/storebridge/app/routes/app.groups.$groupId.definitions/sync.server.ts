@@ -15,6 +15,7 @@ import {
   getShopPolicies,
   type getOwnedGroup,
 } from "./definitions.server";
+import { getMetaobjectEntries } from "./metaobjectEntries.server";
 import { syncToTarget } from "./syncTarget.server";
 
 interface ParsedSelection {
@@ -22,11 +23,12 @@ interface ParsedSelection {
   metafieldSelectors: { ownerType: string; namespace: string; key: string }[];
   policyTypes: string[];
   collectionHandles: string[];
+  metaobjectEntryTypes: string[];
 }
 
 /** Inverse of the `definitionKey` helpers in the checkbox components
  * (`metaobject:<type>`, `metafield:<ownerType>:<namespace>:<key>`,
- * `policy:<type>`, `collection:<handle>`) — safe to split on ":" since
+ * `policy:<type>`, `collection:<handle>`, `metaobjectEntries:<type>`) — safe to split on ":" since
  * Shopify's own validation rules for type/namespace/key (alphanumeric,
  * hyphen, underscore only) rule out embedded colons, and `ShopPolicyType`
  * is itself an enum of bare uppercase names. A collection handle is the
@@ -37,6 +39,7 @@ export function parseSelection(keys: string[]): ParsedSelection {
     metafieldSelectors: [],
     policyTypes: [],
     collectionHandles: [],
+    metaobjectEntryTypes: [],
   };
   for (const key of keys) {
     const [kind, ...rest] = key.split(":");
@@ -49,6 +52,8 @@ export function parseSelection(keys: string[]): ParsedSelection {
       parsed.policyTypes.push(rest[0]);
     } else if (kind === "collection") {
       parsed.collectionHandles.push(rest.join(":"));
+    } else if (kind === "metaobjectEntries") {
+      parsed.metaobjectEntryTypes.push(rest[0]);
     }
   }
   return parsed;
@@ -83,11 +88,18 @@ async function resolveSelectedDefinitions(
   const collections = allCollections.filter((collection) =>
     selection.collectionHandles.includes(collection.handle),
   );
+  // Only types that still exist on the source; entries are read after the
+  // catalog so a stale or forged type key never triggers a query.
+  const entryTypes = catalog.metaobjectDefinitions
+    .map((def) => def.type)
+    .filter((type) => selection.metaobjectEntryTypes.includes(type));
+  const metaobjectEntries = await getMetaobjectEntries(sourceAdmin, entryTypes);
   return {
     metaobjectDefinitions,
     metafieldDefinitions,
     shopPolicies,
     collections,
+    metaobjectEntries,
   };
 }
 

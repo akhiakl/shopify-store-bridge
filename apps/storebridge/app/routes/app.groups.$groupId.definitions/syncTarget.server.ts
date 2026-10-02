@@ -10,8 +10,14 @@ import {
   collectionKey,
   metafieldDefinitionKey,
   metaobjectDefinitionKey,
+  metaobjectEntryKey,
   shopPolicyKey,
 } from "./definitionKey";
+import type { MetaobjectEntryRow } from "./metaobjectEntries.server";
+import {
+  syncMetaobjectEntry,
+  type TargetIdCache,
+} from "./syncMetaobjectEntry.server";
 import { syncCollection } from "./syncCollection.server";
 import {
   METAFIELD_DEFINITION_CREATE_MUTATION,
@@ -135,6 +141,7 @@ export async function syncToTarget({
   metafieldDefinitions,
   shopPolicies = [],
   collections = [],
+  metaobjectEntries = [],
 }: {
   sourceAdmin: AdminApiContext;
   targetAdmin: AdminApiContext;
@@ -142,6 +149,7 @@ export async function syncToTarget({
   metafieldDefinitions: MetafieldDefinitionRow[];
   shopPolicies?: ShopPolicyRow[];
   collections?: CollectionRow[];
+  metaobjectEntries?: MetaobjectEntryRow[];
 }): Promise<{ tallies: SyncTally; items: SyncItemResult[] }> {
   const tallies: SyncTally = {
     itemsSynced: 0,
@@ -248,6 +256,20 @@ export async function syncToTarget({
       items,
       key: collectionKey(collection.handle),
       kind: "DEFINITION",
+      result,
+    });
+  }
+
+  // After definitions, so a definition created in this run exists before
+  // its entries. Entries arrive dependency-ordered (getMetaobjectEntries).
+  const targetIds: TargetIdCache = new Map();
+  for (const entry of metaobjectEntries) {
+    const result = await syncMetaobjectEntry(targetAdmin, entry, targetIds);
+    tally({
+      tallies,
+      items,
+      key: metaobjectEntryKey(entry),
+      kind: "VALUE",
       result,
     });
   }
