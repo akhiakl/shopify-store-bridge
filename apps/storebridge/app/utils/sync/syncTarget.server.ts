@@ -82,7 +82,7 @@ export interface SyncTally {
 }
 
 /** One definition (or value-sync) attempt's outcome — persisted verbatim
- * as a `SyncJobItem` row by runSyncJob, so job history can show which
+ * as a `SyncJobItem` row by the sync worker, so job history can show which
  * item failed, not just how many. `key` reuses the same
  * `metaobject:<type>` / `metafield:<ownerType>:<namespace>:<key>` format
  * the checkbox UI and sync.server.ts's parseSelection already use (see
@@ -94,73 +94,78 @@ export interface SyncItemResult {
   errorMessage: string | null;
 }
 
-function tally({
-  tallies,
-  items,
-  key,
-  kind,
-  result,
-}: {
-  tallies: SyncTally;
-  items: SyncItemResult[];
-  key: string;
-  kind: SyncItemResult["kind"];
-  result: CreateResult;
-}): void {
+function toItem(
+  key: string,
+  kind: SyncItemResult["kind"],
+  result: CreateResult,
+): SyncItemResult {
   if (!result.ok) {
-    tallies.itemsFailed++;
-    items.push({ key, kind, status: "FAILED", errorMessage: result.error });
-  } else if (result.skipped) {
-    tallies.itemsSkipped++;
-    items.push({ key, kind, status: "SKIPPED", errorMessage: null });
-  } else {
-    tallies.itemsSynced++;
-    items.push({ key, kind, status: "SUCCEEDED", errorMessage: null });
+    return { key, kind, status: "FAILED", errorMessage: result.error };
   }
+  return {
+    key,
+    kind,
+    status: result.skipped ? "SKIPPED" : "SUCCEEDED",
+    errorMessage: null,
+  };
 }
 
-/** Only fetched when there's actually a SHOP-owned definition selected —
- * one extra query per target, not per item. */
-async function resolveTargetShopId(
+export function tallyItems(items: SyncItemResult[]): SyncTally {
+  return {
+    itemsSynced: items.filter((i) => i.status === "SUCCEEDED").length,
+    itemsSkipped: items.filter((i) => i.status === "SKIPPED").length,
+    itemsFailed: items.filter((i) => i.status === "FAILED").length,
+  };
+}
+
+/** Everything one sync job pushes, read from the source once. Persisted on
+ * the job, so it must stay plain JSON. */
+export interface SyncPlan {
+  metaobjectDefinitions: MetaobjectDefinitionRow[];
+  metafieldDefinitions: MetafieldDefinitionRow[];
+  shopPolicies: ShopPolicyRow[];
+  collections: CollectionRow[];
+  metaobjectEntries: MetaobjectEntryRow[];
+}
+
+/** Per-target state shared by that target's steps within one run. */
+export interface StepContext {
+  sourceAdmin: AdminApiContext;
+  targetAdmin: AdminApiContext;
+  targetIds: TargetIdCache;
+  /** Fetched at most once, and only if a SHOP metafield value needs it. */
+  targetShopId: () => Promise<string | undefined>;
+}
+
+async function fetchTargetShopId(
   targetAdmin: AdminApiContext,
-  shopOwnedDefs: MetafieldDefinitionRow[],
 ): Promise<string | undefined> {
-  if (shopOwnedDefs.length === 0) return undefined;
   const response = await targetAdmin.graphql(SHOP_ID_QUERY);
   const { data } = await response.json();
   return data?.shop?.id;
 }
 
-/** Pushes the given definitions (and, for SHOP-owned metafields, their
- * current value) from source to one target. Called once per approved
- * target by runSyncJob. */
-export async function syncToTarget({
-  sourceAdmin,
-  targetAdmin,
-  metaobjectDefinitions,
-  metafieldDefinitions,
-  shopPolicies = [],
-  collections = [],
-  metaobjectEntries = [],
-}: {
-  sourceAdmin: AdminApiContext;
-  targetAdmin: AdminApiContext;
-  metaobjectDefinitions: MetaobjectDefinitionRow[];
-  metafieldDefinitions: MetafieldDefinitionRow[];
-  shopPolicies?: ShopPolicyRow[];
-  collections?: CollectionRow[];
-  metaobjectEntries?: MetaobjectEntryRow[];
-}): Promise<{ tallies: SyncTally; items: SyncItemResult[] }> {
-  const tallies: SyncTally = {
-    itemsSynced: 0,
-    itemsSkipped: 0,
-    itemsFailed: 0,
+export function createStepContext(
+  sourceAdmin: AdminApiContext,
+  targetAdmin: AdminApiContext,
+): StepContext {
+  let shopId: Promise<string | undefined> | undefined;
+  return {
+    sourceAdmin,
+    targetAdmin,
+    targetIds: new Map(),
+    targetShopId: () => (shopId ??= fetchTargetShopId(targetAdmin)),
   };
-  const items: SyncItemResult[] = [];
+}
 
-  for (const def of metaobjectDefinitions) {
+/** One unit of resumable work: usually one item, two for a SHOP metafield
+ * (definition, then its value). */
+export type SyncStep = (ctx: StepContext) => Promise<SyncItemResult[]>;
+
+function metaobjectDefinitionStep(def: MetaobjectDefinitionRow): SyncStep {
+  return async (ctx) => {
     const result = await createOne(
-      targetAdmin,
+      ctx.targetAdmin,
       METAOBJECT_DEFINITION_CREATE_MUTATION,
       {
         definition: {
@@ -175,24 +180,19 @@ export async function syncToTarget({
         },
       },
     );
-    tally({
-      tallies,
-      items,
-      key: metaobjectDefinitionKey(def),
-      kind: "DEFINITION",
-      result,
-    });
-  }
+    return [toItem(metaobjectDefinitionKey(def), "DEFINITION", result)];
+  };
+}
 
-  const shopOwnedDefs = metafieldDefinitions.filter(
-    (def) => def.ownerType === "SHOP",
-  );
-  const targetShopId = await resolveTargetShopId(targetAdmin, shopOwnedDefs);
-
-  for (const def of metafieldDefinitions) {
+/** A SHOP-owned definition also carries its value once the definition is
+ * confirmed on the target (created or already there). A missing target
+ * Shop id is recorded as a failed VALUE item rather than skipped silently,
+ * so the job can't report SUCCEEDED when the value never copied. */
+function metafieldDefinitionStep(def: MetafieldDefinitionRow): SyncStep {
+  return async (ctx) => {
     const key = metafieldDefinitionKey(def);
     const result = await createOne(
-      targetAdmin,
+      ctx.targetAdmin,
       METAFIELD_DEFINITION_CREATE_MUTATION,
       {
         definition: {
@@ -205,74 +205,81 @@ export async function syncToTarget({
         },
       },
     );
-    tally({ tallies, items, key, kind: "DEFINITION", result });
+    const items = [toItem(key, "DEFINITION", result)];
+    if (!result.ok || def.ownerType !== "SHOP") return items;
 
-    // Definition confirmed on the target (created or already there) — now
-    // ride the value along, SHOP owner only (see syncShopMetafieldValue).
-    // A missing targetShopId (the resolveTargetShopId call above failed —
-    // permissions, a bad response) used to just skip this silently, which
-    // let the job report SUCCEEDED even though the value never copied;
-    // record it as a failed VALUE item instead so tallies/history show it.
-    if (result.ok && def.ownerType === "SHOP") {
-      const valueResult: CreateResult = targetShopId
-        ? await syncShopMetafieldValue({
-            sourceAdmin,
-            targetAdmin,
-            targetShopId,
-            def,
-          })
-        : {
-            ok: false,
-            error: "Could not resolve the target store's Shop id.",
-          };
-      tally({ tallies, items, key, kind: "VALUE", result: valueResult });
-    }
+    const targetShopId = await ctx.targetShopId();
+    const valueResult: CreateResult = targetShopId
+      ? await syncShopMetafieldValue({
+          sourceAdmin: ctx.sourceAdmin,
+          targetAdmin: ctx.targetAdmin,
+          targetShopId,
+          def,
+        })
+      : { ok: false, error: "Could not resolve the target store's Shop id." };
+    return [...items, toItem(key, "VALUE", valueResult)];
+  };
+}
+
+/**
+ * The plan as an ordered list of steps. The order must be deterministic:
+ * the background worker saves how many steps a target has finished and
+ * resumes from that index in a later run. Definitions come before entries,
+ * so a definition created in this job exists before its entries; entries
+ * arrive dependency-ordered from getMetaobjectEntries.
+ *
+ * Shop policies are tallied as VALUE (their body is content) and
+ * collections as DEFINITION (a collection shell is structure).
+ */
+export function buildSyncSteps(plan: SyncPlan): SyncStep[] {
+  return [
+    ...plan.metaobjectDefinitions.map(metaobjectDefinitionStep),
+    ...plan.metafieldDefinitions.map(metafieldDefinitionStep),
+    ...plan.shopPolicies.map((policy): SyncStep => async (ctx) => [
+      toItem(
+        shopPolicyKey(policy.type),
+        "VALUE",
+        await createOne(ctx.targetAdmin, SHOP_POLICY_UPDATE_MUTATION, {
+          shopPolicy: { type: policy.type, body: policy.body },
+        }),
+      ),
+    ]),
+    ...plan.collections.map((collection): SyncStep => async (ctx) => [
+      toItem(
+        collectionKey(collection.handle),
+        "DEFINITION",
+        await syncCollection(ctx.targetAdmin, collection),
+      ),
+    ]),
+    ...plan.metaobjectEntries.map((entry): SyncStep => async (ctx) => [
+      toItem(
+        metaobjectEntryKey(entry),
+        "VALUE",
+        await syncMetaobjectEntry(ctx.targetAdmin, entry, ctx.targetIds),
+      ),
+    ]),
+  ];
+}
+
+/** Runs `steps` from index `from` until they're done or `deadline` (epoch
+ * ms) passes. The deadline is checked between steps, so a step that has
+ * started always finishes. Returns the index to resume from. */
+export async function runSyncSteps({
+  steps,
+  ctx,
+  from = 0,
+  deadline = Infinity,
+}: {
+  steps: SyncStep[];
+  ctx: StepContext;
+  from?: number;
+  deadline?: number;
+}): Promise<{ items: SyncItemResult[]; next: number }> {
+  const items: SyncItemResult[] = [];
+  let next = from;
+  while (next < steps.length && Date.now() < deadline) {
+    items.push(...(await steps[next](ctx)));
+    next++;
   }
-
-  // Shop policies are pure text (no cross-store record reference), and
-  // `shopPolicyUpdate` is itself an upsert keyed by `type` — no separate
-  // create-vs-update step, and no "already exists" case to treat as
-  // skipped. Tallied as `kind: "VALUE"` (reusing the existing enum value
-  // rather than adding a DB migration) since a policy's body is content,
-  // not a schema/definition.
-  for (const policy of shopPolicies) {
-    const result = await createOne(targetAdmin, SHOP_POLICY_UPDATE_MUTATION, {
-      shopPolicy: { type: policy.type, body: policy.body },
-    });
-    tally({
-      tallies,
-      items,
-      key: shopPolicyKey(policy.type),
-      kind: "VALUE",
-      result,
-    });
-  }
-
-  // A collection's shell is structure, not content — tallied as DEFINITION.
-  for (const collection of collections) {
-    const result = await syncCollection(targetAdmin, collection);
-    tally({
-      tallies,
-      items,
-      key: collectionKey(collection.handle),
-      kind: "DEFINITION",
-      result,
-    });
-  }
-
-  // After definitions, so a definition created in this run exists before
-  // its entries. Entries arrive dependency-ordered (getMetaobjectEntries).
-  const targetIds: TargetIdCache = new Map();
-  for (const entry of metaobjectEntries) {
-    const result = await syncMetaobjectEntry(targetAdmin, entry, targetIds);
-    tally({
-      tallies,
-      items,
-      key: metaobjectEntryKey(entry),
-      kind: "VALUE",
-      result,
-    });
-  }
-
-  return { tallies, items };
+  return { items, next };
 }

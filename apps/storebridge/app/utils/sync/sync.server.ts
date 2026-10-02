@@ -16,7 +16,12 @@ import {
   type getOwnedGroup,
 } from "./definitions.server";
 import { getMetaobjectEntries } from "./metaobjectEntries.server";
-import { syncToTarget } from "./syncTarget.server";
+import {
+  buildSyncSteps,
+  createStepContext,
+  runSyncSteps,
+  tallyItems,
+} from "./syncTarget.server";
 
 interface ParsedSelection {
   metaobjectTypes: string[];
@@ -158,11 +163,11 @@ export async function runSyncJob({
       const { admin: targetAdmin } = await unauthenticated.admin(
         target.store.shop,
       );
-      const { tallies, items } = await syncToTarget({
-        sourceAdmin,
-        targetAdmin,
-        ...resolved,
+      const { items } = await runSyncSteps({
+        steps: buildSyncSteps(resolved),
+        ctx: createStepContext(sourceAdmin, targetAdmin),
       });
+      const tallies = tallyItems(items);
       const status = tallies.itemsFailed === 0 ? "SUCCEEDED" : "FAILED";
       targetStatuses.push(status);
       const [jobTarget] = await db
