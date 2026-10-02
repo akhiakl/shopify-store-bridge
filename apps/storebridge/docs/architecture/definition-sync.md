@@ -3,8 +3,9 @@
 Once a sync group has an APPROVED target (`store-pairing.md`), the source can push its
 metaobject/metafield definitions to that target from
 `app.groups.$groupId.definitions`. This doc covers the design decisions that aren't
-obvious from the code — the job orchestration lives in `sync.server.ts`, the actual
-per-target mutations in `syncTarget.server.ts`.
+obvious from the code. The engine lives in `app/utils/sync/`: selection parsing and
+plan resolution in `sync.server.ts`, per-target steps in `syncTarget.server.ts`, and
+background execution in `syncQueue.server.ts` / `syncWorker.server.ts`.
 
 ## Scope: definitions (+ shop metafield values), manual trigger only
 
@@ -35,19 +36,44 @@ the same category of "read another shop's session row directly" access
 `pairing.server.ts`'s `isShopInstalled` already relies on — just reused for a live
 GraphQL client instead of an existence check.
 
-## Execution model: synchronous, not queued
+## Execution model: background jobs on Postgres (#110)
 
-`runSyncJob` runs inline inside the `action` — no job queue or worker process exists in
-this app, and the volume (a handful of selected definitions × a handful of approved
-targets) is small enough that a Vercel serverless function's execution window covers it
-comfortably. If job volume or target count ever grows enough to make this slow, the fix
-is a real background-job system (a queue + worker), not a bigger timeout — revisit then.
+"Sync now" doesn't sync inside the request. The action inserts a `QUEUED` `SyncJob`
+and starts its first run with `waitUntil` (`@vercel/functions`), which keeps the
+function alive after the response is sent. Chosen over a hosted queue (QStash,
+Inngest) to avoid a new vendor; the project is on Vercel Hobby.
+
+- **Plan once.** The first run reads everything selected from the source and saves it
+  on the job (`plan`), then creates one `PENDING` `SyncJobTarget` per target that's
+  APPROVED at that moment. Every later run works from that snapshot. The plan is
+  cleared when the job finishes.
+- **Resumable steps.** `buildSyncSteps(plan)` turns the plan into a deterministic,
+  ordered list of steps; each target stores `stepsDone`/`stepsTotal`, and a run
+  continues from `stepsDone`. Progress is saved once per target per run. A run that
+  dies before saving redoes those steps next time, which is harmless because every
+  step is an idempotent create/upsert.
+- **Time-boxed runs.** Each run stops starting new steps after `RUN_BUDGET_MS` (25s),
+  well under Vercel's function duration (300s with Fluid compute, Hobby included).
+- **Hand-off.** A run that leaves work behind POSTs to `/api/sync-worker` with
+  `Authorization: Bearer $CRON_SECRET`; that endpoint replies 202 at once and runs
+  the next chunk in its own `waitUntil`, so no caller ever waits on the chain.
+- **One run per job.** A run claims the job by setting `lockedUntil` (90s) with a
+  conditional update; a second run finds it locked and stops ("busy"). A run that
+  dies leaves the lock to expire.
+- **Recovery** for a lost hand-off or a dead run: the sync page's loader restarts its
+  group's stalled jobs (and polls every 3s while a job is unfinished, so an open page
+  keeps it moving), and a daily Vercel Cron (`vercel.json`; Hobby allows daily only)
+  calls the same endpoint with GET to sweep every stalled job.
+
+Requires `CRON_SECRET` (and `SHOPIFY_APP_URL`, already set for Shopify) in the
+Vercel project. Without `CRON_SECRET` the endpoint rejects everything, so a job only
+advances while its sync page is open.
 
 ## Definitions are never trusted from the browser
 
 The checkbox UI only sends _selection keys_
 (`metaobject:<type>` / `metafield:<ownerType>:<namespace>:<key>`) — never the actual
-field list or type info. `runSyncJob` re-reads the full definition catalog from the
+field list or type info. The worker's first run re-reads the full definition catalog from the
 source store's own admin session right before syncing and filters it down to the
 selected keys. A client could otherwise submit an arbitrary "field list" for a
 type it doesn't actually control.
@@ -105,10 +131,10 @@ behind it: issue #63. In short:
   still can't be resolved fails that entry and succeeds on a re-run. Any
   other non-empty reference field (file, product, page, …) fails the entry
   with an explicit reason: those records have no shared identity yet.
-- **Capped at `ENTRY_CAP_PER_TYPE` (250) entries per type per run**
-  (`entryCap.ts`), because sync still runs inside the request (see
-  "Execution model"). The UI shows each type's entry count and says when
-  the cap applies. Lifting it is #110 (a real job queue).
+- **Capped at `ENTRY_CAP_PER_TYPE` (1,000) entries per type per job**
+  (`entryCap.ts`). Syncing is chunked across runs (see "Execution model"), but the
+  planning run reads every selected entry from the source in one go, and the cap
+  bounds that. The UI shows each type's entry count and says when the cap applies.
 - One `SyncJobItem` per entry (`metaobjectEntry:<type>:<handle>`,
   `kind: VALUE`) — bounded by the cap.
 
@@ -126,7 +152,7 @@ key; `status`: `SUCCEEDED` | `SKIPPED` | `FAILED`; `errorMessage`). Same reasoni
 target's result, and one item's outcome within that target are genuinely different
 things — a run can succeed for one target and fail for another, and within a failed
 target only one of several selected items might be the actual problem.
-`syncTarget.server.ts`'s `syncToTarget` returns `{ tallies, items }` — the counts and the
+`runSyncSteps` returns each run's `items`, folded into counts by `tallyItems` — the counts and the
 per-item detail travel together, but `SyncJobTarget` keeps only the counts (cheap to
 render a summary line from) while the per-item detail is `SyncJobItem` rows, joined in by
 `getJobHistory` and rendered by `JobHistoryList` (only failed items are surfaced there
