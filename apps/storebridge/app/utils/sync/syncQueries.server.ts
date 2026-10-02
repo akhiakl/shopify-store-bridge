@@ -1,5 +1,5 @@
 /**
- * GraphQL documents for syncToTarget — split out of syncTarget.server.ts
+ * GraphQL documents for the sync steps — split out of syncTarget.server.ts
  * once that file started pushing past the 300-line limit (AGENTS.md §5).
  * Purely data (tagged template strings); no logic lives here.
  *

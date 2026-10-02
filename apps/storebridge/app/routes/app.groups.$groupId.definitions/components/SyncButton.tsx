@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useFetcher } from "react-router";
 
 type SyncActionData =
-  { ok: true; jobId: string; status: string } | { ok: false; error: string };
+  { ok: true; jobId: string } | { ok: false; error: string };
 
 interface SyncButtonProps {
   selected: Set<string>;
@@ -35,16 +35,9 @@ export function SyncButton({ selected, approvedTargetCount }: SyncButtonProps) {
         <s-banner tone="critical" heading={data.error}></s-banner>
       )}
       {data?.ok && (
-        <s-banner
-          tone={
-            data.status === "FAILED"
-              ? "critical"
-              : data.status === "PARTIAL"
-                ? "warning"
-                : "success"
-          }
-          heading={`Sync ${data.status.toLowerCase()}`}
-        ></s-banner>
+        <s-banner tone="info" heading="Sync started">
+          It runs in the background. Progress shows in Job history below.
+        </s-banner>
       )}
       <fetcher.Form method="post" ref={formRef}>
         <input type="hidden" name="intent" value="sync" />

@@ -66,6 +66,8 @@ export async function getRecentJobs(ownedGroupIds: string[], limit = 10) {
 
   return db.query.syncJobs.findMany({
     where: inArray(syncJobs.groupId, ownedGroupIds),
+    // A running job's plan can be thousands of entries; never ship it.
+    columns: { plan: false },
     with: { group: true },
     orderBy: [desc(syncJobs.startedAt)],
     limit,

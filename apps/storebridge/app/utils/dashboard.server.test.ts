@@ -77,7 +77,11 @@ describe("getRecentJobs", () => {
 
     expect(result).toEqual([{ id: "job-1" }]);
     expect(dbMock.query.syncJobs.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ with: { group: true }, limit: 5 }),
+      expect.objectContaining({
+        columns: { plan: false },
+        with: { group: true },
+        limit: 5,
+      }),
     );
   });
 });

@@ -10,7 +10,7 @@ interface MetaobjectEntriesSectionProps {
 
 function entryDetails(entryCount: number): string {
   if (entryCount > ENTRY_CAP_PER_TYPE) {
-    return `${entryCount} entries. Only the first ${ENTRY_CAP_PER_TYPE} sync per run.`;
+    return `${entryCount} entries. Only the first ${ENTRY_CAP_PER_TYPE} sync per job.`;
   }
   return `${entryCount} entries`;
 }

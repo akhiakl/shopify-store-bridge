@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { waitUntil } from "@vercel/functions";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { data, useFetcher, useLoaderData } from "react-router";
 
@@ -12,12 +13,18 @@ import { getCollections } from "~/utils/sync/collections.server";
 import { CollectionsSection } from "./components/CollectionsSection";
 import { ShopPoliciesSection } from "./components/ShopPoliciesSection";
 import { SyncButton } from "./components/SyncButton";
+import { useRevalidateWhile } from "./hooks/useRevalidateWhile";
 import {
   getDefinitionCatalog,
   getOwnedGroup,
   getShopPolicies,
 } from "~/utils/sync/definitions.server";
-import { getJobHistory, runSyncJob } from "~/utils/sync/sync.server";
+import { getJobHistory } from "~/utils/sync/sync.server";
+import {
+  driveSyncJob,
+  enqueueSyncJob,
+  resumeStalledJobs,
+} from "~/utils/sync/syncQueue.server";
 import {
   runStatusCheck,
   type DefinitionStatusSummary,
@@ -35,6 +42,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   if (!group) {
     throw data("Sync group not found.", { status: 404 });
   }
+
+  // Picks up any of this group's jobs whose run died or whose hand-off was
+  // lost. The page polls while a job is unfinished, so an open page keeps
+  // a stalled job moving even though Hobby's cron only runs daily.
+  waitUntil(resumeStalledJobs(group.id));
 
   const [catalog, shopPolicies, collections, jobs] = await Promise.all([
     getDefinitionCatalog(admin),
@@ -81,8 +93,11 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     } as const;
   }
 
-  const job = await runSyncJob({ group, selection, sourceAdmin: admin });
-  return { ok: true, jobId: job.id, status: job.status } as const;
+  // Runs in the background: the first run starts now, after the response
+  // is sent, and hands off to further runs until the job is done.
+  const job = await enqueueSyncJob(group.id, selection);
+  waitUntil(driveSyncJob(job.id));
+  return { ok: true, jobId: job.id } as const;
 };
 
 export default function GroupDefinitions() {
@@ -95,6 +110,9 @@ export default function GroupDefinitions() {
     collections,
   } = useLoaderData<typeof loader>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  useRevalidateWhile(
+    jobs.some((job) => job.status === "QUEUED" || job.status === "RUNNING"),
+  );
   const statusFetcher = useFetcher<StatusCheckResult>();
   const approvedTargetCount = group.targets.filter(
     (target) => target.status === "APPROVED",

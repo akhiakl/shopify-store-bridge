@@ -20,22 +20,28 @@ import { stores, syncGroups } from "./schema.server";
 
 // --- ENUMS ---
 
-/** Rollup of a job's `SyncJobTarget` rows: SUCCEEDED/FAILED only when every
- * target agreed, PARTIAL when they didn't. */
+/** QUEUED until the background worker has read the plan from the source
+ * (see utils/sync/syncWorker.server.ts), RUNNING while targets are being
+ * worked through, then a rollup of the `SyncJobTarget` rows:
+ * SUCCEEDED/FAILED only when every target agreed, PARTIAL when they
+ * didn't. QUEUED is set explicitly on insert rather than made the column
+ * default: Postgres can't use an enum value in the same transaction that
+ * added it, and the migration would do both. */
 export const syncJobStatusEnum = pgEnum("SyncJobStatus", [
+  "QUEUED",
   "RUNNING",
   "SUCCEEDED",
   "FAILED",
   "PARTIAL",
 ]);
 
-/** SKIPPED is reserved for a target that drops out of APPROVED between
- * the checkbox UI loading and the sync actually running (declined, or its
- * session got revoked) — runSyncJob doesn't emit it yet (it only iterates
- * the APPROVED targets it read at the start), so this status is currently
- * unused; kept here so job history has somewhere to put that case once it
- * is handled rather than needing a migration then. */
+/** PENDING while the worker still has steps left for this target.
+ * SKIPPED is reserved for a target that drops out of APPROVED between the
+ * checkbox UI loading and the sync actually running (declined, or its
+ * session got revoked). Nothing emits it yet; it's kept so job history has
+ * somewhere to put that case without a migration. */
 export const syncJobTargetStatusEnum = pgEnum("SyncJobTargetStatus", [
+  "PENDING",
   "SUCCEEDED",
   "FAILED",
   "SKIPPED",
@@ -79,6 +85,17 @@ export const syncJobs = pgTable(
     status: syncJobStatusEnum("status").notNull().default("RUNNING"),
     startedAt: timestamp("startedAt", { mode: "date" }).notNull().defaultNow(),
     finishedAt: timestamp("finishedAt", { mode: "date" }),
+    /** Everything this job pushes, read from the source once when the job
+     * starts, so every later run works from the same snapshot. Cleared
+     * when the job finishes. Shape: utils/sync/syncTarget.server.ts's
+     * SyncPlan (not imported here, to keep db/ free of app imports). */
+    plan: jsonb("plan"),
+    /** Set while a worker run owns this job; a run that dies leaves it to
+     * expire, after which another run can pick the job up. */
+    lockedUntil: timestamp("lockedUntil", { mode: "date" }),
+    /** Job-level failure that happened before any target was tried, e.g.
+     * the source store couldn't be read. */
+    errorMessage: text("errorMessage"),
   },
   () => [serviceRoleOnly("SyncJob")],
 ).enableRLS();
@@ -107,6 +124,10 @@ export const syncJobTargets = pgTable(
     itemsSkipped: integer("itemsSkipped").notNull().default(0),
     itemsFailed: integer("itemsFailed").notNull().default(0),
     errorMessage: text("errorMessage"),
+    /** Progress through the job's plan for this target: the worker resumes
+     * from `stepsDone` on its next run. */
+    stepsDone: integer("stepsDone").notNull().default(0),
+    stepsTotal: integer("stepsTotal").notNull().default(0),
   },
   () => [serviceRoleOnly("SyncJobTarget")],
 ).enableRLS();

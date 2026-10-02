@@ -9,15 +9,17 @@ interface JobHistoryListProps {
 }
 
 const TARGET_STATUS_TONE = {
+  PENDING: "info",
   SUCCEEDED: "success",
   FAILED: "critical",
   SKIPPED: "warning",
 } as const;
 
-/** Past "Sync now" runs for this group, newest first — each with its
+/** "Sync now" runs for this group, newest first — each with its
  * per-target outcome, since a run can succeed for one target and fail for
- * another (see sync.server.ts's runSyncJob). Job status legible at a
- * glance per AGENTS.md §9. */
+ * another. Jobs run in the background (utils/sync/syncWorker.server.ts),
+ * so an unfinished target shows how far along it is. Job status legible
+ * at a glance per AGENTS.md §9. */
 export function JobHistoryList({ jobs }: JobHistoryListProps) {
   if (jobs.length === 0) {
     return <s-paragraph>No syncs have been run yet.</s-paragraph>;
@@ -34,9 +36,13 @@ export function JobHistoryList({ jobs }: JobHistoryListProps) {
                 {new Date(job.startedAt).toLocaleString()}
               </s-paragraph>
               <s-paragraph>
-                {(job.selection as string[]).length} definition(s) requested
+                {(job.selection as string[]).length} item(s) requested
               </s-paragraph>
             </s-stack>
+            {job.status === "QUEUED" && (
+              <s-paragraph>Reading the source store…</s-paragraph>
+            )}
+            {job.errorMessage && <s-paragraph>{job.errorMessage}</s-paragraph>}
             {job.targets.map((target) => (
               <s-stack
                 key={target.id}
@@ -48,6 +54,11 @@ export function JobHistoryList({ jobs }: JobHistoryListProps) {
                 <s-badge tone={TARGET_STATUS_TONE[target.status]}>
                   {target.status}
                 </s-badge>
+                {target.status === "PENDING" && (
+                  <s-paragraph>
+                    {target.stepsDone} of {target.stepsTotal} done
+                  </s-paragraph>
+                )}
                 <s-paragraph>
                   {target.itemsSynced} synced
                   {target.itemsSkipped > 0

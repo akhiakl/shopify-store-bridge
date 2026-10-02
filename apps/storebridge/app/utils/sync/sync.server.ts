@@ -2,28 +2,14 @@ import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 import { desc, eq } from "drizzle-orm";
 
 import db from "~/db.server";
-import {
-  syncJobItems,
-  syncJobs,
-  syncJobTargets,
-} from "~/db/syncJobsSchema.server";
-import { unauthenticated } from "~/shopify.server";
+import { syncJobs } from "~/db/syncJobsSchema.server";
 
 import { getCollections } from "./collections.server";
-import {
-  getDefinitionCatalog,
-  getShopPolicies,
-  type getOwnedGroup,
-} from "./definitions.server";
+import { getDefinitionCatalog, getShopPolicies } from "./definitions.server";
 import { getMetaobjectEntries } from "./metaobjectEntries.server";
-import {
-  buildSyncSteps,
-  createStepContext,
-  runSyncSteps,
-  tallyItems,
-} from "./syncTarget.server";
+import type { SyncPlan } from "./syncTarget.server";
 
-interface ParsedSelection {
+export interface ParsedSelection {
   metaobjectTypes: string[];
   metafieldSelectors: { ownerType: string; namespace: string; key: string }[];
   policyTypes: string[];
@@ -65,12 +51,12 @@ export function parseSelection(keys: string[]): ParsedSelection {
 }
 
 /** Never trusts the browser for the actual definition shape — only the
- * selection *keys* cross the wire; the definitions themselves are always
- * re-read from the source store right before syncing. */
-async function resolveSelectedDefinitions(
+ * selection *keys* cross the wire; the definitions themselves are read
+ * from the source store when the job starts. */
+export async function resolvePlan(
   sourceAdmin: AdminApiContext,
   selection: ParsedSelection,
-) {
+): Promise<SyncPlan> {
   const [catalog, allPolicies, allCollections] = await Promise.all([
     getDefinitionCatalog(sourceAdmin),
     getShopPolicies(sourceAdmin),
@@ -108,111 +94,12 @@ async function resolveSelectedDefinitions(
   };
 }
 
-type OwnedGroup = NonNullable<Awaited<ReturnType<typeof getOwnedGroup>>>;
-
-/**
- * Runs one "Sync now" click: pushes the selected definitions from the
- * group's source (read via `sourceAdmin`, the caller's own authenticated
- * session) to each APPROVED target. Each target is reached with
- * `unauthenticated.admin(shop)` — a server-initiated admin context loaded
- * from that shop's own stored offline session, since this isn't a request
- * that shop made (see `@shopify/shopify-app-react-router`'s own docs on
- * `unauthenticated.admin`). No queue/worker involved — see
- * docs/architecture/definition-sync.md for why synchronous is fine here.
- * Per-target mutation logic (creating definitions, syncing SHOP metafield
- * values) lives in syncTarget.server.ts — this file is just orchestration
- * and persistence.
- */
-export async function runSyncJob({
-  group,
-  selection,
-  sourceAdmin,
-}: {
-  group: OwnedGroup;
-  selection: string[];
-  sourceAdmin: AdminApiContext;
-}) {
-  const approvedTargets = group.targets.filter(
-    (target) => target.status === "APPROVED",
-  );
-
-  const [job] = await db
-    .insert(syncJobs)
-    .values({ groupId: group.id, selection })
-    .returning();
-
-  const parsed = parseSelection(selection);
-  const resolved = await resolveSelectedDefinitions(sourceAdmin, parsed);
-
-  // None of the submitted selection keys matched anything in the source's
-  // current catalog (stale UI, or a forged post) — syncToTarget would do
-  // zero work per target and still report SUCCEEDED, making job history
-  // misleading. Fail the job outright instead of running a no-op sync.
-  if (Object.values(resolved).every((list) => list.length === 0)) {
-    await db
-      .update(syncJobs)
-      .set({ status: "FAILED", finishedAt: new Date() })
-      .where(eq(syncJobs.id, job.id));
-    return { id: job.id, status: "FAILED" as const };
-  }
-
-  const targetStatuses: ("SUCCEEDED" | "FAILED" | "SKIPPED")[] = [];
-
-  for (const target of approvedTargets) {
-    try {
-      const { admin: targetAdmin } = await unauthenticated.admin(
-        target.store.shop,
-      );
-      const { items } = await runSyncSteps({
-        steps: buildSyncSteps(resolved),
-        ctx: createStepContext(sourceAdmin, targetAdmin),
-      });
-      const tallies = tallyItems(items);
-      const status = tallies.itemsFailed === 0 ? "SUCCEEDED" : "FAILED";
-      targetStatuses.push(status);
-      const [jobTarget] = await db
-        .insert(syncJobTargets)
-        .values({ jobId: job.id, storeId: target.storeId, status, ...tallies })
-        .returning();
-      if (items.length > 0) {
-        await db
-          .insert(syncJobItems)
-          .values(
-            items.map((item) => ({ jobTargetId: jobTarget.id, ...item })),
-          );
-      }
-    } catch (error) {
-      targetStatuses.push("FAILED");
-      await db.insert(syncJobTargets).values({
-        jobId: job.id,
-        storeId: target.storeId,
-        status: "FAILED",
-        errorMessage:
-          error instanceof Error ? error.message : "Couldn't reach this store.",
-      });
-    }
-  }
-
-  const finalStatus =
-    targetStatuses.length === 0
-      ? "SUCCEEDED"
-      : targetStatuses.every((s) => s === "SUCCEEDED")
-        ? "SUCCEEDED"
-        : targetStatuses.every((s) => s === "FAILED")
-          ? "FAILED"
-          : "PARTIAL";
-
-  await db
-    .update(syncJobs)
-    .set({ status: finalStatus, finishedAt: new Date() })
-    .where(eq(syncJobs.id, job.id));
-
-  return { id: job.id, status: finalStatus };
-}
-
 export async function getJobHistory(groupId: string) {
   return db.query.syncJobs.findMany({
     where: eq(syncJobs.groupId, groupId),
+    // The page polls this while a job runs; the plan can be thousands of
+    // entries and the UI never needs it.
+    columns: { plan: false },
     with: { targets: { with: { store: true, items: true } } },
     orderBy: [desc(syncJobs.startedAt)],
     limit: 20,

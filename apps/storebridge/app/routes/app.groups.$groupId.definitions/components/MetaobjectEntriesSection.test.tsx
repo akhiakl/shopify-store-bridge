@@ -41,7 +41,7 @@ describe("MetaobjectEntriesSection", () => {
         definitions={[
           definition("faq", 12),
           definition("empty", 0),
-          definition("product_card", 900),
+          definition("product_card", 1500),
         ]}
         selected={new Set()}
         onToggle={vi.fn()}
@@ -56,7 +56,7 @@ describe("MetaobjectEntriesSection", () => {
     );
     expect(checkboxByLabel("PRODUCT_CARD (product_card)")).toHaveAttribute(
       "details",
-      "900 entries. Only the first 250 sync per run.",
+      "1500 entries. Only the first 1000 sync per job.",
     );
   });
 

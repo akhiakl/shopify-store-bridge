@@ -1,35 +1,19 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-/** Same minimal fluent-builder stand-in as pairing.server.test.ts. */
-function chain(result: unknown) {
-  const obj: Record<string, ReturnType<typeof vi.fn>> = {};
-  obj.values = vi.fn(() => obj);
-  obj.set = vi.fn(() => obj);
-  obj.where = vi.fn(() => Promise.resolve(result));
-  obj.returning = vi.fn(() => Promise.resolve(result));
-  return obj;
-}
-
-const { dbMock, unauthenticatedMock } = vi.hoisted(() => ({
-  dbMock: {
-    query: { syncJobs: { findMany: vi.fn() } },
-    insert: vi.fn(),
-    update: vi.fn(),
-  },
-  unauthenticatedMock: { admin: vi.fn() },
+const { dbMock } = vi.hoisted(() => ({
+  dbMock: { query: { syncJobs: { findMany: vi.fn() } } },
 }));
 vi.mock("~/db.server", () => ({ default: dbMock }));
-vi.mock("~/shopify.server", () => ({ unauthenticated: unauthenticatedMock }));
 
-const { parseSelection, runSyncJob, getJobHistory } =
+const { parseSelection, resolvePlan, getJobHistory } =
   await import("./sync.server");
-const { syncJobItems } = await import("~/db/syncJobsSchema.server");
 
 function jsonResponse(data: unknown) {
   return { json: () => Promise.resolve({ data }) };
 }
 
-function sourceAdminWithCatalog() {
+/** A source store with one item in every category the sync can push. */
+function sourceAdmin() {
   return {
     graphql: vi.fn((query: string) => {
       if (query.includes("MetaobjectDefinitionsList")) {
@@ -38,17 +22,11 @@ function sourceAdminWithCatalog() {
             metaobjectDefinitions: {
               nodes: [
                 {
-                  id: "gid://shopify/MetaobjectDefinition/1",
-                  type: "size_chart",
-                  name: "Size chart",
-                  fieldDefinitions: [
-                    {
-                      name: "Label",
-                      key: "label",
-                      required: true,
-                      type: { name: "single_line_text_field" },
-                    },
-                  ],
+                  id: "gid://MetaobjectDefinition/1",
+                  type: "faq",
+                  name: "FAQ",
+                  metaobjectsCount: 1,
+                  fieldDefinitions: [],
                 },
               ],
             },
@@ -56,31 +34,75 @@ function sourceAdminWithCatalog() {
         );
       }
       if (query.includes("MetafieldDefinitionsByOwner")) {
-        return Promise.resolve(jsonResponse({}));
+        return Promise.resolve(
+          jsonResponse({
+            metafieldDefinitions: {
+              nodes: [
+                {
+                  id: "gid://MetafieldDefinition/1",
+                  name: "Care",
+                  namespace: "custom",
+                  key: "care",
+                  description: null,
+                  type: { name: "single_line_text_field" },
+                },
+              ],
+            },
+          }),
+        );
+      }
+      if (query.includes("ShopPoliciesList")) {
+        return Promise.resolve(
+          jsonResponse({
+            shop: {
+              shopPolicies: [
+                { type: "REFUND_POLICY", title: "Refunds", body: "30 days" },
+              ],
+            },
+          }),
+        );
+      }
+      if (query.includes("CollectionsList")) {
+        return Promise.resolve(
+          jsonResponse({
+            collections: {
+              nodes: [
+                {
+                  handle: "summer",
+                  title: "Summer",
+                  descriptionHtml: "",
+                  sortOrder: "MANUAL",
+                  templateSuffix: null,
+                  seo: { title: null, description: null },
+                },
+              ],
+            },
+          }),
+        );
+      }
+      if (query.includes("MetaobjectEntries")) {
+        return Promise.resolve(
+          jsonResponse({
+            metaobjects: {
+              nodes: [
+                {
+                  handle: "q1",
+                  capabilities: { publishable: null },
+                  fields: [],
+                },
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          }),
+        );
       }
       return Promise.resolve(jsonResponse({}));
     }),
   };
 }
 
-const group = {
-  id: "group-1",
-  targets: [
-    {
-      storeId: "target-1",
-      status: "APPROVED" as const,
-      store: { shop: "target-1.myshopify.com" },
-    },
-    {
-      storeId: "target-2",
-      status: "PENDING" as const,
-      store: { shop: "target-2.myshopify.com" },
-    },
-  ],
-};
-
 describe("parseSelection", () => {
-  it("splits metaobject, metafield, and policy keys into their identifying parts", () => {
+  it("splits every key kind into its identifying parts", () => {
     expect(
       parseSelection([
         "metaobject:size_chart",
@@ -101,380 +123,47 @@ describe("parseSelection", () => {
   });
 });
 
-describe("runSyncJob", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+describe("resolvePlan", () => {
+  it("keeps only selected items that exist on the source, read fresh", async () => {
+    const admin = sourceAdmin();
 
-  it("syncs selected definitions only to APPROVED targets and records success", async () => {
-    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    const targetInsertChain = chain([{ id: "target-row-1" }]);
-    dbMock.insert.mockReturnValue(targetInsertChain);
-    dbMock.update.mockReturnValueOnce(chain(undefined));
-
-    const targetAdmin = {
-      graphql: vi.fn(() =>
-        Promise.resolve(
-          jsonResponse({
-            metaobjectDefinitionCreate: {
-              metaobjectDefinition: { id: "gid://1" },
-              userErrors: [],
-            },
-          }),
-        ),
-      ),
-    };
-    unauthenticatedMock.admin.mockResolvedValue({ admin: targetAdmin });
-
-    const result = await runSyncJob({
-      group,
-      selection: ["metaobject:size_chart"],
-      sourceAdmin: sourceAdminWithCatalog(),
-    } as never);
-
-    expect(unauthenticatedMock.admin).toHaveBeenCalledTimes(1);
-    expect(unauthenticatedMock.admin).toHaveBeenCalledWith(
-      "target-1.myshopify.com",
+    const plan = await resolvePlan(
+      admin as never,
+      parseSelection([
+        "metaobject:faq",
+        "metafield:PRODUCT:custom:care",
+        "policy:REFUND_POLICY",
+        "collection:summer",
+        "metaobjectEntries:faq",
+      ]),
     );
-    expect(targetAdmin.graphql).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({ id: "job-1", status: "SUCCEEDED" });
 
-    // The per-item result also has to actually reach SyncJobItem, not just
-    // flow through syncToTarget's return value — Copilot flagged that
-    // nothing here asserted the insert itself.
-    expect(dbMock.insert).toHaveBeenCalledWith(syncJobItems);
-    expect(targetInsertChain.values).toHaveBeenCalledWith([
-      {
-        jobTargetId: "target-row-1",
-        key: "metaobject:size_chart",
-        kind: "DEFINITION",
-        status: "SUCCEEDED",
-        errorMessage: null,
-      },
-    ]);
+    expect(plan.metaobjectDefinitions.map((d) => d.type)).toEqual(["faq"]);
+    // The metafield query runs once per owner type; only PRODUCT matches.
+    expect(plan.metafieldDefinitions).toHaveLength(1);
+    expect(plan.metafieldDefinitions[0].ownerType).toBe("PRODUCT");
+    expect(plan.shopPolicies.map((p) => p.type)).toEqual(["REFUND_POLICY"]);
+    expect(plan.collections.map((c) => c.handle)).toEqual(["summer"]);
+    expect(plan.metaobjectEntries.map((e) => e.handle)).toEqual(["q1"]);
   });
 
-  it("marks the job FAILED and records the error when a target can't be reached", async () => {
-    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
-    dbMock.update.mockReturnValueOnce(chain(undefined));
-    unauthenticatedMock.admin.mockRejectedValue(new Error("no session"));
+  it("drops keys that no longer match, and never queries entries of an unknown type", async () => {
+    const admin = sourceAdmin();
 
-    const result = await runSyncJob({
-      group,
-      selection: ["metaobject:size_chart"],
-      sourceAdmin: sourceAdminWithCatalog(),
-    } as never);
+    const plan = await resolvePlan(
+      admin as never,
+      parseSelection([
+        "metaobject:gone",
+        "policy:LEGAL_NOTICE",
+        "collection:winter",
+        "metaobjectEntries:gone",
+      ]),
+    );
 
-    expect(result).toEqual({ id: "job-1", status: "FAILED" });
-    expect(dbMock.insert).toHaveBeenCalledTimes(2);
-  });
-
-  it("records a target FAILED when its mutation returns a real userError", async () => {
-    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
-    dbMock.update.mockReturnValueOnce(chain(undefined));
-
-    const targetAdmin = {
-      graphql: vi.fn(() =>
-        Promise.resolve(
-          jsonResponse({
-            metaobjectDefinitionCreate: {
-              metaobjectDefinition: null,
-              userErrors: [{ message: "Name can't be blank", code: "BLANK" }],
-            },
-          }),
-        ),
-      ),
-    };
-    unauthenticatedMock.admin.mockResolvedValue({ admin: targetAdmin });
-
-    const result = await runSyncJob({
-      group,
-      selection: ["metaobject:size_chart"],
-      sourceAdmin: sourceAdminWithCatalog(),
-    } as never);
-
-    // One target, one failed item -> that target is FAILED, and with a
-    // single target the job rolls up to FAILED too (see the "every"
-    // check in runSyncJob) rather than PARTIAL, which only shows up
-    // across multiple targets with mixed outcomes.
-    expect(result.status).toBe("FAILED");
-  });
-
-  it("rolls up to SUCCEEDED, not FAILED, when a target's only outcome is TAKEN (already exists)", async () => {
-    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
-    dbMock.update.mockReturnValueOnce(chain(undefined));
-
-    const targetAdmin = {
-      graphql: vi.fn(() =>
-        Promise.resolve(
-          jsonResponse({
-            metaobjectDefinitionCreate: {
-              metaobjectDefinition: null,
-              userErrors: [
-                { message: "Type has already been taken", code: "TAKEN" },
-              ],
-            },
-          }),
-        ),
-      ),
-    };
-    unauthenticatedMock.admin.mockResolvedValue({ admin: targetAdmin });
-
-    const result = await runSyncJob({
-      group,
-      selection: ["metaobject:size_chart"],
-      sourceAdmin: sourceAdminWithCatalog(),
-    } as never);
-
-    expect(result.status).toBe("SUCCEEDED");
-  });
-
-  it("reports PARTIAL when approved targets have mixed outcomes", async () => {
-    const twoTargetGroup = {
-      id: "group-1",
-      targets: [
-        ...group.targets,
-        {
-          storeId: "target-3",
-          status: "APPROVED" as const,
-          store: { shop: "target-3.myshopify.com" },
-        },
-      ],
-    };
-    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValue(chain([{ id: "target-row" }]));
-    dbMock.update.mockReturnValueOnce(chain(undefined));
-
-    const succeedingAdmin = {
-      graphql: vi.fn(() =>
-        Promise.resolve(
-          jsonResponse({
-            metaobjectDefinitionCreate: {
-              metaobjectDefinition: { id: "gid://1" },
-              userErrors: [],
-            },
-          }),
-        ),
-      ),
-    };
-    const failingAdmin = {
-      graphql: vi.fn(() =>
-        Promise.resolve(
-          jsonResponse({
-            metaobjectDefinitionCreate: {
-              metaobjectDefinition: null,
-              userErrors: [{ message: "Type has already been taken" }],
-            },
-          }),
-        ),
-      ),
-    };
-    unauthenticatedMock.admin
-      .mockResolvedValueOnce({ admin: succeedingAdmin })
-      .mockResolvedValueOnce({ admin: failingAdmin });
-
-    const result = await runSyncJob({
-      group: twoTargetGroup,
-      selection: ["metaobject:size_chart"],
-      sourceAdmin: sourceAdminWithCatalog(),
-    } as never);
-
-    expect(result.status).toBe("PARTIAL");
-  });
-
-  it("also syncs selected metafield definitions", async () => {
-    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
-    dbMock.update.mockReturnValueOnce(chain(undefined));
-
-    const admin = {
-      graphql: vi.fn((query: string) => {
-        if (query.includes("MetaobjectDefinitionsList")) {
-          return Promise.resolve(jsonResponse({}));
-        }
-        if (query.includes("MetafieldDefinitionsByOwner")) {
-          return Promise.resolve(
-            jsonResponse({
-              metafieldDefinitions: {
-                nodes: [
-                  {
-                    id: "gid://shopify/MetafieldDefinition/1",
-                    name: "Care instructions",
-                    namespace: "custom",
-                    key: "care",
-                    description: null,
-                    type: { name: "single_line_text_field" },
-                  },
-                ],
-              },
-            }),
-          );
-        }
-        return Promise.resolve(
-          jsonResponse({
-            metafieldDefinitionCreate: {
-              createdDefinition: { id: "gid://1" },
-              userErrors: [],
-            },
-          }),
-        );
-      }),
-    };
-    unauthenticatedMock.admin.mockResolvedValue({ admin });
-
-    const result = await runSyncJob({
-      group,
-      selection: ["metafield:PRODUCT:custom:care"],
-      sourceAdmin: admin,
-    } as never);
-
-    expect(result.status).toBe("SUCCEEDED");
-  });
-
-  it("also syncs selected shop policies", async () => {
-    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.insert.mockReturnValue(chain([{ id: "target-row-1" }]));
-    dbMock.update.mockReturnValueOnce(chain(undefined));
-
-    const admin = {
-      graphql: vi.fn((query: string) => {
-        if (query.includes("ShopPoliciesList")) {
-          return Promise.resolve(
-            jsonResponse({
-              shop: {
-                shopPolicies: [
-                  {
-                    type: "REFUND_POLICY",
-                    title: "Refund policy",
-                    body: "Refunds within 30 days.",
-                  },
-                ],
-              },
-            }),
-          );
-        }
-        if (query.includes("MetaobjectDefinitionsList")) {
-          return Promise.resolve(jsonResponse({}));
-        }
-        if (query.includes("MetafieldDefinitionsByOwner")) {
-          return Promise.resolve(jsonResponse({}));
-        }
-        return Promise.resolve(
-          jsonResponse({
-            shopPolicyUpdate: { shopPolicy: { id: "gid://1" }, userErrors: [] },
-          }),
-        );
-      }),
-    };
-    unauthenticatedMock.admin.mockResolvedValue({ admin });
-
-    const result = await runSyncJob({
-      group,
-      selection: ["policy:REFUND_POLICY"],
-      sourceAdmin: admin,
-    } as never);
-
-    expect(result.status).toBe("SUCCEEDED");
-  });
-
-  it("also syncs selected collections", async () => {
-    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    const targetInsertChain = chain([{ id: "target-row-1" }]);
-    dbMock.insert.mockReturnValue(targetInsertChain);
-    dbMock.update.mockReturnValueOnce(chain(undefined));
-
-    const sourceAdmin = {
-      graphql: vi.fn((query: string) =>
-        Promise.resolve(
-          jsonResponse(
-            query.includes("CollectionsList")
-              ? {
-                  collections: {
-                    nodes: [
-                      {
-                        handle: "summer",
-                        title: "Summer",
-                        descriptionHtml: "",
-                        sortOrder: "MANUAL",
-                        templateSuffix: null,
-                        seo: { title: null, description: null },
-                      },
-                    ],
-                  },
-                }
-              : {},
-          ),
-        ),
-      ),
-    };
-    const targetAdmin = {
-      graphql: vi.fn((query: string) =>
-        Promise.resolve(
-          jsonResponse(
-            query.includes("CollectionByHandle")
-              ? { collectionByIdentifier: null }
-              : {
-                  collectionCreate: {
-                    collection: { id: "gid://1" },
-                    userErrors: [],
-                  },
-                },
-          ),
-        ),
-      ),
-    };
-    unauthenticatedMock.admin.mockResolvedValue({ admin: targetAdmin });
-
-    const result = await runSyncJob({
-      group,
-      selection: ["collection:summer"],
-      sourceAdmin,
-    } as never);
-
-    expect(result.status).toBe("SUCCEEDED");
-    expect(targetInsertChain.values).toHaveBeenCalledWith([
-      {
-        jobTargetId: "target-row-1",
-        key: "collection:summer",
-        kind: "DEFINITION",
-        status: "SUCCEEDED",
-        errorMessage: null,
-      },
-    ]);
-  });
-
-  it("fails the job when none of the selected keys resolve to a current definition", async () => {
-    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.update.mockReturnValueOnce(chain(undefined));
-
-    const result = await runSyncJob({
-      group,
-      // Not in sourceAdminWithCatalog()'s catalog — a stale UI or forged
-      // post referencing a definition that no longer (or never did) exist.
-      selection: ["metaobject:no_longer_exists"],
-      sourceAdmin: sourceAdminWithCatalog(),
-    } as never);
-
-    expect(result).toEqual({ id: "job-1", status: "FAILED" });
-    // Never even tries to reach a target — nothing resolved to sync.
-    expect(unauthenticatedMock.admin).not.toHaveBeenCalled();
-  });
-
-  it("succeeds trivially when the group has no approved targets", async () => {
-    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
-    dbMock.update.mockReturnValueOnce(chain(undefined));
-
-    const result = await runSyncJob({
-      group: { id: "group-1", targets: [] },
-      selection: ["metaobject:size_chart"],
-      sourceAdmin: sourceAdminWithCatalog(),
-    } as never);
-
-    expect(unauthenticatedMock.admin).not.toHaveBeenCalled();
-    expect(result.status).toBe("SUCCEEDED");
+    expect(Object.values(plan).every((list) => list.length === 0)).toBe(true);
+    expect(
+      admin.graphql.mock.calls.some(([q]) => q.includes("MetaobjectEntries")),
+    ).toBe(false);
   });
 });
 
@@ -486,6 +175,7 @@ describe("getJobHistory", () => {
 
     expect(dbMock.query.syncJobs.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        columns: { plan: false },
         with: { targets: { with: { store: true, items: true } } },
       }),
     );
