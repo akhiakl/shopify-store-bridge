@@ -5,11 +5,14 @@ import type {
   MetaobjectDefinitionRow,
   ShopPolicyRow,
 } from "./definitions.server";
+import type { CollectionRow } from "./collections.server";
 import {
+  collectionKey,
   metafieldDefinitionKey,
   metaobjectDefinitionKey,
   shopPolicyKey,
 } from "./definitionKey";
+import { syncCollection } from "./syncCollection.server";
 import {
   METAFIELD_DEFINITION_CREATE_MUTATION,
   METAFIELDS_SET_MUTATION,
@@ -18,7 +21,6 @@ import {
   SHOP_METAFIELD_VALUE_QUERY,
   SHOP_POLICY_UPDATE_MUTATION,
 } from "./syncQueries.server";
-
 import {
   createOne,
   readTopLevelErrors,
@@ -132,12 +134,14 @@ export async function syncToTarget({
   metaobjectDefinitions,
   metafieldDefinitions,
   shopPolicies = [],
+  collections = [],
 }: {
   sourceAdmin: AdminApiContext;
   targetAdmin: AdminApiContext;
   metaobjectDefinitions: MetaobjectDefinitionRow[];
   metafieldDefinitions: MetafieldDefinitionRow[];
   shopPolicies?: ShopPolicyRow[];
+  collections?: CollectionRow[];
 }): Promise<{ tallies: SyncTally; items: SyncItemResult[] }> {
   const tallies: SyncTally = {
     itemsSynced: 0,
@@ -232,6 +236,18 @@ export async function syncToTarget({
       items,
       key: shopPolicyKey(policy.type),
       kind: "VALUE",
+      result,
+    });
+  }
+
+  // A collection's shell is structure, not content — tallied as DEFINITION.
+  for (const collection of collections) {
+    const result = await syncCollection(targetAdmin, collection);
+    tally({
+      tallies,
+      items,
+      key: collectionKey(collection.handle),
+      kind: "DEFINITION",
       result,
     });
   }

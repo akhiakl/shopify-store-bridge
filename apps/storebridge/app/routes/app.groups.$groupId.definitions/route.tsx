@@ -7,6 +7,8 @@ import { CheckStatusButton } from "./components/CheckStatusButton";
 import { JobHistoryList } from "./components/JobHistoryList";
 import { MetafieldDefinitionsSection } from "./components/MetafieldDefinitionsSection";
 import { MetaobjectDefinitionsSection } from "./components/MetaobjectDefinitionsSection";
+import { getCollections } from "./collections.server";
+import { CollectionsSection } from "./components/CollectionsSection";
 import { ShopPoliciesSection } from "./components/ShopPoliciesSection";
 import { SyncButton } from "./components/SyncButton";
 import {
@@ -33,12 +35,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     throw data("Sync group not found.", { status: 404 });
   }
 
-  const [catalog, shopPolicies, jobs] = await Promise.all([
+  const [catalog, shopPolicies, collections, jobs] = await Promise.all([
     getDefinitionCatalog(admin),
     getShopPolicies(admin),
+    getCollections(admin),
     getJobHistory(group.id),
   ]);
-  return { group, jobs, shopPolicies, ...catalog };
+  return { group, jobs, shopPolicies, collections, ...catalog };
 };
 
 /** Handles the "sync" and "checkStatus" intents. `session.shop` (never
@@ -88,6 +91,7 @@ export default function GroupDefinitions() {
     metafieldDefinitions,
     metaobjectDefinitions,
     shopPolicies,
+    collections,
   } = useLoaderData<typeof loader>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const statusFetcher = useFetcher<StatusCheckResult>();
@@ -156,6 +160,14 @@ export default function GroupDefinitions() {
       <s-section heading="Shop policies">
         <ShopPoliciesSection
           policies={shopPolicies}
+          selected={selected}
+          onToggle={toggleKeys}
+        />
+      </s-section>
+
+      <s-section heading="Collections">
+        <CollectionsSection
+          collections={collections}
           selected={selected}
           onToggle={toggleKeys}
         />

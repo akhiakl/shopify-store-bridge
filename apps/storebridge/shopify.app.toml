@@ -30,7 +30,10 @@ embedded = true
 # access scopes for the owner type ... write_products for product
 # metafields, or write_customers for customer metafields") — covers
 # METAFIELD_OWNER_TYPES' PRODUCT/PRODUCTVARIANT/COLLECTION, CUSTOMER, and
-# ORDER entries respectively.
+# ORDER entries respectively. write_products also covers collection sync
+# (collections.server.ts / syncCollection.server.ts) — confirmed via
+# `validate_graphql_codeblocks`: collections/collectionByIdentifier need
+# read_products, collectionCreate/collectionUpdate need write_products.
 #
 # write_content: confirmed via shopify.dev — PAGE, BLOG, and ARTICLE
 # objects each "Requires read_content access scope" (or the narrower
