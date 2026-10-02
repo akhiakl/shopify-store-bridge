@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { getDefinitionCatalog } = vi.hoisted(() => ({
   getDefinitionCatalog: vi.fn(),
 }));
-vi.mock("./definitions.server", async () => {
-  const actual = await vi.importActual<typeof import("./definitions.server")>(
-    "./definitions.server",
-  );
+vi.mock("~/utils/sync/definitions.server", async () => {
+  const actual = await vi.importActual<
+    typeof import("~/utils/sync/definitions.server")
+  >("~/utils/sync/definitions.server");
   return { ...actual, getDefinitionCatalog };
 });
 

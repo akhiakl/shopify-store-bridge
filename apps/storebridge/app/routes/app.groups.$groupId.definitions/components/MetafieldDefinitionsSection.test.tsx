@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { MetafieldDefinitionRow } from "../definitions.server";
+import type { MetafieldDefinitionRow } from "~/utils/sync/definitions.server";
 import { MetafieldDefinitionsSection } from "./MetafieldDefinitionsSection";
 
 const definitions: MetafieldDefinitionRow[] = [

@@ -14,20 +14,20 @@ const { getOwnedGroup, getDefinitionCatalog, getShopPolicies } = vi.hoisted(
     getShopPolicies: vi.fn(),
   }),
 );
-vi.mock("./definitions.server", () => ({
+vi.mock("~/utils/sync/definitions.server", () => ({
   getOwnedGroup,
   getDefinitionCatalog,
   getShopPolicies,
 }));
 
 const { getCollections } = vi.hoisted(() => ({ getCollections: vi.fn() }));
-vi.mock("./collections.server", () => ({ getCollections }));
+vi.mock("~/utils/sync/collections.server", () => ({ getCollections }));
 
 const { getJobHistory, runSyncJob } = vi.hoisted(() => ({
   getJobHistory: vi.fn(),
   runSyncJob: vi.fn(),
 }));
-vi.mock("./sync.server", () => ({ getJobHistory, runSyncJob }));
+vi.mock("~/utils/sync/sync.server", () => ({ getJobHistory, runSyncJob }));
 
 const { runStatusCheck } = vi.hoisted(() => ({ runStatusCheck: vi.fn() }));
 vi.mock("./syncStatus.server", () => ({ runStatusCheck }));

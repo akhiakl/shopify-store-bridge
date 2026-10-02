@@ -8,7 +8,7 @@ import { JobHistoryList } from "./components/JobHistoryList";
 import { MetafieldDefinitionsSection } from "./components/MetafieldDefinitionsSection";
 import { MetaobjectDefinitionsSection } from "./components/MetaobjectDefinitionsSection";
 import { MetaobjectEntriesSection } from "./components/MetaobjectEntriesSection";
-import { getCollections } from "./collections.server";
+import { getCollections } from "~/utils/sync/collections.server";
 import { CollectionsSection } from "./components/CollectionsSection";
 import { ShopPoliciesSection } from "./components/ShopPoliciesSection";
 import { SyncButton } from "./components/SyncButton";
@@ -16,8 +16,8 @@ import {
   getDefinitionCatalog,
   getOwnedGroup,
   getShopPolicies,
-} from "./definitions.server";
-import { getJobHistory, runSyncJob } from "./sync.server";
+} from "~/utils/sync/definitions.server";
+import { getJobHistory, runSyncJob } from "~/utils/sync/sync.server";
 import {
   runStatusCheck,
   type DefinitionStatusSummary,

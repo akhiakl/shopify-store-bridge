@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { MetaobjectDefinitionRow } from "../definitions.server";
+import type { MetaobjectDefinitionRow } from "~/utils/sync/definitions.server";
 import { MetaobjectEntriesSection } from "./MetaobjectEntriesSection";
 
 function definition(type: string, entryCount: number): MetaobjectDefinitionRow {

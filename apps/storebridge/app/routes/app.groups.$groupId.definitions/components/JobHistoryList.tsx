@@ -1,6 +1,6 @@
 import { JOB_STATUS_TONE } from "~/utils/syncJobStatusTone";
 
-import type { getJobHistory } from "../sync.server";
+import type { getJobHistory } from "~/utils/sync/sync.server";
 
 type JobHistory = Awaited<ReturnType<typeof getJobHistory>>;
 

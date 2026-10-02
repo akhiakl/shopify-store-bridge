@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { CollectionRow } from "../collections.server";
+import type { CollectionRow } from "~/utils/sync/collections.server";
 import { CollectionsSection } from "./CollectionsSection";
 
 const base = {

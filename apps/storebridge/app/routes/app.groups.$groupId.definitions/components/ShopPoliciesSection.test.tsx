@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ShopPolicyRow } from "../definitions.server";
+import type { ShopPolicyRow } from "~/utils/sync/definitions.server";
 import { ShopPoliciesSection } from "./ShopPoliciesSection";
 
 const policies: ShopPolicyRow[] = [

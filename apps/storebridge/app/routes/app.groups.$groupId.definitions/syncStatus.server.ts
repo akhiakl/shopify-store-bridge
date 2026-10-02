@@ -4,13 +4,13 @@ import { unauthenticated } from "~/shopify.server";
 import {
   metafieldDefinitionKey,
   metaobjectDefinitionKey,
-} from "./definitionKey";
+} from "~/utils/sync/definitionKey";
 import {
   getDefinitionCatalog,
   type getOwnedGroup,
   type MetafieldDefinitionRow,
   type MetaobjectDefinitionRow,
-} from "./definitions.server";
+} from "~/utils/sync/definitions.server";
 
 export type DefinitionSyncStatus = "IN_SYNC" | "OUT_OF_SYNC" | "NOT_SYNCED";
 
