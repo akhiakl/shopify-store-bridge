@@ -20,6 +20,9 @@ vi.mock("./definitions.server", () => ({
   getShopPolicies,
 }));
 
+const { getCollections } = vi.hoisted(() => ({ getCollections: vi.fn() }));
+vi.mock("./collections.server", () => ({ getCollections }));
+
 const { getJobHistory, runSyncJob } = vi.hoisted(() => ({
   getJobHistory: vi.fn(),
   runSyncJob: vi.fn(),
@@ -58,6 +61,7 @@ describe("app.groups.$groupId.definitions loader", () => {
       metaobjectDefinitions: [],
     });
     getShopPolicies.mockResolvedValue([]);
+    getCollections.mockResolvedValue([]);
     getJobHistory.mockResolvedValue([]);
 
     const result = await loader({
@@ -74,11 +78,13 @@ describe("app.groups.$groupId.definitions loader", () => {
     );
     expect(getDefinitionCatalog).toHaveBeenCalledWith(admin);
     expect(getShopPolicies).toHaveBeenCalledWith(admin);
+    expect(getCollections).toHaveBeenCalledWith(admin);
     expect(getJobHistory).toHaveBeenCalledWith("group-1");
     expect(result).toEqual({
       group: { id: "group-1", name: "EU stores" },
       jobs: [],
       shopPolicies: [],
+      collections: [],
       metafieldDefinitions: [],
       metaobjectDefinitions: [],
     });

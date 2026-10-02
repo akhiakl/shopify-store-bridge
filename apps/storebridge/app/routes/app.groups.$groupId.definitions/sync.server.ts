@@ -9,6 +9,7 @@ import {
 } from "~/db/syncJobsSchema.server";
 import { unauthenticated } from "~/shopify.server";
 
+import { getCollections } from "./collections.server";
 import {
   getDefinitionCatalog,
   getShopPolicies,
@@ -20,30 +21,37 @@ interface ParsedSelection {
   metaobjectTypes: string[];
   metafieldSelectors: { ownerType: string; namespace: string; key: string }[];
   policyTypes: string[];
+  collectionHandles: string[];
 }
 
 /** Inverse of the `definitionKey` helpers in the checkbox components
  * (`metaobject:<type>`, `metafield:<ownerType>:<namespace>:<key>`,
- * `policy:<type>`) — safe to split on ":" since Shopify's own validation
- * rules for type/namespace/key (alphanumeric, hyphen, underscore only) rule
- * out embedded colons, and `ShopPolicyType` is itself an enum of bare
- * uppercase names. */
+ * `policy:<type>`, `collection:<handle>`) — safe to split on ":" since
+ * Shopify's own validation rules for type/namespace/key (alphanumeric,
+ * hyphen, underscore only) rule out embedded colons, and `ShopPolicyType`
+ * is itself an enum of bare uppercase names. A collection handle is the
+ * last segment, so it's rejoined rather than assumed colon-free. */
 export function parseSelection(keys: string[]): ParsedSelection {
-  const metaobjectTypes: string[] = [];
-  const metafieldSelectors: ParsedSelection["metafieldSelectors"] = [];
-  const policyTypes: string[] = [];
+  const parsed: ParsedSelection = {
+    metaobjectTypes: [],
+    metafieldSelectors: [],
+    policyTypes: [],
+    collectionHandles: [],
+  };
   for (const key of keys) {
     const [kind, ...rest] = key.split(":");
     if (kind === "metaobject") {
-      metaobjectTypes.push(rest[0]);
+      parsed.metaobjectTypes.push(rest[0]);
     } else if (kind === "metafield") {
       const [ownerType, namespace, fieldKey] = rest;
-      metafieldSelectors.push({ ownerType, namespace, key: fieldKey });
+      parsed.metafieldSelectors.push({ ownerType, namespace, key: fieldKey });
     } else if (kind === "policy") {
-      policyTypes.push(rest[0]);
+      parsed.policyTypes.push(rest[0]);
+    } else if (kind === "collection") {
+      parsed.collectionHandles.push(rest.join(":"));
     }
   }
-  return { metaobjectTypes, metafieldSelectors, policyTypes };
+  return parsed;
 }
 
 /** Never trusts the browser for the actual definition shape — only the
@@ -53,9 +61,10 @@ async function resolveSelectedDefinitions(
   sourceAdmin: AdminApiContext,
   selection: ParsedSelection,
 ) {
-  const [catalog, shopPolicies] = await Promise.all([
+  const [catalog, allPolicies, allCollections] = await Promise.all([
     getDefinitionCatalog(sourceAdmin),
     getShopPolicies(sourceAdmin),
+    getCollections(sourceAdmin),
   ]);
   const metaobjectDefinitions = catalog.metaobjectDefinitions.filter((def) =>
     selection.metaobjectTypes.includes(def.type),
@@ -68,10 +77,18 @@ async function resolveSelectedDefinitions(
         sel.key === def.key,
     ),
   );
-  const selectedPolicies = shopPolicies.filter((policy) =>
+  const shopPolicies = allPolicies.filter((policy) =>
     selection.policyTypes.includes(policy.type),
   );
-  return { metaobjectDefinitions, metafieldDefinitions, selectedPolicies };
+  const collections = allCollections.filter((collection) =>
+    selection.collectionHandles.includes(collection.handle),
+  );
+  return {
+    metaobjectDefinitions,
+    metafieldDefinitions,
+    shopPolicies,
+    collections,
+  };
 }
 
 type OwnedGroup = NonNullable<Awaited<ReturnType<typeof getOwnedGroup>>>;
@@ -108,18 +125,13 @@ export async function runSyncJob({
     .returning();
 
   const parsed = parseSelection(selection);
-  const { metaobjectDefinitions, metafieldDefinitions, selectedPolicies } =
-    await resolveSelectedDefinitions(sourceAdmin, parsed);
+  const resolved = await resolveSelectedDefinitions(sourceAdmin, parsed);
 
   // None of the submitted selection keys matched anything in the source's
   // current catalog (stale UI, or a forged post) — syncToTarget would do
   // zero work per target and still report SUCCEEDED, making job history
   // misleading. Fail the job outright instead of running a no-op sync.
-  if (
-    metaobjectDefinitions.length === 0 &&
-    metafieldDefinitions.length === 0 &&
-    selectedPolicies.length === 0
-  ) {
+  if (Object.values(resolved).every((list) => list.length === 0)) {
     await db
       .update(syncJobs)
       .set({ status: "FAILED", finishedAt: new Date() })
@@ -137,9 +149,7 @@ export async function runSyncJob({
       const { tallies, items } = await syncToTarget({
         sourceAdmin,
         targetAdmin,
-        metaobjectDefinitions,
-        metafieldDefinitions,
-        shopPolicies: selectedPolicies,
+        ...resolved,
       });
       const status = tallies.itemsFailed === 0 ? "SUCCEEDED" : "FAILED";
       targetStatuses.push(status);

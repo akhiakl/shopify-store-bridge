@@ -24,3 +24,7 @@ export function metafieldDefinitionKey(def: MetafieldDefinitionRow): string {
 export function shopPolicyKey(type: string): string {
   return `policy:${type}`;
 }
+
+export function collectionKey(handle: string): string {
+  return `collection:${handle}`;
+}

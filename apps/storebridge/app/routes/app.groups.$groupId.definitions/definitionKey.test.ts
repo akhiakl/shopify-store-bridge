@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  collectionKey,
   metafieldDefinitionKey,
   metaobjectDefinitionKey,
   shopPolicyKey,
@@ -39,5 +40,11 @@ describe("metafieldDefinitionKey", () => {
 describe("shopPolicyKey", () => {
   it("keys by policy type", () => {
     expect(shopPolicyKey("REFUND_POLICY")).toBe("policy:REFUND_POLICY");
+  });
+});
+
+describe("collectionKey", () => {
+  it("keys by handle", () => {
+    expect(collectionKey("summer-sale")).toBe("collection:summer-sale");
   });
 });

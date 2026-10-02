@@ -73,6 +73,43 @@ export const METAFIELDS_SET_MUTATION = `#graphql
  * live schema: `ShopPolicyInput`/`ShopPolicyUpdatePayload`, required scopes
  * write_legal_policies + read_legal_policies (see shopify.app.toml).
  */
+/**
+ * Collection sync is an upsert keyed by `handle` (the only identifier the
+ * two stores share): look the handle up on the target, then update the
+ * match or create a new one. `collectionCreate` has no `TAKEN`-style error
+ * for a duplicate handle — Shopify silently suffixes it — so create-only
+ * would duplicate collections on every re-run. Uses the 2026-07
+ * `collection:` argument — the older `input: CollectionInput` is deprecated
+ * there and codegen rejects it; the new inputs carry no `ruleSet` (smart
+ * conditions moved to `sources`, not synced yet). Scopes: read_products /
+ * write_products.
+ */
+export const COLLECTION_BY_HANDLE_QUERY = `#graphql
+  query CollectionByHandle($handle: String!) {
+    collectionByIdentifier(identifier: { handle: $handle }) {
+      id
+    }
+  }
+`;
+
+export const COLLECTION_CREATE_MUTATION = `#graphql
+  mutation CollectionCreate($collection: CollectionCreateInput!) {
+    collectionCreate(collection: $collection) {
+      collection { id }
+      userErrors { field message }
+    }
+  }
+`;
+
+export const COLLECTION_UPDATE_MUTATION = `#graphql
+  mutation CollectionUpdate($collection: CollectionUpdateInput!) {
+    collectionUpdate(collection: $collection) {
+      collection { id }
+      userErrors { field message }
+    }
+  }
+`;
+
 export const SHOP_POLICY_UPDATE_MUTATION = `#graphql
   mutation ShopPolicyUpdate($shopPolicy: ShopPolicyInput!) {
     shopPolicyUpdate(shopPolicy: $shopPolicy) {

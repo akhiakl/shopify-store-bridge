@@ -86,6 +86,7 @@ describe("parseSelection", () => {
         "metaobject:size_chart",
         "metafield:PRODUCT:custom:care",
         "policy:REFUND_POLICY",
+        "collection:summer-sale",
       ]),
     ).toEqual({
       metaobjectTypes: ["size_chart"],
@@ -93,6 +94,7 @@ describe("parseSelection", () => {
         { ownerType: "PRODUCT", namespace: "custom", key: "care" },
       ],
       policyTypes: ["REFUND_POLICY"],
+      collectionHandles: ["summer-sale"],
     });
   });
 });
@@ -374,6 +376,72 @@ describe("runSyncJob", () => {
     } as never);
 
     expect(result.status).toBe("SUCCEEDED");
+  });
+
+  it("also syncs selected collections", async () => {
+    dbMock.insert.mockReturnValueOnce(chain([{ id: "job-1" }]));
+    const targetInsertChain = chain([{ id: "target-row-1" }]);
+    dbMock.insert.mockReturnValue(targetInsertChain);
+    dbMock.update.mockReturnValueOnce(chain(undefined));
+
+    const sourceAdmin = {
+      graphql: vi.fn((query: string) =>
+        Promise.resolve(
+          jsonResponse(
+            query.includes("CollectionsList")
+              ? {
+                  collections: {
+                    nodes: [
+                      {
+                        handle: "summer",
+                        title: "Summer",
+                        descriptionHtml: "",
+                        sortOrder: "MANUAL",
+                        templateSuffix: null,
+                        seo: { title: null, description: null },
+                      },
+                    ],
+                  },
+                }
+              : {},
+          ),
+        ),
+      ),
+    };
+    const targetAdmin = {
+      graphql: vi.fn((query: string) =>
+        Promise.resolve(
+          jsonResponse(
+            query.includes("CollectionByHandle")
+              ? { collectionByIdentifier: null }
+              : {
+                  collectionCreate: {
+                    collection: { id: "gid://1" },
+                    userErrors: [],
+                  },
+                },
+          ),
+        ),
+      ),
+    };
+    unauthenticatedMock.admin.mockResolvedValue({ admin: targetAdmin });
+
+    const result = await runSyncJob({
+      group,
+      selection: ["collection:summer"],
+      sourceAdmin,
+    } as never);
+
+    expect(result.status).toBe("SUCCEEDED");
+    expect(targetInsertChain.values).toHaveBeenCalledWith([
+      {
+        jobTargetId: "target-row-1",
+        key: "collection:summer",
+        kind: "DEFINITION",
+        status: "SUCCEEDED",
+        errorMessage: null,
+      },
+    ]);
   });
 
   it("fails the job when none of the selected keys resolve to a current definition", async () => {
