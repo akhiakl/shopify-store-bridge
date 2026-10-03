@@ -101,6 +101,7 @@ const planWith = (defs: unknown[]) => ({
   collections: [],
   metaobjectEntries: [],
   metafieldValues: [],
+  menus: [],
 });
 
 function pendingTarget(overrides: Record<string, unknown> = {}) {

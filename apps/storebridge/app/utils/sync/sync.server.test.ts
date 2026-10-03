@@ -80,6 +80,27 @@ function sourceAdmin() {
           }),
         );
       }
+      if (query.includes("MenusList")) {
+        return Promise.resolve(
+          jsonResponse({
+            menus: {
+              nodes: ["main-menu", "footer"].map((handle) => ({
+                handle,
+                title: handle,
+                items: [
+                  {
+                    title: "Home",
+                    type: "FRONTPAGE",
+                    url: "/",
+                    resourceId: null,
+                    tags: [],
+                  },
+                ],
+              })),
+            },
+          }),
+        );
+      }
       if (query.includes("MetafieldValueOwners")) {
         return Promise.resolve(
           jsonResponse({
@@ -123,6 +144,7 @@ describe("parseSelection", () => {
         "collection:summer-sale",
         "metaobjectEntries:faq",
         "metafieldValues:CUSTOMER:custom:tier",
+        "menu:main-menu",
       ]),
     ).toEqual({
       metaobjectTypes: ["size_chart"],
@@ -135,6 +157,7 @@ describe("parseSelection", () => {
       metafieldValueSelectors: [
         { ownerType: "CUSTOMER", namespace: "custom", key: "tier" },
       ],
+      menuHandles: ["main-menu"],
     });
   });
 });
@@ -152,6 +175,7 @@ describe("resolvePlan", () => {
         "collection:summer",
         "metaobjectEntries:faq",
         "metafieldValues:PRODUCT:custom:care",
+        "menu:main-menu",
       ]),
     );
 
@@ -166,6 +190,21 @@ describe("resolvePlan", () => {
       {
         definition: { ownerType: "PRODUCT", namespace: "custom", key: "care" },
         ownerIds: ["gid://Product/1"],
+      },
+    ]);
+    expect(plan.menus).toEqual([
+      {
+        handle: "main-menu",
+        title: "main-menu",
+        items: [
+          {
+            title: "Home",
+            type: "FRONTPAGE",
+            tags: [],
+            link: { kind: "plain", url: "/" },
+            items: [],
+          },
+        ],
       },
     ]);
   });
@@ -188,7 +227,10 @@ describe("resolvePlan", () => {
     expect(
       admin.graphql.mock.calls.some(
         ([q]) =>
-          q.includes("MetaobjectEntries") || q.includes("MetafieldValueOwners"),
+          q.includes("MetaobjectEntries") ||
+          q.includes("MetafieldValueOwners") ||
+          // No menu selected, so menus aren't even listed.
+          q.includes("MenusList"),
       ),
     ).toBe(false);
   });
