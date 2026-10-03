@@ -80,6 +80,18 @@ function sourceAdmin() {
           }),
         );
       }
+      if (query.includes("MetafieldValueOwners")) {
+        return Promise.resolve(
+          jsonResponse({
+            metafieldDefinition: {
+              metafields: {
+                nodes: [{ owner: { id: "gid://Product/1" } }],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          }),
+        );
+      }
       if (query.includes("MetaobjectEntries")) {
         return Promise.resolve(
           jsonResponse({
@@ -110,6 +122,7 @@ describe("parseSelection", () => {
         "policy:REFUND_POLICY",
         "collection:summer-sale",
         "metaobjectEntries:faq",
+        "metafieldValues:CUSTOMER:custom:tier",
       ]),
     ).toEqual({
       metaobjectTypes: ["size_chart"],
@@ -119,6 +132,9 @@ describe("parseSelection", () => {
       policyTypes: ["REFUND_POLICY"],
       collectionHandles: ["summer-sale"],
       metaobjectEntryTypes: ["faq"],
+      metafieldValueSelectors: [
+        { ownerType: "CUSTOMER", namespace: "custom", key: "tier" },
+      ],
     });
   });
 });
@@ -135,6 +151,7 @@ describe("resolvePlan", () => {
         "policy:REFUND_POLICY",
         "collection:summer",
         "metaobjectEntries:faq",
+        "metafieldValues:PRODUCT:custom:care",
       ]),
     );
 
@@ -145,6 +162,12 @@ describe("resolvePlan", () => {
     expect(plan.shopPolicies.map((p) => p.type)).toEqual(["REFUND_POLICY"]);
     expect(plan.collections.map((c) => c.handle)).toEqual(["summer"]);
     expect(plan.metaobjectEntries.map((e) => e.handle)).toEqual(["q1"]);
+    expect(plan.metafieldValues).toEqual([
+      {
+        definition: { ownerType: "PRODUCT", namespace: "custom", key: "care" },
+        ownerIds: ["gid://Product/1"],
+      },
+    ]);
   });
 
   it("drops keys that no longer match, and never queries entries of an unknown type", async () => {
@@ -157,12 +180,16 @@ describe("resolvePlan", () => {
         "policy:LEGAL_NOTICE",
         "collection:winter",
         "metaobjectEntries:gone",
+        "metafieldValues:PRODUCT:custom:gone",
       ]),
     );
 
     expect(Object.values(plan).every((list) => list.length === 0)).toBe(true);
     expect(
-      admin.graphql.mock.calls.some(([q]) => q.includes("MetaobjectEntries")),
+      admin.graphql.mock.calls.some(
+        ([q]) =>
+          q.includes("MetaobjectEntries") || q.includes("MetafieldValueOwners"),
+      ),
     ).toBe(false);
   });
 });

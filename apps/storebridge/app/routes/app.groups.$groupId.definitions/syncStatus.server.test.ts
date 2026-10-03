@@ -42,6 +42,7 @@ const metafieldDef = {
   description: null,
   type: "single_line_text_field",
   ownerType: "PRODUCT" as const,
+  valueCount: 0,
 };
 
 describe("diffMetaobjectDefinition", () => {

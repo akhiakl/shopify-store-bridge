@@ -26,6 +26,7 @@ async function syncToTarget({
       shopPolicies: [],
       collections: [],
       metaobjectEntries: [],
+      metafieldValues: [],
       ...plan,
     }),
     ctx: createStepContext(sourceAdmin, targetAdmin),
@@ -61,6 +62,7 @@ const shopMetafieldDef = {
   description: null,
   type: "single_line_text_field",
   ownerType: "SHOP" as const,
+  valueCount: 0,
 };
 
 describe("syncToTarget", () => {

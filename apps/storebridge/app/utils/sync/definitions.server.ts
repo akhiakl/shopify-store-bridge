@@ -38,6 +38,7 @@ const METAFIELD_DEFINITIONS_QUERY = `#graphql
         namespace
         key
         description
+        metafieldsCount
         type { name }
       }
     }
@@ -75,6 +76,9 @@ export interface MetafieldDefinitionRow {
   description: string | null;
   type: string;
   ownerType: (typeof METAFIELD_OWNER_TYPES)[number];
+  /** How many records on the source have a value for this definition —
+   * shown so a merchant can see when value sync's per-job cap applies. */
+  valueCount: number;
 }
 
 export interface MetaobjectFieldDefinition {
@@ -142,6 +146,7 @@ async function fetchMetafieldDefinitions(
           namespace: string;
           key: string;
           description: string | null;
+          metafieldsCount: number | null;
           type: { name: string };
         }) => ({
           id: node.id,
@@ -151,6 +156,7 @@ async function fetchMetafieldDefinitions(
           description: node.description,
           type: node.type.name,
           ownerType,
+          valueCount: node.metafieldsCount ?? 0,
         }),
       );
     }),

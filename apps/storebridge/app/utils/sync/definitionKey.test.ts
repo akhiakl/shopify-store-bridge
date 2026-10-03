@@ -4,6 +4,8 @@ import {
   collectionKey,
   metafieldDefinitionKey,
   metaobjectDefinitionKey,
+  metafieldValueKey,
+  metafieldValuesKey,
   metaobjectEntriesKey,
   metaobjectEntryKey,
   shopPolicyKey,
@@ -35,6 +37,7 @@ describe("metafieldDefinitionKey", () => {
         description: null,
         type: "single_line_text_field",
         ownerType: "PRODUCT",
+        valueCount: 0,
       }),
     ).toBe("metafield:PRODUCT:custom:care");
   });
@@ -60,6 +63,20 @@ describe("metaobject entry keys", () => {
   it("keys one entry by type and handle", () => {
     expect(metaobjectEntryKey({ type: "faq", handle: "q1" })).toBe(
       "metaobjectEntry:faq:q1",
+    );
+  });
+});
+
+describe("metafield value keys", () => {
+  const def = { ownerType: "PRODUCT", namespace: "custom", key: "care" };
+
+  it("keys a definition's value selection separately from the definition", () => {
+    expect(metafieldValuesKey(def)).toBe("metafieldValues:PRODUCT:custom:care");
+  });
+
+  it("keys one record's value by the record label", () => {
+    expect(metafieldValueKey(def, "hat")).toBe(
+      "metafieldValue:PRODUCT:custom:care:hat",
     );
   });
 });

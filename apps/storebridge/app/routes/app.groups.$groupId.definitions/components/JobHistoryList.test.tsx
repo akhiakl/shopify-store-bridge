@@ -29,7 +29,20 @@ describe("JobHistoryList", () => {
                   itemsFailed: 0,
                   errorMessage: null,
                   store: { shop: "target-1.myshopify.com" },
-                  items: [],
+                  items: [
+                    {
+                      key: "metaobject:size_chart",
+                      kind: "DEFINITION",
+                      status: "SKIPPED",
+                      errorMessage: null,
+                    },
+                    {
+                      key: "metafieldValue:PRODUCT:custom:care:hat",
+                      kind: "VALUE",
+                      status: "SKIPPED",
+                      errorMessage: "No matching product hat on this store.",
+                    },
+                  ],
                 },
                 {
                   id: "t-2",
@@ -57,12 +70,18 @@ describe("JobHistoryList", () => {
 
     expect(screen.getByText("PARTIAL")).toBeInTheDocument();
     expect(screen.getByText("target-1.myshopify.com")).toBeInTheDocument();
-    expect(screen.getByText("1 synced, 2 already existed")).toBeInTheDocument();
+    expect(screen.getByText("1 synced, 2 skipped")).toBeInTheDocument();
     expect(screen.getByText("0 synced, 1 failed")).toBeInTheDocument();
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "target-2.myshopify.com — metaobject:size_chart: Name can't be blank",
+        "target-2.myshopify.com — failed metaobject:size_chart: Name can't be blank",
+      ),
+    ).toBeInTheDocument();
+    // A skip with a reason gets a line; a plain "already exists" skip doesn't.
+    expect(
+      screen.getByText(
+        "target-1.myshopify.com — skipped metafieldValue:PRODUCT:custom:care:hat: No matching product hat on this store.",
       ),
     ).toBeInTheDocument();
   });

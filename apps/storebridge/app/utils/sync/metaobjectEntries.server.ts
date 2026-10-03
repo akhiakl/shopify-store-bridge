@@ -1,6 +1,6 @@
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 
-import { ENTRY_CAP_PER_TYPE } from "./entryCap";
+import { ENTRY_CAP_PER_TYPE } from "./syncCaps";
 
 const PAGE_SIZE = 50;
 

@@ -100,6 +100,7 @@ const planWith = (defs: unknown[]) => ({
   shopPolicies: [],
   collections: [],
   metaobjectEntries: [],
+  metafieldValues: [],
 });
 
 function pendingTarget(overrides: Record<string, unknown> = {}) {

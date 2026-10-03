@@ -62,7 +62,7 @@ export function JobHistoryList({ jobs }: JobHistoryListProps) {
                 <s-paragraph>
                   {target.itemsSynced} synced
                   {target.itemsSkipped > 0
-                    ? `, ${target.itemsSkipped} already existed`
+                    ? `, ${target.itemsSkipped} skipped`
                     : ""}
                   {target.itemsFailed > 0
                     ? `, ${target.itemsFailed} failed`
@@ -75,13 +75,22 @@ export function JobHistoryList({ jobs }: JobHistoryListProps) {
             ))}
             {job.targets
               .flatMap((target) =>
+                // Failures, plus skips that carry a reason (e.g. no matching
+                // record on the target); a plain "already exists" skip has
+                // none and isn't worth a line.
                 target.items
-                  .filter((item) => item.status === "FAILED")
+                  .filter(
+                    (item) =>
+                      item.status === "FAILED" ||
+                      (item.status === "SKIPPED" && item.errorMessage),
+                  )
                   .map((item) => ({ ...item, shop: target.store.shop })),
               )
               .map((item) => (
                 <s-paragraph key={`${item.shop}-${item.kind}-${item.key}`}>
-                  {item.shop} — {item.key}: {item.errorMessage}
+                  {item.shop} —{" "}
+                  {item.status === "SKIPPED" ? "skipped" : "failed"} {item.key}:{" "}
+                  {item.errorMessage}
                 </s-paragraph>
               ))}
           </s-stack>

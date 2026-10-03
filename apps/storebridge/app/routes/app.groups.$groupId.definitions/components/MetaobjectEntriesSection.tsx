@@ -1,6 +1,6 @@
 import { metaobjectEntriesKey } from "~/utils/sync/definitionKey";
 import type { MetaobjectDefinitionRow } from "~/utils/sync/definitions.server";
-import { ENTRY_CAP_PER_TYPE } from "~/utils/sync/entryCap";
+import { ENTRY_CAP_PER_TYPE } from "~/utils/sync/syncCaps";
 
 interface MetaobjectEntriesSectionProps {
   definitions: MetaobjectDefinitionRow[];

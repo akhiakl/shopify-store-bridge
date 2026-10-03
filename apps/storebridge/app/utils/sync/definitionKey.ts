@@ -42,3 +42,23 @@ export function metaobjectEntryKey(entry: {
 }): string {
   return `metaobjectEntry:${entry.type}:${entry.handle}`;
 }
+
+/** Selection key for "sync this definition's values", distinct from the
+ * `metafield:` key that syncs only the definition. */
+export function metafieldValuesKey(def: {
+  ownerType: string;
+  namespace: string;
+  key: string;
+}): string {
+  return `metafieldValues:${def.ownerType}:${def.namespace}:${def.key}`;
+}
+
+/** Job-history key for one record's value. `record` is a handle for
+ * products and collections, but the source GID for customers, so customer
+ * emails never end up in StoreBridge's database. */
+export function metafieldValueKey(
+  def: { ownerType: string; namespace: string; key: string },
+  record: string,
+): string {
+  return `metafieldValue:${def.ownerType}:${def.namespace}:${def.key}:${record}`;
+}
