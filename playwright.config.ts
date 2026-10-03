@@ -18,7 +18,14 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+  // The JSON file feeds the Quality Gate PR comment (see ci.yml).
+  reporter: process.env.CI
+    ? [
+        ["github"],
+        ["html", { open: "never" }],
+        ["json", { outputFile: "ci-results/playwright-results.json" }],
+      ]
+    : "list",
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",

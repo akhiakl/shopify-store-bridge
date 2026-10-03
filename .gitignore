@@ -40,3 +40,6 @@ app/types/
 
 # Vercel CLI / build output
 .vercel
+
+# CI check output for the Quality Gate PR comment (see .github/workflows/ci.yml).
+ci-results/
