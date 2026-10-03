@@ -4,7 +4,7 @@ import type { MetafieldDefinitionRow } from "./definitions.server";
 import { VALUE_CAP_PER_DEFINITION } from "./syncCaps";
 import { isValueOwnerType, type ValueOwnerType } from "./valueOwnerTypes";
 
-/** Checked against the pinned 2026-07 schema. */
+/** Checked against the pinned 2026-10 schema. */
 const VALUE_OWNERS_QUERY = `#graphql
   query MetafieldValueOwners(
     $identifier: MetafieldDefinitionIdentifierInput!

@@ -124,7 +124,7 @@ export const SHOP_POLICY_UPDATE_MUTATION = `#graphql
  * stores share. The `metaobject` argument updates only the fields given;
  * the alternative `values` argument is a full replacement, but its JSON
  * shape per field type isn't described by the schema, so it isn't used.
- * Checked against the pinned 2026-07 schema: write_metaobjects.
+ * Checked against the pinned 2026-10 schema: write_metaobjects.
  */
 export const METAOBJECT_UPSERT_MUTATION = `#graphql
   mutation MetaobjectUpsert(
@@ -149,7 +149,7 @@ export const METAOBJECT_ID_BY_HANDLE_QUERY = `#graphql
  * step runs, so handles, emails and values never sit in the persisted
  * plan. Owners are matched on the target by natural key: products and
  * collections by handle, customers by email. Checked against the pinned
- * 2026-07 schema; scopes read_products / read_customers (covered by the
+ * 2026-10 schema; scopes read_products / read_customers (covered by the
  * declared write_* scopes). Customer email is protected customer data and
  * needs the app's Partner Dashboard access approval.
  */

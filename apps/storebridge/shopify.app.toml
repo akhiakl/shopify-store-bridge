@@ -34,7 +34,7 @@ embedded = true
 # (collections.server.ts / syncCollection.server.ts): collections/
 # collectionByIdentifier need read_products, collectionCreate/
 # collectionUpdate need write_products. Operation shapes checked against
-# the pinned 2026-07 schema (graphql-codegen in CI), not just the Dev MCP
+# the pinned 2026-10 schema (graphql-codegen in CI), not just the Dev MCP
 # validator, which validated against an older version.
 #
 # write_content: confirmed via shopify.dev — PAGE, BLOG, and ARTICLE
@@ -70,8 +70,8 @@ scopes = "read_metaobject_definitions,write_metaobject_definitions,write_product
 use_legacy_install_flow = false
 
 [webhooks]
-# Pinned 2026-07 (latest stable as of Aug 2026). Re-check quarterly per AGENTS.md §2.
-api_version = "2026-07"
+# Pinned 2026-10 (latest stable as of Oct 2026). Re-check quarterly per AGENTS.md §2.
+api_version = "2026-10"
 
   # Handled by: /app/routes/webhooks.app.uninstalled.tsx
   [[webhooks.subscriptions]]
