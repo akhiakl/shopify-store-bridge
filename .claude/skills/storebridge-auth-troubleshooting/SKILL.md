@@ -1,11 +1,11 @@
 ---
 name: storebridge-auth-troubleshooting
-description: Use when StoreBridge's embedded app isn't authenticating — the placeholder text "Handling response" shows instead of the app, install/reauth never completes, a session isn't being written to the Session table, or auth-related errors appear in the shopify app dev terminal. Covers the full diagnostic order (clock skew first, not last) worked out from an actual multi-hour debugging session. See apps/storebridge/docs/architecture/auth.md for the underlying request-flow explanation this skill's steps are based on.
+description: Use when StoreBridge's embedded app isn't authenticating — the placeholder text "Handling response" shows instead of the app, install/reauth never completes, a session isn't being written to the Session table, or auth-related errors appear in the shopify app dev terminal. Covers the full diagnostic order (clock skew first, not last) worked out from an actual multi-hour debugging session. See docs/architecture/auth.md for the underlying request-flow explanation this skill's steps are based on.
 ---
 
 # StoreBridge auth troubleshooting
 
-A specific, ordered checklist — not a general "how Shopify auth works" explainer (that's `apps/storebridge/docs/architecture/auth.md`, read it for the _why_). This is the _what to check, in what order_, reverse-engineered from a real incident where the obvious suspects (dependency versions, database connectivity) were all fine and the actual cause was two steps further down this list.
+A specific, ordered checklist — not a general "how Shopify auth works" explainer (that's `docs/architecture/auth.md`, read it for the _why_). This is the _what to check, in what order_, reverse-engineered from a real incident where the obvious suspects (dependency versions, database connectivity) were all fine and the actual cause was two steps further down this list.
 
 ## Symptom this applies to
 
@@ -32,8 +32,8 @@ Compare the two. More than ~5 seconds off is the smoking gun.
 
 Don't add new logging — it's already there, just check the output:
 
-- `apps/storebridge/app/shopify.server.ts` sets `logger: { level: LogSeverity.Debug }` outside production. This is what actually surfaces _why_ a session token failed (the exact JWT error), not just that authentication was attempted.
-- `apps/storebridge/app/db.server.ts` logs every Drizzle query outside production (`logger: true`) — confirms whether a DB write is even being attempted.
+- `app/shopify.server.ts` sets `logger: { level: LogSeverity.Debug }` outside production. This is what actually surfaces _why_ a session token failed (the exact JWT error), not just that authentication was attempted.
+- `app/db.server.ts` logs every Drizzle query outside production (`logger: true`) — confirms whether a DB write is even being attempted.
 - `shopify app dev --verbose` for CLI-level tunnel/network detail.
 
 Read the terminal output for the _specific_ error, don't just confirm the flow "seems to run."

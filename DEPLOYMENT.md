@@ -11,7 +11,7 @@ StoreBridge runs two environments, each backed by its own Shopify app registrati
 Vercel's own Git integration to auto-deploy on push anymore. That integration deployed
 independently of whether database migrations had actually run, which is how a schema change
 once shipped code against a table that was never created on staging (see §3). Database
-migrations run _inside_ the Vercel build itself — `apps/storebridge/package.json`'s
+migrations run _inside_ the Vercel build itself — `package.json`'s
 `vercel-build` script runs `drizzle-kit migrate` before `react-router build`, and Vercel's
 build convention picks that script up automatically instead of the plain `build` one. A
 failed migration fails the build, so nothing gets deployed. The Shopify app config deploy is
@@ -42,10 +42,8 @@ production. Don't reuse a single app across environments; that's not how Shopify
 multi-env tooling is designed (see `shopify.app.staging.toml`'s header comment).
 
 ```bash
-# Run from the repo root — the pnpm workspace routes these to apps/storebridge,
-# where shopify.app.staging.toml / shopify.app.toml actually live.
-pnpm --filter storebridge run config:link:staging      # interactive — links shopify.app.staging.toml
-pnpm --filter storebridge run config:link:production   # interactive — links shopify.app.toml
+pnpm run config:link:staging      # interactive — links shopify.app.staging.toml
+pnpm run config:link:production   # interactive — links shopify.app.toml
 ```
 
 Each command fills in that config file's `client_id` and points `application_url` /
@@ -64,10 +62,8 @@ This app deploys to Vercel via `@vercel/react-router`'s `vercelPreset()`
 (`react-router.config.ts`) — it only activates when Vercel's own build sets the `VERCEL`
 env var, so local dev and the Docker/`react-router-serve` path are unaffected.
 
-1. Import the repo into a Vercel project (Vercel dashboard → Add New → Project). This is a
-   Turborepo monorepo, so set the project's **Root Directory** to `apps/storebridge` —
-   Vercel's framework detection and `vercelPreset()` both expect to run from there, not
-   the repo root.
+1. Import the repo into a Vercel project (Vercel dashboard → Add New → Project). Leave the
+   project's **Root Directory** empty — the app lives at the repo root.
 2. **Disable Vercel's own Git-integration auto-deploy entirely** — both for `main` (Project
    Settings → Git → Production Branch) and for `staging` (Project Settings → Git → Ignored
    Build Step, set to always skip, or remove the Git connection's auto-deploy for that
@@ -87,7 +83,7 @@ env var, so local dev and the Docker/`react-router-serve` path are unaffected.
      app config (step 1)
    - `SHOPIFY_APP_URL` — the environment's Vercel URL
    - `DATABASE_URL` — Supabase Postgres pooled/pgbouncer connection string (see
-     `apps/storebridge/app/db/schema.server.ts`'s comment and `apps/storebridge/.env.example`).
+     `app/db/schema.server.ts`'s comment and `.env.example`).
      **Use a separate Supabase project (or at least a separate database) per environment** —
      staging and production must not share session storage.
    - `DIRECT_URL` — the same database's non-pooled connection string. The `vercel-build`

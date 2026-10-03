@@ -11,8 +11,7 @@ and shop-level metafield value sync are built too — see
 Resource-level metafield/metaobject data (Product, Customer, Order, …) doesn't sync yet —
 it needs a way to match records across the two stores' separate catalogs first.
 
-This is the app workspace of a [Turborepo monorepo](../../README.md); for cloning, local
-setup, and the git workflow, see the [root `CONTRIBUTING.md`](../../CONTRIBUTING.md).
+For cloning, local setup, and the git workflow, see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Architecture
 
@@ -77,7 +76,7 @@ shop-specific webhooks](https://shopify.dev/docs/apps/build/webhooks/subscribe#a
 ## GraphQL
 
 `.graphqlrc.ts` + `@shopify/api-codegen-preset` wire up codegen once real operations exist —
-see `AGENTS.md` §2/§7 in the repo root for the verification requirement (Shopify Dev MCP +
+see `AGENTS.md` §2/§7 for the verification requirement (Shopify Dev MCP +
 `validate_graphql_codeblocks` before commit). If your editor's GraphQL extension assumes the
 wrong API (e.g. Storefront instead of Admin), check `.graphqlrc.ts`.
 
@@ -99,5 +98,5 @@ Usually means your machine's clock is out of sync — enable automatic date/time
 - [App Bridge](https://shopify.dev/docs/api/app-bridge-library) ·
   [Polaris Web Components](https://shopify.dev/docs/api/app-home/polaris-web-components)
 - [React Router docs](https://reactrouter.com/home)
-- Repo root: [`AGENTS.md`](../../AGENTS.md) (standards) ·
-  [`DEPLOYMENT.md`](../../DEPLOYMENT.md) (Shopify + Vercel deploy)
+- [`AGENTS.md`](AGENTS.md) (standards) · [`DEPLOYMENT.md`](DEPLOYMENT.md) (Shopify + Vercel
+  deploy)
