@@ -1,7 +1,18 @@
 import { createHash, randomBytes } from "node:crypto";
 
-/** How long a generated pairing-authorization link stays valid. */
-const AUTH_TOKEN_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
+import { AUTH_TOKEN_TTL_MINUTES } from "./authTokenTtl";
+
+/**
+ * How long a generated pairing-authorization link stays valid. Pairing is
+ * a same-owner, both-stores-in-hand flow (see store-pairing.md) — the
+ * merchant sending the link and the one opening it are typically doing so
+ * within the same short session, not over days, so a long TTL isn't
+ * buying anything except a bigger window for a leaked link. 15 minutes
+ * (see authTokenTtl.ts) matches the sibling `#60`/`#61` branch's value;
+ * "Resend link" (`regeneratePairingRequest`) covers a link that expires
+ * before it's used.
+ */
+const AUTH_TOKEN_TTL_MS = AUTH_TOKEN_TTL_MINUTES * 60 * 1000;
 
 /**
  * Generates a pairing-authorization token: a raw, URL-safe secret to hand

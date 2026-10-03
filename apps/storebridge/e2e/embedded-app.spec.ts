@@ -25,7 +25,7 @@ test.describe("embedded admin shell", () => {
     );
     const body = await response.text();
     expect(body).toContain("StoreBridge");
-    expect(body).toContain("Additional page");
+    expect(body).toContain("Connected stores");
   });
 
   test("bounces a request with no session token instead of rendering", async ({
@@ -41,7 +41,7 @@ test.describe("embedded admin shell", () => {
     expect(response.status()).toBe(200);
     const body = await response.text();
     expect(body).toContain("app-bridge.js");
-    expect(body).not.toContain("Welcome to StoreBridge");
+    expect(body).not.toContain("Connected stores");
   });
 
   test("rejects a syntactically valid but wrongly-signed token", async ({

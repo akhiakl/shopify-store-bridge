@@ -15,15 +15,34 @@ name: Deploy Shopify app config
 # Manual workflow_dispatch runs can still target either environment
 # on-demand, independent of the above.
 #
+# Database migrations run inside the Vercel build itself, not as a step
+# here: apps/storebridge/package.json's `vercel-build` script runs
+# `drizzle-kit migrate` before `react-router build`, and Vercel's build
+# convention (both the hosted platform build and the `vercel build` CLI
+# invocation below) uses that script instead of the plain `build` one
+# whenever it's present. A failed migration fails the build, and a failed
+# build means the "Deploy to Vercel" step below has nothing prebuilt to
+# ship — no separate gate needed. This exists because Vercel's build never
+# ran migrations on its own before, so a schema change could ship code that
+# reads a table/column that was never actually created (see DEPLOYMENT.md).
+#
+# The Shopify app config deploy is intentionally decoupled from this — it
+# never touches the database, so it runs unconditionally rather than
+# waiting on a migration/build step it has no dependency on.
+#
 # Requires:
 #   SHOPIFY_APP_AUTOMATION_TOKEN — Partner/Dev Dashboard app -> Automation
 #     tokens. The older SHOPIFY_CLI_PARTNERS_TOKEN is deprecated as of the
 #     CLI 4.x / May 2026 rollout — don't use it here.
-#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID — only needed for the
-#     production leg's Vercel deploy step. Vercel's own Git integration
-#     must have `main` removed from its auto-deploy-to-production branches
-#     (Project Settings -> Git) or it'll keep shipping production on every
-#     push there regardless of this workflow.
+#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID — needed on both
+#     environments now that this workflow deploys staging's Vercel Preview
+#     too, not just production. Vercel's own Git integration must have
+#     auto-deploy disabled for both `main` and `staging` (Project Settings
+#     -> Git) or it'll keep shipping deployments on every push there,
+#     independent of this workflow. The migration-bearing `DATABASE_URL`/
+#     `DIRECT_URL` are Vercel project environment variables (Production vs
+#     Preview — see DEPLOYMENT.md), not GitHub secrets, since the build
+#     that needs them runs inside `vercel build` below.
 
 on:
   push:
@@ -138,17 +157,32 @@ jobs:
             --source-control-url "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}" \
             --allow-updates
 
-      # Production hosting only — staging's Vercel Preview deployment is
-      # already handled by Vercel's own Git integration on push to
-      # `staging` (see DEPLOYMENT.md), no separate step needed here.
-      - name: Deploy to Vercel (production)
-        if: needs.resolve-environment.outputs.environment == 'production'
+      # Both environments now deploy to Vercel from here — staging no
+      # longer relies on Vercel's own Git integration to auto-deploy on
+      # push (that path deployed independently of whether migrations had
+      # run, which is exactly how the `SyncJob`-missing-table incident on
+      # staging happened). The `vercel build` invocation below runs the
+      # `vercel-build` package.json script — `drizzle-kit migrate` then
+      # `react-router build` — so a failed migration fails the build and
+      # nothing gets deployed. Vercel's automatic Git deployment for the
+      # `staging` branch must be disabled in the Vercel project's Git
+      # settings — see DEPLOYMENT.md — or this step and that integration
+      # will double-deploy on every push.
+      - name: Deploy to Vercel
         working-directory: apps/storebridge
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
-          npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
-          npx --yes vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          ENV="${{ needs.resolve-environment.outputs.environment }}"
+          if [ "$ENV" = "production" ]; then
+            VERCEL_ENV=production
+            PROD_FLAG=--prod
+          else
+            VERCEL_ENV=preview
+            PROD_FLAG=
+          fi
+          npx --yes vercel@latest pull --yes --environment="$VERCEL_ENV" --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest build $PROD_FLAG --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest deploy --prebuilt $PROD_FLAG --token="$VERCEL_TOKEN"

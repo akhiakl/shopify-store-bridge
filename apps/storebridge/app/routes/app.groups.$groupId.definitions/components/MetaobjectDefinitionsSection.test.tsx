@@ -1,12 +1,26 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { MetaobjectDefinitionRow } from "../definitions.server";
+import type { MetaobjectDefinitionRow } from "~/utils/sync/definitions.server";
 import { MetaobjectDefinitionsSection } from "./MetaobjectDefinitionsSection";
 
 const definitions: MetaobjectDefinitionRow[] = [
-  { id: "1", type: "size_chart", name: "Size chart", fieldCount: 3 },
-  { id: "2", type: "faq_entry", name: "FAQ entry", fieldCount: 2 },
+  {
+    id: "1",
+    type: "size_chart",
+    name: "Size chart",
+    fieldDefinitions: [],
+    fieldCount: 3,
+    entryCount: 0,
+  },
+  {
+    id: "2",
+    type: "faq_entry",
+    name: "FAQ entry",
+    fieldDefinitions: [],
+    fieldCount: 2,
+    entryCount: 0,
+  },
 ];
 
 // See MetafieldDefinitionsSection.test.tsx for why interaction isn't
@@ -81,5 +95,26 @@ describe("MetaobjectDefinitionsSection", () => {
       "checked",
       "true",
     );
+  });
+
+  it("renders a status badge for a definition once a status check has run", () => {
+    render(
+      <MetaobjectDefinitionsSection
+        definitions={definitions}
+        selected={new Set()}
+        onToggle={vi.fn()}
+        statusByKey={{
+          "metaobject:size_chart": {
+            inSyncCount: 1,
+            totalTargets: 1,
+            perTarget: [
+              { targetId: "t1", shop: "a.myshopify.com", status: "IN_SYNC" },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(document.querySelector("s-badge")).toHaveTextContent("1/1 in sync");
   });
 });

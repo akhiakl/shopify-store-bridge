@@ -5,7 +5,7 @@ const { dbMock } = vi.hoisted(() => ({
 }));
 vi.mock("~/db.server", () => ({ default: dbMock }));
 
-const { getDefinitionCatalog, getOwnedGroup } =
+const { getDefinitionCatalog, getOwnedGroup, getShopPolicies } =
   await import("./definitions.server");
 
 function jsonResponse(data: unknown) {
@@ -81,7 +81,15 @@ describe("getDefinitionCatalog", () => {
                 id: "gid://shopify/MetaobjectDefinition/1",
                 type: "size_chart",
                 name: "Size chart",
-                fieldDefinitions: [{ name: "Label", key: "label" }],
+                metaobjectsCount: 4,
+                fieldDefinitions: [
+                  {
+                    name: "Label",
+                    key: "label",
+                    required: true,
+                    type: { name: "single_line_text_field" },
+                  },
+                ],
               },
             ],
           },
@@ -104,6 +112,7 @@ describe("getDefinitionCatalog", () => {
       description: null,
       type: "single_line_text_field",
       ownerType: "PRODUCT",
+      valueCount: 0,
     });
 
     expect(catalog.metaobjectDefinitions).toEqual([
@@ -111,7 +120,16 @@ describe("getDefinitionCatalog", () => {
         id: "gid://shopify/MetaobjectDefinition/1",
         type: "size_chart",
         name: "Size chart",
+        fieldDefinitions: [
+          {
+            name: "Label",
+            key: "label",
+            required: true,
+            type: "single_line_text_field",
+          },
+        ],
         fieldCount: 1,
+        entryCount: 4,
       },
     ]);
   });
@@ -123,5 +141,43 @@ describe("getDefinitionCatalog", () => {
 
     expect(catalog.metafieldDefinitions).toEqual([]);
     expect(catalog.metaobjectDefinitions).toEqual([]);
+  });
+});
+
+describe("getShopPolicies", () => {
+  it("fetches the shop's policies", async () => {
+    const graphql = vi.fn(() =>
+      Promise.resolve(
+        jsonResponse({
+          shop: {
+            shopPolicies: [
+              {
+                type: "REFUND_POLICY",
+                title: "Refund policy",
+                body: "<p>Refunds within 30 days.</p>",
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+    const policies = await getShopPolicies({ graphql } as never);
+
+    expect(policies).toEqual([
+      {
+        type: "REFUND_POLICY",
+        title: "Refund policy",
+        body: "<p>Refunds within 30 days.</p>",
+      },
+    ]);
+  });
+
+  it("returns an empty list when the API returns no policies", async () => {
+    const graphql = vi.fn(() => Promise.resolve(jsonResponse({})));
+
+    const policies = await getShopPolicies({ graphql } as never);
+
+    expect(policies).toEqual([]);
   });
 });
