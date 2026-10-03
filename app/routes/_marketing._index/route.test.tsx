@@ -52,14 +52,21 @@ describe("marketing home page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: /store definitions, in sync/i,
+        name: /keep your shopify stores in sync/i,
       }),
     ).toBeInTheDocument();
     // Required so an empty submit never leaves this page for the plain
     // Polaris /auth/login error screen: see AGENTS.md UX conventions.
     expect(screen.getByLabelText(/shop domain/i)).toBeRequired();
-    expect(screen.getByText("Store pairing")).toBeInTheDocument();
-    expect(screen.getByText("Definition sync")).toBeInTheDocument();
-    expect(screen.getByText("Job history")).toBeInTheDocument();
+    expect(screen.getByText("One connection per store")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "What syncs" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Checkout styling", { selector: "dt" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Why does checkout styling need Shopify Plus?"),
+    ).toBeInTheDocument();
   });
 });

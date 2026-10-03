@@ -27,8 +27,11 @@ export default function MarketingLayout() {
             <a href="#how-it-works" className="hover:text-neutral-900">
               How it works
             </a>
-            <a href="#features" className="hover:text-neutral-900">
-              Features
+            <a href="#what-syncs" className="hover:text-neutral-900">
+              What syncs
+            </a>
+            <a href="#faq" className="hover:text-neutral-900">
+              FAQ
             </a>
             <a href="#login" className={cn(buttonVariants({ size: "sm" }))}>
               Log in
@@ -40,8 +43,7 @@ export default function MarketingLayout() {
         <Outlet />
       </main>
       <footer className="border-t border-neutral-200 py-6 text-center text-xs text-neutral-500">
-        StoreBridge: sync Shopify metaobject and metafield definitions between
-        stores.
+        StoreBridge: keep the Shopify stores you run in sync.
       </footer>
     </div>
   );

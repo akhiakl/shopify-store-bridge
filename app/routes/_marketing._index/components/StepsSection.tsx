@@ -1,25 +1,25 @@
 const steps = [
   {
     number: "01",
-    label: "Pair",
-    title: "Connect a source store to targets",
-    body: "Point one or more target stores at a source store to pull definitions and shop metafield values from.",
+    label: "Connect",
+    title: "Invite the other store",
+    body: "Enter its domain in StoreBridge and send it the one-time link that comes back.",
   },
   {
     number: "02",
     label: "Approve",
-    title: "Reviewed from the target side",
-    body: "Nothing lands until the target store approves the pairing: no accidental cross-store changes.",
+    title: "The other store says yes",
+    body: "Nothing syncs until someone at that store opens the link and approves the connection.",
   },
   {
     number: "03",
     label: "Sync",
-    title: "One click, every approved target",
-    body: "Push metaobject and metafield definitions to every approved target, and see exactly what synced.",
+    title: "Choose what to copy",
+    body: "Pick items on each type's page and sync. Either store can start it; data always flows from the source to the target.",
   },
 ] as const;
 
-/** "How it works": three-step summary of the pairing → approval → sync flow. */
+/** "How it works": three-step summary of the connect → approve → sync flow. */
 export function StepsSection() {
   return (
     <section
@@ -29,7 +29,7 @@ export function StepsSection() {
     >
       <div className="mx-auto max-w-5xl px-6">
         <h2 id="how-it-works-heading" className="text-2xl font-bold">
-          Three steps from pairing to a synced store
+          Three steps from two stores to one setup
         </h2>
         <div className="mt-10 grid gap-8 md:grid-cols-3">
           {steps.map((step) => (
