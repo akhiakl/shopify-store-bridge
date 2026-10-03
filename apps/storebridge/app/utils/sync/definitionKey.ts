@@ -63,6 +63,11 @@ export function metafieldValueKey(
   return `metafieldValue:${def.ownerType}:${def.namespace}:${def.key}:${record}`;
 }
 
+/** Locations match by name, which is unique per store. */
+export function locationKey(name: string): string {
+  return `location:${name}`;
+}
+
 export function menuKey(handle: string): string {
   return `menu:${handle}`;
 }
