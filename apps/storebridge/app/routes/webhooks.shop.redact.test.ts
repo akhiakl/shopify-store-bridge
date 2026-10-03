@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { customerDataRequests } from "~/db/complianceSchema.server";
 import { sessions, stores } from "~/db/schema.server";
 
 const { webhookMock, dbMock } = vi.hoisted(() => ({
@@ -23,12 +24,15 @@ describe("webhooks.shop.redact action", () => {
     vi.clearAllMocks();
   });
 
-  it("deletes the shop's session and store rows — Store cascades to everything else", async () => {
+  it("deletes the shop's session, store and data-request rows; Store cascades to the rest", async () => {
     webhookMock.mockResolvedValue({
       topic: "SHOP_REDACT",
       shop: "shop.myshopify.com",
     });
-    dbMock.delete.mockReturnValueOnce(chain()).mockReturnValueOnce(chain());
+    dbMock.delete
+      .mockReturnValueOnce(chain())
+      .mockReturnValueOnce(chain())
+      .mockReturnValueOnce(chain());
     dbMock.transaction.mockImplementation(async (callback) => callback(dbMock));
 
     const response = await action({
@@ -37,9 +41,10 @@ describe("webhooks.shop.redact action", () => {
 
     expect(response.status).toBe(200);
     expect(dbMock.transaction).toHaveBeenCalledTimes(1);
-    expect(dbMock.delete).toHaveBeenCalledTimes(2);
+    expect(dbMock.delete).toHaveBeenCalledTimes(3);
     expect(dbMock.delete).toHaveBeenNthCalledWith(1, sessions);
     expect(dbMock.delete).toHaveBeenNthCalledWith(2, stores);
+    expect(dbMock.delete).toHaveBeenNthCalledWith(3, customerDataRequests);
   });
 
   it("propagates webhook authentication errors without touching the database", async () => {

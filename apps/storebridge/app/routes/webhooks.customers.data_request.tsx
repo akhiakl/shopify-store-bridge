@@ -1,5 +1,8 @@
 import type { ActionFunctionArgs } from "react-router";
-import { authenticate } from "../shopify.server";
+
+import db from "~/db.server";
+import { customerDataRequests } from "~/db/complianceSchema.server";
+import { authenticate } from "~/shopify.server";
 
 /**
  * Mandatory compliance webhook (customers/data_request) — required before
@@ -7,18 +10,32 @@ import { authenticate } from "../shopify.server";
  * https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance.
  * A customer asked the store owner for the data an app holds on them.
  *
- * StoreBridge stores no customer records, emails or metafield values. The
- * one trace of a customer it keeps is job history: syncing a customer
- * metafield's values records a `SyncJobItem` per customer, keyed by their
- * source-store GID, with only the sync outcome (see
- * webhooks.customers.redact.tsx, which deletes those rows). Answering a
- * data request with those rows isn't automated yet, so this still just
- * acknowledges receipt — `authenticate.webhook` itself verifies the HMAC
- * and returns a 401 for an invalid one before this code runs.
+ * The request is recorded (customer ID only, never the email the payload
+ * carries) so the merchant can see and export the matching job-history
+ * rows on the app's Data requests page. Redeliveries are ignored by the
+ * (shop, data request ID) unique key. `authenticate.webhook` verifies the
+ * HMAC and returns a 401 for an invalid one before this code runs.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { topic, shop } = await authenticate.webhook(request);
+  const { topic, shop, payload } = await authenticate.webhook(request);
   console.log(`Received ${topic} webhook for ${shop}`);
+
+  const { customer, data_request: dataRequest } = payload as {
+    customer?: { id?: number | string };
+    data_request?: { id?: number | string };
+  };
+  if (customer?.id === undefined || dataRequest?.id === undefined) {
+    return new Response();
+  }
+
+  await db
+    .insert(customerDataRequests)
+    .values({
+      shop,
+      customerId: String(customer.id),
+      dataRequestId: String(dataRequest.id),
+    })
+    .onConflictDoNothing();
 
   return new Response();
 };

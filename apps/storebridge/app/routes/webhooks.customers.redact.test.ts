@@ -29,6 +29,7 @@ vi.mock("~/db.server", () => ({ default: dbMock }));
 
 const { action } = await import("./webhooks.customers.redact");
 const { syncJobItems } = await import("~/db/syncJobsSchema.server");
+const { customerDataRequests } = await import("~/db/complianceSchema.server");
 
 function call() {
   return action({
@@ -41,7 +42,7 @@ beforeEach(() => {
 });
 
 describe("webhooks.customers.redact action", () => {
-  it("deletes the customer's job-history rows from this shop's sync jobs", async () => {
+  it("deletes the customer's job-history rows and data requests for this shop", async () => {
     webhookMock.mockResolvedValue({
       topic: "CUSTOMERS_REDACT",
       shop: "source.myshopify.com",
@@ -51,8 +52,9 @@ describe("webhooks.customers.redact action", () => {
     const response = await call();
 
     expect(response.status).toBe(200);
-    expect(dbMock.delete).toHaveBeenCalledWith(syncJobItems);
-    expect(deleted.where).toHaveBeenCalledTimes(1);
+    expect(dbMock.delete).toHaveBeenNthCalledWith(1, syncJobItems);
+    expect(dbMock.delete).toHaveBeenNthCalledWith(2, customerDataRequests);
+    expect(deleted.where).toHaveBeenCalledTimes(2);
     // The LIKE pattern pins the exact source-customer GID at the key's end.
     const { sql, params } = new PgDialect().sqlToQuery(
       deleted.where.mock.calls[0][0],
@@ -61,6 +63,9 @@ describe("webhooks.customers.redact action", () => {
     expect(params).toContain(
       "metafieldValue:CUSTOMER:%:gid://shopify/Customer/207119551",
     );
+    // Its data requests go too, matched by shop and customer.
+    const requests = new PgDialect().sqlToQuery(deleted.where.mock.calls[1][0]);
+    expect(requests.params).toEqual(["source.myshopify.com", "207119551"]);
   });
 
   it("acknowledges without touching the database when the payload has no customer", async () => {
