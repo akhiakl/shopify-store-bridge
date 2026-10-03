@@ -37,5 +37,9 @@ blob-report
 # React Router's generated route types
 .react-router/
 
+# GraphQL codegen output (@shopify/api-codegen-preset, .graphqlrc.ts) —
+# regenerated from the live Admin API schema, not checked in.
+apps/storebridge/app/types/
+
 # Vercel CLI / build output
 .vercel

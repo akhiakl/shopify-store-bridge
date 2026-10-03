@@ -101,6 +101,18 @@ async function main() {
       route: "/app/stores",
       outFile: path.join(OUT_DIR, "stores-populated.png"),
     });
+    await screenshotRoute(page, {
+      baseUrl: server.baseUrl,
+      shop: emptyShop,
+      route: "/app",
+      outFile: path.join(OUT_DIR, "home-empty.png"),
+    });
+    await screenshotRoute(page, {
+      baseUrl: server.baseUrl,
+      shop: mainShop,
+      route: "/app",
+      outFile: path.join(OUT_DIR, "home-populated.png"),
+    });
 
     await browser.close();
     console.log(`Screenshots written to ${OUT_DIR}`);

@@ -34,21 +34,20 @@ Use the official generator when one exists, then tune its output to match §5–
 
 - **One logical step per commit** — don't bundle unrelated changes.
 - **Conventional Commits**: `type(scope): subject` — `feat|fix|refactor|test|docs|chore|build|ci|perf`. Enforced by commitlint.
-- **No AI attribution.** Never add `Co-Authored-By: Claude`, "Generated with Claude Code," or similar. Commits read as the engineer's own.
+- **No AI attribution.** Never add `Co-Authored-By: Claude`, "Generated with Claude Code," or similar — in commits, PR descriptions, or PR/issue comments. Commits read as the engineer's own.
+- **Commit author**: `Akhil K <akhilk4k@gmail.com>` — set local `git config user.name`/`user.email` to this before committing if they aren't already (harness defaults are not this repo's identity).
 - Commit body explains _why_ when it isn't obvious from the diff.
 
 ## 5. Hard limits (enforced by tooling, not convention)
 
-| Rule                      | Limit                                                                                    |
-| ------------------------- | ---------------------------------------------------------------------------------------- |
-| Max lines per source file | 300                                                                                      |
-| Max lines per test file   | 500                                                                                      |
-| Max function parameters   | 3 (4+ → single options object)                                                           |
-| Test coverage             | ≥80% branches/functions/lines/statements, **on files touched by tests** (see note below) |
+| Rule                      | Limit                                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| Max lines per source file | 300                                                                                           |
+| Max lines per test file   | 500                                                                                           |
+| Max function parameters   | 3 (4+ → single options object)                                                                |
+| Test coverage             | ≥80% branches/functions/lines/statements, **across every source file** (`coverage.all: true`) |
 
 Approaching 300 lines → split by responsibility (SRP), don't reach for `eslint-disable`. Disabling a limit is itself a "when in doubt, ask" moment (§1) — flag it, don't silently bypass. (One accepted exception exists today: `apps/storebridge/app/entry.server.tsx`'s `handleRequest` has a framework-mandated 4-arg signature from React Router itself.)
-
-**Open decision — coverage scope:** the shared Vitest config (`packages/vitest-config`) currently uses the default `coverage.all: false`, so the 80% floor only applies to files a test actually imports; untested new files simply don't appear in the report instead of dragging the number down. This was fine for the initial scaffold (nothing built yet) but stops being fine once real feature routes exist untested. Revisit: set `coverage.all: true` and decide the real threshold once there's enough tested surface area to not immediately fail the pre-push hook.
 
 ## 6. Design principles
 

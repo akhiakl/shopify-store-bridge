@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { Form, useLoaderData } from "react-router";
+import { Form, useActionData, useLoaderData } from "react-router";
 
 import { authenticate } from "~/shopify.server";
 import {
@@ -41,11 +41,37 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function AuthorizePairing() {
   const data = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
+
+  // Checked first: a successful approve makes the target no longer
+  // PENDING, so the loader's own revalidation after this action returns
+  // ok:false too (same "PENDING and unexpired" check the action just
+  // passed) — without this branch a successful approval would render the
+  // generic invalid/expired banner below instead of confirming success.
+  if (actionData?.ok) {
+    return (
+      <s-page heading="Pairing link">
+        <s-banner tone="success" heading="Pairing approved">
+          <s-paragraph>
+            You&apos;re now paired. Manage this connection from{" "}
+            <s-link href="/app/stores">Connected stores</s-link>.
+          </s-paragraph>
+        </s-banner>
+      </s-page>
+    );
+  }
 
   if (!data.ok) {
     return (
       <s-page heading="Pairing link">
-        <s-banner tone="critical" heading="This link is invalid or expired">
+        <s-banner
+          tone="critical"
+          heading={
+            actionData?.ok === false
+              ? actionData.error
+              : "This link is invalid or expired"
+          }
+        >
           <s-paragraph>
             Ask the store that sent it for a new pairing request, or check{" "}
             <s-link href="/app/stores">Connected stores</s-link> for pending
@@ -68,11 +94,13 @@ export default function AuthorizePairing() {
         </s-paragraph>
         <Form method="post">
           <input type="hidden" name="token" value={data.token} />
-          <s-button type="submit" variant="primary">
-            Approve pairing
-          </s-button>
+          <s-stack direction="inline" gap="base" alignItems="center">
+            <s-button type="submit" variant="primary">
+              Approve pairing
+            </s-button>
+            <s-button href="/app/stores">Not now</s-button>
+          </s-stack>
         </Form>
-        <s-link href="/app/stores">Not now</s-link>
       </s-section>
     </s-page>
   );

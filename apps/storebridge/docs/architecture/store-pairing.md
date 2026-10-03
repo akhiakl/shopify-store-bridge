@@ -12,10 +12,11 @@ That matters because the obvious-seeming design — source invites by domain, ta
 
 Same pattern Slack Connect and Stripe Connect use for cross-tenant linking, since they hit the identical structural problem (no platform-level "same owner" signal to lean on):
 
-1. **`requestPairing`** (source side) creates the `SyncGroupTarget` row _and_ a single-use, 48-hour-expiring token — `authToken.server.ts` generates 32 random bytes, returns the raw value exactly once, and persists only its SHA-256 hash (same reasoning as a password-reset token: the raw value should never be recoverable from the database).
+1. **`requestPairing`** (source side) creates the `SyncGroupTarget` row _and_ a single-use, 15-minute-expiring token — `authToken.server.ts` generates 32 random bytes, returns the raw value exactly once, and persists only its SHA-256 hash (same reasoning as a password-reset token: the raw value should never be recoverable from the database). The short TTL reflects that this is a same-owner, both-stores-in-hand flow, not a days-later handoff; "Resend link" below covers a link that expires before it's used.
 2. The source gets back a shareable link (`/app/stores/authorize?token=...&shop=<target>`) to send to whoever they actually intend to pair with, through a channel _outside this app_ — email, Slack, whatever they already trust that contact through. This out-of-band handoff is the actual proof: only someone who received the link from the source can act on it.
 3. **`approvePairingRequest`** (target side, via `app.stores_.authorize.tsx`) requires the token — it's the only path that can move a request to `APPROVED`. Getting there via the general dashboard list isn't possible; `IncomingRequestsList` is deliberately read-only-plus-decline.
 4. **Decline doesn't need the token.** It's available directly from the dashboard list (`declinePairingRequest`) because declining is harmless regardless of who does it — there's no scenario where an unwanted "no" causes damage, so gating it would just be friction with no security benefit.
+5. **`regeneratePairingRequest`** (source side, "Resend link" in `OwnedGroupsList`) reissues a fresh token for a still-`PENDING` request whose link expired or got lost, without discarding and recreating the request. Source-authorized, not target-authorized — unlike decline, only the source (who actually shares the link out-of-band) should be able to mint a new one.
 
 ## Why the target-doesn't-have-the-app-yet case needs no special handling
 
@@ -39,5 +40,4 @@ Once a token is used (or the request is declined), it's cleared — a stale/leak
 ## Things intentionally _not_ built (YAGNI)
 
 - **Rate-limiting invite creation.** A source can send unlimited pairing invites. Not a security issue (unwanted invites are just noise until declined), and no evidence yet it's actually a problem — revisit if it becomes one.
-- **Resending/regenerating an authorize link.** If a token expires (48h) or gets lost, the current path is: decline the stale request, send a new invite. No "regenerate token" action exists yet.
 - **Online-token/staff-identity tracking.** The app is 100% offline-token based (see `auth.md`); there's no record of _which staff member_ at a shop approved a pairing, only that some authenticated session at that shop did. Switching to online tokens to capture that was considered and explicitly deferred — a real architecture change, not a small addition, and nothing today needs per-staff-member granularity.

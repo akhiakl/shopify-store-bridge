@@ -26,7 +26,7 @@ jobs:
       # and this leg's Node version in one step, plus caches the pnpm
       # store. `pnpm install` (below) auto-detects the CI env var GitHub
       # Actions sets and runs in frozen-lockfile mode, npm ci's equivalent.
-      - uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
+      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
           runtime: node@${{ matrix.version }}
           cache: true
@@ -35,6 +35,12 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Lint
         run: pnpm run lint
+      # Regenerates app/types/* from the live Admin API schema (AGENTS.md
+      # §7 — every GraphQL operation should pass codegen). Not checked in
+      # (see .gitignore) since it fetches from shopify.dev each run,
+      # keeping it current with whatever API version .graphqlrc.ts pins.
+      - name: GraphQL codegen
+        run: pnpm --filter storebridge run graphql-codegen
       - name: Typecheck
         run: pnpm run typecheck
       - name: Test
@@ -95,7 +101,7 @@ jobs:
       PORT: "3000"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
+      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
           runtime: node@24
           cache: true

@@ -11,17 +11,21 @@ vi.mock("~/shopify.server", () => ({
   authenticate: { admin: authenticateAdmin },
 }));
 
-const { getDashboardData, requestPairing, declinePairingRequest } = vi.hoisted(
-  () => ({
-    getDashboardData: vi.fn(),
+const { getDashboardData } = vi.hoisted(() => ({
+  getDashboardData: vi.fn(),
+}));
+vi.mock("~/utils/dashboard.server", () => ({ getDashboardData }));
+
+const { requestPairing, declinePairingRequest, regeneratePairingRequest } =
+  vi.hoisted(() => ({
     requestPairing: vi.fn(),
     declinePairingRequest: vi.fn(),
-  }),
-);
+    regeneratePairingRequest: vi.fn(),
+  }));
 vi.mock("./pairing.server", () => ({
-  getDashboardData,
   requestPairing,
   declinePairingRequest,
+  regeneratePairingRequest,
 }));
 
 const { loader, action } = await import("./route");
@@ -133,6 +137,52 @@ describe("app.stores action", () => {
     expect(declinePairingRequest).toHaveBeenCalledWith({
       targetId: "target-1",
       shop: SHOP,
+    });
+  });
+
+  it("calls regeneratePairingRequest on regenerate, and builds an authorize link", async () => {
+    authenticateAdmin.mockResolvedValue({ session: { shop: SHOP } });
+    regeneratePairingRequest.mockResolvedValue({
+      ok: true,
+      authToken: "new-raw-token",
+      targetShop: "target.myshopify.com",
+    });
+
+    const result = await action({
+      request: actionRequest({ intent: "regenerate", targetId: "target-1" }),
+      params: {},
+      context: {},
+    } as never);
+
+    expect(regeneratePairingRequest).toHaveBeenCalledWith({
+      targetId: "target-1",
+      shop: SHOP,
+    });
+    if (
+      typeof (result as { authorizeUrl?: unknown }).authorizeUrl !== "string"
+    ) {
+      throw new Error("expected a result with an authorizeUrl");
+    }
+    const url = new URL((result as { authorizeUrl: string }).authorizeUrl);
+    expect(url.searchParams.get("token")).toBe("new-raw-token");
+  });
+
+  it("passes through a regeneratePairingRequest failure without building a link", async () => {
+    authenticateAdmin.mockResolvedValue({ session: { shop: SHOP } });
+    regeneratePairingRequest.mockResolvedValue({
+      ok: false,
+      error: "This request was already responded to.",
+    });
+
+    const result = await action({
+      request: actionRequest({ intent: "regenerate", targetId: "target-1" }),
+      params: {},
+      context: {},
+    } as never);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "This request was already responded to.",
     });
   });
 

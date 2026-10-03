@@ -4,8 +4,12 @@ An embedded Shopify admin app, built on the [React Router](https://reactrouter.c
 app template ([`shopify-app-template-react-router`](https://github.com/Shopify/shopify-app-template-react-router)).
 
 **Status:** store pairing (sync groups, invite/approve) is built — see
-[`docs/architecture/store-pairing.md`](docs/architecture/store-pairing.md). Job history isn't
-yet.
+[`docs/architecture/store-pairing.md`](docs/architecture/store-pairing.md). Manually-triggered
+definition sync (metaobject/metafield definitions, source → approved targets), job history,
+and shop-level metafield value sync are built too — see
+[`docs/architecture/definition-sync.md`](docs/architecture/definition-sync.md).
+Resource-level metafield/metaobject data (Product, Customer, Order, …) doesn't sync yet —
+it needs a way to match records across the two stores' separate catalogs first.
 
 This is the app workspace of a [Turborepo monorepo](../../README.md); for cloning, local
 setup, and the git workflow, see the [root `CONTRIBUTING.md`](../../CONTRIBUTING.md).
@@ -23,6 +27,9 @@ debugging session to work out):
 - [`docs/architecture/store-pairing.md`](docs/architecture/store-pairing.md) — the pairing
   trust model: why Shopify can't tell us two shops share an owner, and the out-of-band-token
   design that closes that gap instead.
+- [`docs/architecture/definition-sync.md`](docs/architecture/definition-sync.md) — how a
+  "Sync now" job reaches a target store it didn't get a request from, and why it's
+  synchronous rather than queued.
 
 ## Stack
 
