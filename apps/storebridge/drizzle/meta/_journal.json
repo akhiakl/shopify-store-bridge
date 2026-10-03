@@ -43,6 +43,13 @@
       "when": 1790966827748,
       "tag": "0005_add_sync_job_queue",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791033885497,
+      "tag": "0006_add_customer_data_requests",
+      "breakpoints": true
     }
   ]
 }

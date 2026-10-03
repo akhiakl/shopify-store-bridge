@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import db from "~/db.server";
+import { customerDataRequests } from "~/db/complianceSchema.server";
 import { sessions, stores } from "~/db/schema.server";
 import { authenticate } from "~/shopify.server";
 
@@ -18,7 +19,9 @@ import { authenticate } from "~/shopify.server";
  * `Session` row is also deleted defensively even though
  * webhooks.app.uninstalled.tsx already does this on uninstall — this
  * webhook can in principle arrive without a prior uninstalled webhook
- * having been processed.
+ * having been processed. *
+ * `CustomerDataRequest` is keyed by shop, not `Store`, so it's deleted
+ * explicitly.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { topic, shop } = await authenticate.webhook(request);
@@ -27,6 +30,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   await db.transaction(async (tx) => {
     await tx.delete(sessions).where(eq(sessions.shop, shop));
     await tx.delete(stores).where(eq(stores.shop, shop));
+    await tx
+      .delete(customerDataRequests)
+      .where(eq(customerDataRequests.shop, shop));
   });
 
   return new Response();
