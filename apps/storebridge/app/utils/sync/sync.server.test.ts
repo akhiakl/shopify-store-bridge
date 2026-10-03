@@ -80,6 +80,20 @@ function sourceAdmin() {
           }),
         );
       }
+      if (query.includes("LocationsList")) {
+        return Promise.resolve(
+          jsonResponse({
+            locations: {
+              nodes: ["Main: Warehouse", "Pop-up"].map((name) => ({
+                name,
+                isFulfillmentService: false,
+                fulfillsOnlineOrders: true,
+                address: { countryCode: "CA" },
+              })),
+            },
+          }),
+        );
+      }
       if (query.includes("MenusList")) {
         return Promise.resolve(
           jsonResponse({
@@ -145,6 +159,7 @@ describe("parseSelection", () => {
         "metaobjectEntries:faq",
         "metafieldValues:CUSTOMER:custom:tier",
         "menu:main-menu",
+        "location:Main: Warehouse",
       ]),
     ).toEqual({
       metaobjectTypes: ["size_chart"],
@@ -158,6 +173,7 @@ describe("parseSelection", () => {
         { ownerType: "CUSTOMER", namespace: "custom", key: "tier" },
       ],
       menuHandles: ["main-menu"],
+      locationNames: ["Main: Warehouse"],
     });
   });
 });
@@ -176,6 +192,7 @@ describe("resolvePlan", () => {
         "metaobjectEntries:faq",
         "metafieldValues:PRODUCT:custom:care",
         "menu:main-menu",
+        "location:Main: Warehouse",
       ]),
     );
 
@@ -190,6 +207,13 @@ describe("resolvePlan", () => {
       {
         definition: { ownerType: "PRODUCT", namespace: "custom", key: "care" },
         ownerIds: ["gid://Product/1"],
+      },
+    ]);
+    expect(plan.locations).toEqual([
+      {
+        name: "Main: Warehouse",
+        fulfillsOnlineOrders: true,
+        address: { countryCode: "CA" },
       },
     ]);
     expect(plan.menus).toEqual([
@@ -229,8 +253,9 @@ describe("resolvePlan", () => {
         ([q]) =>
           q.includes("MetaobjectEntries") ||
           q.includes("MetafieldValueOwners") ||
-          // No menu selected, so menus aren't even listed.
-          q.includes("MenusList"),
+          // No menu or location selected, so neither is even listed.
+          q.includes("MenusList") ||
+          q.includes("LocationsList"),
       ),
     ).toBe(false);
   });

@@ -28,6 +28,7 @@ async function syncToTarget({
       metaobjectEntries: [],
       metafieldValues: [],
       menus: [],
+      locations: [],
       ...plan,
     }),
     ctx: createStepContext(sourceAdmin, targetAdmin),

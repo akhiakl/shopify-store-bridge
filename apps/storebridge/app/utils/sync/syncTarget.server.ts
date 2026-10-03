@@ -8,6 +8,7 @@ import type {
 import type { CollectionRow } from "./collections.server";
 import {
   collectionKey,
+  locationKey,
   metafieldDefinitionKey,
   metaobjectDefinitionKey,
   metaobjectEntryKey,
@@ -16,6 +17,8 @@ import {
 import type { MetaobjectEntryRow } from "./metaobjectEntries.server";
 import type { MetafieldValueSet } from "./metafieldValues.server";
 import type { PlannedMenu } from "./menus.server";
+import type { LocationRow } from "./locations.server";
+import { syncLocation } from "./syncLocation.server";
 import { menuStep } from "./syncMenu.server";
 import { metafieldValueSteps } from "./syncMetafieldValues.server";
 import {
@@ -132,6 +135,7 @@ export interface SyncPlan {
   metaobjectEntries: MetaobjectEntryRow[];
   metafieldValues: MetafieldValueSet[];
   menus: PlannedMenu[];
+  locations: LocationRow[];
 }
 
 /** Per-target state shared by that target's steps within one run. */
@@ -255,6 +259,14 @@ export function buildSyncSteps(plan: SyncPlan): SyncStep[] {
         collectionKey(collection.handle),
         "DEFINITION",
         await syncCollection(ctx.targetAdmin, collection),
+      ),
+    ]),
+    // Plans queued before location sync existed have no `locations`.
+    ...(plan.locations ?? []).map((location): SyncStep => async (ctx) => [
+      toItem(
+        locationKey(location.name),
+        "DEFINITION",
+        await syncLocation(ctx.targetAdmin, location),
       ),
     ]),
     ...plan.metaobjectEntries.map((entry): SyncStep => async (ctx) => [

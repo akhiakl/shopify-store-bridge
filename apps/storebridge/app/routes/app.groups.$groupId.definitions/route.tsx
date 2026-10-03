@@ -14,6 +14,8 @@ import { getCollections } from "~/utils/sync/collections.server";
 import { CollectionsSection } from "./components/CollectionsSection";
 import { getMenus } from "~/utils/sync/menus.server";
 import { MenusSection } from "./components/MenusSection";
+import { getLocations } from "~/utils/sync/locations.server";
+import { LocationsSection } from "./components/LocationsSection";
 import { ShopPoliciesSection } from "./components/ShopPoliciesSection";
 import { SyncButton } from "./components/SyncButton";
 import { useRevalidateWhile } from "./hooks/useRevalidateWhile";
@@ -51,14 +53,24 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   // a stalled job moving even though Hobby's cron only runs daily.
   waitUntil(resumeStalledJobs(group.id));
 
-  const [catalog, shopPolicies, collections, menus, jobs] = await Promise.all([
-    getDefinitionCatalog(admin),
-    getShopPolicies(admin),
-    getCollections(admin),
-    getMenus(admin),
-    getJobHistory(group.id),
-  ]);
-  return { group, jobs, shopPolicies, collections, menus, ...catalog };
+  const [catalog, shopPolicies, collections, menus, locations, jobs] =
+    await Promise.all([
+      getDefinitionCatalog(admin),
+      getShopPolicies(admin),
+      getCollections(admin),
+      getMenus(admin),
+      getLocations(admin),
+      getJobHistory(group.id),
+    ]);
+  return {
+    group,
+    jobs,
+    shopPolicies,
+    collections,
+    menus,
+    locations,
+    ...catalog,
+  };
 };
 
 /** Handles the "sync" and "checkStatus" intents. `session.shop` (never
@@ -113,6 +125,7 @@ export default function GroupDefinitions() {
     shopPolicies,
     collections,
     menus,
+    locations,
   } = useLoaderData<typeof loader>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useRevalidateWhile(
@@ -215,6 +228,14 @@ export default function GroupDefinitions() {
 
       <s-section heading="Navigation menus">
         <MenusSection menus={menus} selected={selected} onToggle={toggleKeys} />
+      </s-section>
+
+      <s-section heading="Locations">
+        <LocationsSection
+          locations={locations}
+          selected={selected}
+          onToggle={toggleKeys}
+        />
       </s-section>
 
       <s-section heading="Sync">
