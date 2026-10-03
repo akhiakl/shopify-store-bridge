@@ -44,7 +44,11 @@ describe("syncCollection", () => {
   it("creates the collection when the target has no matching handle", async () => {
     const admin = targetAdmin(null);
 
-    const result = await syncCollection(admin as never, collection);
+    // Rules sync in their own step, so they're never sent here.
+    const result = await syncCollection(admin as never, {
+      ...collection,
+      rules: { sources: [] },
+    });
 
     expect(result).toEqual({ ok: true });
     expect(admin.graphql).toHaveBeenLastCalledWith(

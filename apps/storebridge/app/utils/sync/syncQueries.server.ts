@@ -80,8 +80,8 @@ export const METAFIELDS_SET_MUTATION = `#graphql
  * for a duplicate handle — Shopify silently suffixes it — so create-only
  * would duplicate collections on every re-run. Uses the 2026-07
  * `collection:` argument — the older `input: CollectionInput` is deprecated
- * there and codegen rejects it; the new inputs carry no `ruleSet` (smart
- * conditions moved to `sources`, not synced yet). Scopes: read_products /
+ * there and codegen rejects it; the new inputs carry no `ruleSet` (rules
+ * moved to `sources`, synced by syncCollectionRules.server.ts). Scopes: read_products /
  * write_products.
  */
 export const COLLECTION_BY_HANDLE_QUERY = `#graphql

@@ -29,6 +29,11 @@ export function collectionKey(handle: string): string {
   return `collection:${handle}`;
 }
 
+/** Job-history key for a collection's rules, synced as their own step. */
+export function collectionRulesKey(handle: string): string {
+  return `collectionRules:${handle}`;
+}
+
 /** Selection key for "sync this type's entries", distinct from the
  * `metaobject:<type>` key that syncs only the definition. */
 export function metaobjectEntriesKey(type: string): string {
