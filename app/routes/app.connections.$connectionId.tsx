@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { Outlet, useLoaderData, useLocation } from "react-router";
 
+import { AppVersion } from "~/components/AppVersion";
 import { NavButtons } from "~/components/NavButtons";
 import { CONNECTION_STATUS } from "~/utils/connectionStatus";
 import { storeAdminUrl } from "~/utils/storeAdminUrl";
@@ -81,6 +82,7 @@ export default function ConnectionLayout() {
         </s-stack>
       </s-section>
       <Outlet />
+      <AppVersion />
     </s-page>
   );
 }

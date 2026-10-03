@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { Form, useActionData, useLoaderData } from "react-router";
 
+import { AppVersion } from "~/components/AppVersion";
 import { authenticate } from "~/shopify.server";
 import {
   approvePairingRequest,
@@ -56,6 +57,7 @@ export default function AuthorizePairing() {
             <s-link href="/app/stores">Connected stores</s-link>.
           </s-paragraph>
         </s-banner>
+        <AppVersion />
       </s-page>
     );
   }
@@ -77,6 +79,7 @@ export default function AuthorizePairing() {
             invites you can decline.
           </s-paragraph>
         </s-banner>
+        <AppVersion />
       </s-page>
     );
   }
@@ -99,6 +102,7 @@ export default function AuthorizePairing() {
           </s-stack>
         </Form>
       </s-section>
+      <AppVersion />
     </s-page>
   );
 }

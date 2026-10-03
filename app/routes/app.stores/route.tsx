@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 
+import { AppVersion } from "~/components/AppVersion";
 import { authenticate } from "~/shopify.server";
 import { getDashboardData } from "~/utils/dashboard.server";
 import { ConnectStoreForm } from "./components/ConnectStoreForm";
@@ -118,6 +119,7 @@ export default function Stores() {
           <IncomingConnectionsList connections={incoming} />
         </s-section>
       )}
+      <AppVersion />
     </s-page>
   );
 }

@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 
+import { AppVersion } from "~/components/AppVersion";
 import { getDashboardData, getRecentJobs } from "~/utils/dashboard.server";
 import { JOB_STATUS_TONE } from "~/utils/syncJobStatusTone";
 
@@ -42,6 +43,7 @@ export default function Index() {
           </s-paragraph>
           <s-link href="/app/stores">Connected stores</s-link>
         </s-section>
+        <AppVersion />
       </s-page>
     );
   }
@@ -95,6 +97,7 @@ export default function Index() {
           </s-stack>
         )}
       </s-section>
+      <AppVersion />
     </s-page>
   );
 }
