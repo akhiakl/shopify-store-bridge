@@ -5,6 +5,7 @@ import { describeSyncKey } from "./describeSyncKey";
 describe("describeSyncKey", () => {
   it.each([
     ["metaobject:faq", "Metaobject definition", "faq"],
+    ["checkoutStyling", "Checkout styling", "Checkout & accounts"],
     ["metaobjectEntries:faq", "Metaobject entries", "faq"],
     ["metaobjectEntry:faq:shipping", "Metaobject entry", "faq › shipping"],
     [

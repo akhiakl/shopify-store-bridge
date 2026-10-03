@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { useFetcher } from "react-router";
 
 type SyncActionData =
@@ -9,6 +10,8 @@ interface SyncButtonProps {
   isApproved: boolean;
   /** Where job progress shows: the group's Job history page. */
   historyHref: string;
+  /** Asks first, for a sync that changes something live on the target. */
+  confirm?: { heading: string; body: string };
 }
 
 /**
@@ -24,7 +27,9 @@ export function SyncButton({
   selected,
   isApproved,
   historyHref,
+  confirm,
 }: SyncButtonProps) {
+  const modalId = useId();
   const fetcher = useFetcher<SyncActionData>();
   const data = fetcher.data;
 
@@ -42,10 +47,33 @@ export function SyncButton({
         variant="primary"
         disabled={selected.size === 0 || !isApproved}
         loading={fetcher.state !== "idle"}
-        onClick={submit}
+        {...(confirm
+          ? { commandFor: modalId, command: "--show" as const }
+          : { onClick: submit })}
       >
         {selected.size > 0 ? `Sync ${selected.size} selected` : "Sync now"}
       </s-button>
+      {confirm && (
+        <s-modal id={modalId} heading={confirm.heading}>
+          <s-paragraph>{confirm.body}</s-paragraph>
+          <s-button
+            slot="primary-action"
+            variant="primary"
+            commandFor={modalId}
+            command="--hide"
+            onClick={submit}
+          >
+            Sync
+          </s-button>
+          <s-button
+            slot="secondary-actions"
+            commandFor={modalId}
+            command="--hide"
+          >
+            Cancel
+          </s-button>
+        </s-modal>
+      )}
       {!isApproved && (
         <s-banner tone="warning" heading="Waiting for approval">
           Syncing is available once the other store approves the pairing

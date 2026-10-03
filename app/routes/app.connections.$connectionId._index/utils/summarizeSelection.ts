@@ -9,6 +9,7 @@ const SELECTION_TYPES: Record<string, string> = {
   collection: "Collections",
   location: "Locations",
   menu: "Menus",
+  checkoutStyling: "Checkout styling",
 };
 
 /** What a job covered at a glance, e.g. "Menus, Shop policies" or

@@ -60,6 +60,8 @@ export function describeSyncKey(key: string): { type: string; name: string } {
         type: "Menu item",
         name: `${parts[0]} › ${tail(parts, 1).replace(/ > /g, " › ")}`,
       };
+    case "checkoutStyling":
+      return { type: "Checkout styling", name: "Checkout & accounts" };
     default:
       return { type: "Item", name: key };
   }

@@ -5,8 +5,10 @@ import type {
   MetaobjectDefinitionRow,
   ShopPolicyRow,
 } from "./definitions.server";
+import type { CheckoutStyling } from "./checkoutBrandingInput";
 import { collectionRulesStep } from "./syncCollectionRules.server";
 import {
+  CHECKOUT_STYLING_KEY,
   collectionKey,
   locationKey,
   metafieldDefinitionKey,
@@ -19,6 +21,7 @@ import type { MetaobjectEntryRow } from "./metaobjectEntries.server";
 import type { MetafieldValueSet } from "./metafieldValues.server";
 import type { PlannedMenu } from "./menus.server";
 import type { LocationRow } from "./locations.server";
+import { syncCheckoutStyling } from "./syncCheckoutStyling.server";
 import { syncLocation } from "./syncLocation.server";
 import { menuStep } from "./syncMenu.server";
 import { metafieldValueSteps } from "./syncMetafieldValues.server";
@@ -132,6 +135,8 @@ export function tallyItems(items: SyncItemResult[]): SyncTally {
 /** Everything one sync job pushes, read from the source once. Persisted on
  * the job, so it must stay plain JSON. */
 export interface SyncPlan {
+  /** Absent unless selected, and from plans queued before it existed. */
+  checkoutStyling?: CheckoutStyling;
   metaobjectDefinitions: MetaobjectDefinitionRow[];
   metafieldDefinitions: MetafieldDefinitionRow[];
   shopPolicies: ShopPolicyRow[];
@@ -242,6 +247,16 @@ function shopMetafieldValueStep(def: MetafieldDefinitionRow): SyncStep {
   };
 }
 
+function checkoutStylingStep(styling: CheckoutStyling): SyncStep {
+  return async (ctx) => [
+    toItem(
+      CHECKOUT_STYLING_KEY,
+      "VALUE",
+      await syncCheckoutStyling(ctx.targetAdmin, styling, ctx.targetIds),
+    ),
+  ];
+}
+
 /**
  * The plan as an ordered list of steps. The order must be deterministic:
  * the background worker saves how many steps a target has finished and
@@ -265,6 +280,9 @@ export function buildSyncSteps(plan: SyncPlan): SyncStep[] {
         }),
       ),
     ]),
+    ...(plan.checkoutStyling
+      ? [checkoutStylingStep(plan.checkoutStyling)]
+      : []),
     ...plan.collections.map((collection): SyncStep => async (ctx) => [
       toItem(
         collectionKey(collection.handle),

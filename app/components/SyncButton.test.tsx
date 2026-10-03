@@ -104,4 +104,33 @@ describe("SyncButton", () => {
       "critical",
     );
   });
+
+  it("asks for confirmation first when given a confirm prompt", async () => {
+    const action = vi.fn().mockResolvedValue({ ok: true, jobId: "job-1" });
+    const Stub = createRoutesStub([
+      {
+        path: "/",
+        Component: () => (
+          <SyncButton
+            selected={new Set(["checkoutStyling"])}
+            isApproved
+            historyHref="/app/connections/conn-1"
+            confirm={{ heading: "Change it?", body: "It's live." }}
+          />
+        ),
+        action,
+      },
+    ]);
+    render(<Stub initialEntries={["/"]} />);
+
+    const [primary] = document.querySelectorAll("s-button");
+    const modal = document.querySelector("s-modal") as HTMLElement;
+    expect(modal).toHaveAttribute("heading", "Change it?");
+    expect(primary).toHaveAttribute("commandFor", modal.id);
+    fireEvent.click(primary);
+    expect(action).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("Sync"));
+    await waitFor(() => expect(action).toHaveBeenCalled());
+  });
 });

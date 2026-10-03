@@ -4,6 +4,10 @@ import { desc, eq } from "drizzle-orm";
 import db from "~/db.server";
 import { syncJobs } from "~/db/syncJobsSchema.server";
 
+import {
+  canStyleCheckout,
+  readCheckoutStyling,
+} from "./checkoutStyling.server";
 import { getCollections } from "./collections.server";
 import { planCollectionRules } from "./collectionRules.server";
 import { getDefinitionCatalog, getShopPolicies } from "./definitions.server";
@@ -24,12 +28,13 @@ export interface ParsedSelection {
   metafieldValueSelectors: MetafieldSelector[];
   menuHandles: string[];
   locationNames: string[];
+  checkoutStyling: boolean;
 }
 
 /** Inverse of the `definitionKey` helpers in the checkbox components
  * (`metaobject:<type>`, `metafield:<ownerType>:<namespace>:<key>`,
  * `policy:<type>`, `collection:<handle>`, `metaobjectEntries:<type>`,
- * `metafieldValues:<ownerType>:<namespace>:<key>`, `menu:<handle>`, `location:<name>`): safe to split on ":" since
+ * `metafieldValues:<ownerType>:<namespace>:<key>`, `menu:<handle>`, `location:<name>`, `checkoutStyling`): safe to split on ":" since
  * Shopify's own validation rules for type/namespace/key (alphanumeric,
  * hyphen, underscore only) rule out embedded colons, and `ShopPolicyType`
  * is itself an enum of bare uppercase names. Collection and menu handles
@@ -45,10 +50,13 @@ export function parseSelection(keys: string[]): ParsedSelection {
     metafieldValueSelectors: [],
     menuHandles: [],
     locationNames: [],
+    checkoutStyling: false,
   };
   for (const key of keys) {
     const [kind, ...rest] = key.split(":");
-    if (kind === "metaobject") {
+    if (kind === "checkoutStyling") {
+      parsed.checkoutStyling = true;
+    } else if (kind === "metaobject") {
       parsed.metaobjectTypes.push(rest[0]);
     } else if (kind === "metafield") {
       const [ownerType, namespace, fieldKey] = rest;
@@ -73,6 +81,23 @@ export function parseSelection(keys: string[]): ParsedSelection {
     }
   }
   return parsed;
+}
+
+/** Throws (failing the job with this message) when the source can't
+ * share its checkout styling, rather than planning nothing. */
+async function planCheckoutStyling(sourceAdmin: AdminApiContext) {
+  if (!(await canStyleCheckout(sourceAdmin))) {
+    throw new Error(
+      "The source store isn't on Shopify Plus, so its checkout styling can't be read.",
+    );
+  }
+  const published = await readCheckoutStyling(sourceAdmin);
+  if (!published) {
+    throw new Error(
+      "The source store has no published checkout configuration.",
+    );
+  }
+  return published.styling;
 }
 
 /** Never trusts the browser for the actual definition shape, only the
@@ -142,6 +167,9 @@ export async function resolvePlan(
     allMenus.filter((menu) => selection.menuHandles.includes(menu.handle)),
   );
   return {
+    checkoutStyling: selection.checkoutStyling
+      ? await planCheckoutStyling(sourceAdmin)
+      : undefined,
     metaobjectDefinitions,
     metafieldDefinitions,
     shopPolicies,

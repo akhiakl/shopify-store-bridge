@@ -15,6 +15,7 @@ const PAGES = [
   { label: "Collections", path: "/collections" },
   { label: "Menus", path: "/menus" },
   { label: "Locations", path: "/locations" },
+  { label: "Checkout styling", path: "/checkout" },
 ] as const;
 
 export const loader = async (args: LoaderFunctionArgs) => {

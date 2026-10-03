@@ -5,6 +5,15 @@ const { dbMock } = vi.hoisted(() => ({
 }));
 vi.mock("~/db.server", () => ({ default: dbMock }));
 
+const { canStyleCheckout, readCheckoutStyling } = vi.hoisted(() => ({
+  canStyleCheckout: vi.fn(),
+  readCheckoutStyling: vi.fn(),
+}));
+vi.mock("./checkoutStyling.server", () => ({
+  canStyleCheckout,
+  readCheckoutStyling,
+}));
+
 const { parseSelection, resolvePlan, getJobHistory } =
   await import("./sync.server");
 
@@ -160,6 +169,7 @@ describe("parseSelection", () => {
         "metafieldValues:CUSTOMER:custom:tier",
         "menu:main-menu",
         "location:Main: Warehouse",
+        "checkoutStyling",
       ]),
     ).toEqual({
       metaobjectTypes: ["size_chart"],
@@ -174,6 +184,7 @@ describe("parseSelection", () => {
       ],
       menuHandles: ["main-menu"],
       locationNames: ["Main: Warehouse"],
+      checkoutStyling: true,
     });
   });
 });
@@ -254,7 +265,11 @@ describe("resolvePlan", () => {
       ]),
     );
 
-    expect(Object.values(plan).every((list) => list.length === 0)).toBe(true);
+    expect(
+      Object.values(plan).every(
+        (list) => list === undefined || list.length === 0,
+      ),
+    ).toBe(true);
     expect(
       admin.graphql.mock.calls.some(
         ([q]) =>
@@ -265,6 +280,32 @@ describe("resolvePlan", () => {
           q.includes("LocationsList"),
       ),
     ).toBe(false);
+  });
+});
+
+describe("resolvePlan checkout styling", () => {
+  const selection = parseSelection(["checkoutStyling"]);
+
+  it("plans the source's published styling", async () => {
+    const styling = { branding: { a: 1 }, files: [] };
+    canStyleCheckout.mockResolvedValue(true);
+    readCheckoutStyling.mockResolvedValue({ styling });
+
+    const plan = await resolvePlan(sourceAdmin() as never, selection);
+    expect(plan.checkoutStyling).toBe(styling);
+  });
+
+  it("fails the plan when the source can't share it", async () => {
+    canStyleCheckout.mockResolvedValue(false);
+    await expect(
+      resolvePlan(sourceAdmin() as never, selection),
+    ).rejects.toThrow("isn't on Shopify Plus");
+
+    canStyleCheckout.mockResolvedValue(true);
+    readCheckoutStyling.mockResolvedValue(null);
+    await expect(
+      resolvePlan(sourceAdmin() as never, selection),
+    ).rejects.toThrow("no published checkout configuration");
   });
 });
 

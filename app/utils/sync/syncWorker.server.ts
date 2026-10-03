@@ -87,11 +87,12 @@ async function planJob(
     return false;
   }
   const plan = await resolvePlan(sourceAdmin, parseSelection(job.selection));
+  const stepsTotal = buildSyncSteps(plan).length;
 
   // None of the selection keys matched anything in the source's current
   // catalog (stale UI, or a forged post). Running would do zero work and
   // still report SUCCEEDED, so fail the job outright instead.
-  if (Object.values(plan).every((list) => list.length === 0)) {
+  if (stepsTotal === 0) {
     await finishJob(job.id, {
       status: "FAILED",
       error: "None of the selected items exist on the source store anymore.",
@@ -99,7 +100,6 @@ async function planJob(
     return false;
   }
 
-  const stepsTotal = buildSyncSteps(plan).length;
   await db
     .update(syncJobs)
     .set({ plan, status: "RUNNING", stepsTotal })

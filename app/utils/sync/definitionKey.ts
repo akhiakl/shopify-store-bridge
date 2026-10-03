@@ -82,3 +82,6 @@ export function menuKey(handle: string): string {
 export function menuItemKey(menuHandle: string, path: string): string {
   return `menuItem:${menuHandle}:${path}`;
 }
+
+/** A store has one checkout styling, so its key has no name part. */
+export const CHECKOUT_STYLING_KEY = "checkoutStyling";

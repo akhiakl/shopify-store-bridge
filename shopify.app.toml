@@ -78,7 +78,17 @@ embedded = true
 # (or read_inventory / read_markets_home), and locationAdd/locationEdit
 # need write_locations. The extra scopes validate_graphql_codeblocks lists
 # for these are alternatives, not requirements.
-scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content,read_legal_policies,write_legal_policies,read_metaobjects,write_metaobjects,read_online_store_navigation,write_online_store_navigation,read_locations,write_locations"
+#
+# read_checkout_and_accounts_configurations /
+# write_checkout_and_accounts_configurations: checkout styling sync
+# (checkoutStyling.server.ts / syncCheckoutStyling.server.ts). Confirmed via
+# validate_graphql_codeblocks. Shopify only allows these on Plus and
+# development stores; the app checks the plan before using them.
+#
+# read_files / write_files: copying the logos and custom fonts that
+# checkout styling points at (stylingFiles.server.ts): file IDs are
+# per-store. Confirmed via validate_graphql_codeblocks.
+scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content,read_legal_policies,write_legal_policies,read_metaobjects,write_metaobjects,read_online_store_navigation,write_online_store_navigation,read_locations,write_locations,read_checkout_and_accounts_configurations,write_checkout_and_accounts_configurations,read_files,write_files"
 use_legacy_install_flow = false
 
 [webhooks]
