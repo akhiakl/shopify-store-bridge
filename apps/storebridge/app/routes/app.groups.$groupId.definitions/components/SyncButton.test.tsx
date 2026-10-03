@@ -36,10 +36,8 @@ describe("SyncButton", () => {
     expect(document.querySelector("s-button")).toHaveAttribute("disabled");
   });
 
-  it("submits the selection as hidden inputs and shows the result", async () => {
-    const action = vi
-      .fn()
-      .mockResolvedValue({ ok: true, jobId: "job-1", status: "SUCCEEDED" });
+  it("submits the selection as hidden inputs and confirms the sync started", async () => {
+    const action = vi.fn().mockResolvedValue({ ok: true, jobId: "job-1" });
     const Stub = createRoutesStub([
       {
         path: "/",
@@ -73,41 +71,10 @@ describe("SyncButton", () => {
     await waitFor(() =>
       expect(document.querySelector("s-banner")).toHaveAttribute(
         "heading",
-        "Sync succeeded",
+        "Sync started",
       ),
     );
-  });
-
-  it("shows a warning banner, not a success one, for a PARTIAL sync", async () => {
-    const action = vi
-      .fn()
-      .mockResolvedValue({ ok: true, jobId: "job-1", status: "PARTIAL" });
-    const Stub = createRoutesStub([
-      {
-        path: "/",
-        Component: () => (
-          <SyncButton
-            selected={new Set(["metaobject:size_chart"])}
-            approvedTargetCount={2}
-          />
-        ),
-        action,
-      },
-    ]);
-    render(<Stub initialEntries={["/"]} />);
-
-    fireEvent.submit(document.querySelector("form") as HTMLFormElement);
-
-    await waitFor(() =>
-      expect(document.querySelector("s-banner")).toHaveAttribute(
-        "heading",
-        "Sync partial",
-      ),
-    );
-    expect(document.querySelector("s-banner")).toHaveAttribute(
-      "tone",
-      "warning",
-    );
+    expect(document.querySelector("s-banner")).toHaveAttribute("tone", "info");
   });
 
   it("shows a critical banner on failure", async () => {

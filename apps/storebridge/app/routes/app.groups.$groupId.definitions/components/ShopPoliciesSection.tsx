@@ -1,5 +1,5 @@
-import { shopPolicyKey } from "../definitionKey";
-import type { ShopPolicyRow } from "../definitions.server";
+import { shopPolicyKey } from "~/utils/sync/definitionKey";
+import type { ShopPolicyRow } from "~/utils/sync/definitions.server";
 
 interface ShopPoliciesSectionProps {
   policies: ShopPolicyRow[];

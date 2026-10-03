@@ -1,5 +1,5 @@
-import { metafieldDefinitionKey } from "../definitionKey";
-import type { MetafieldDefinitionRow } from "../definitions.server";
+import { metafieldDefinitionKey } from "~/utils/sync/definitionKey";
+import type { MetafieldDefinitionRow } from "~/utils/sync/definitions.server";
 import type { DefinitionStatusSummary } from "../syncStatus.server";
 import { SyncStatusBadge } from "./SyncStatusBadge";
 

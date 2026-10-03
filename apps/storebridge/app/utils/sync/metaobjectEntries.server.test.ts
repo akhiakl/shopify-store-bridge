@@ -96,7 +96,10 @@ describe("getMetaobjectEntries", () => {
 
   it(`stops at ${ENTRY_CAP_PER_TYPE} entries per type`, async () => {
     const page = Array.from({ length: 50 }, (_, i) => entry(`e${i}`));
-    const admin = sourceAdmin({ faq: Array.from({ length: 10 }, () => page) });
+    const pages = ENTRY_CAP_PER_TYPE / 50 + 2;
+    const admin = sourceAdmin({
+      faq: Array.from({ length: pages }, () => page),
+    });
 
     const entries = await getMetaobjectEntries(admin as never, ["faq"]);
 

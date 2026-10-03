@@ -1,5 +1,5 @@
-import type { CollectionRow } from "../collections.server";
-import { collectionKey } from "../definitionKey";
+import type { CollectionRow } from "~/utils/sync/collections.server";
+import { collectionKey } from "~/utils/sync/definitionKey";
 
 interface CollectionsSectionProps {
   collections: CollectionRow[];

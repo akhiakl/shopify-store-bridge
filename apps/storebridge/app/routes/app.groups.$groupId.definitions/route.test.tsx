@@ -14,20 +14,31 @@ const { getOwnedGroup, getDefinitionCatalog, getShopPolicies } = vi.hoisted(
     getShopPolicies: vi.fn(),
   }),
 );
-vi.mock("./definitions.server", () => ({
+vi.mock("~/utils/sync/definitions.server", () => ({
   getOwnedGroup,
   getDefinitionCatalog,
   getShopPolicies,
 }));
 
 const { getCollections } = vi.hoisted(() => ({ getCollections: vi.fn() }));
-vi.mock("./collections.server", () => ({ getCollections }));
+vi.mock("~/utils/sync/collections.server", () => ({ getCollections }));
 
-const { getJobHistory, runSyncJob } = vi.hoisted(() => ({
-  getJobHistory: vi.fn(),
-  runSyncJob: vi.fn(),
+const { getJobHistory } = vi.hoisted(() => ({ getJobHistory: vi.fn() }));
+vi.mock("~/utils/sync/sync.server", () => ({ getJobHistory }));
+
+const { enqueueSyncJob, driveSyncJob, resumeStalledJobs, waitUntil } =
+  vi.hoisted(() => ({
+    enqueueSyncJob: vi.fn(),
+    driveSyncJob: vi.fn(),
+    resumeStalledJobs: vi.fn(),
+    waitUntil: vi.fn(),
+  }));
+vi.mock("~/utils/sync/syncQueue.server", () => ({
+  enqueueSyncJob,
+  driveSyncJob,
+  resumeStalledJobs,
 }));
-vi.mock("./sync.server", () => ({ getJobHistory, runSyncJob }));
+vi.mock("@vercel/functions", () => ({ waitUntil }));
 
 const { runStatusCheck } = vi.hoisted(() => ({ runStatusCheck: vi.fn() }));
 vi.mock("./syncStatus.server", () => ({ runStatusCheck }));
@@ -80,6 +91,7 @@ describe("app.groups.$groupId.definitions loader", () => {
     expect(getShopPolicies).toHaveBeenCalledWith(admin);
     expect(getCollections).toHaveBeenCalledWith(admin);
     expect(getJobHistory).toHaveBeenCalledWith("group-1");
+    expect(resumeStalledJobs).toHaveBeenCalledWith("group-1");
     expect(result).toEqual({
       group: { id: "group-1", name: "EU stores" },
       jobs: [],
@@ -127,7 +139,7 @@ describe("app.groups.$groupId.definitions action", () => {
 
   it("runs a sync job for the selected definitions", async () => {
     getOwnedGroup.mockResolvedValue(approvedGroup);
-    runSyncJob.mockResolvedValue({ id: "job-1", status: "SUCCEEDED" });
+    enqueueSyncJob.mockResolvedValue({ id: "job-1" });
 
     const result = await action(
       formDataRequest([
@@ -136,12 +148,13 @@ describe("app.groups.$groupId.definitions action", () => {
       ]),
     );
 
-    expect(runSyncJob).toHaveBeenCalledWith({
-      group: approvedGroup,
-      selection: ["metaobject:size_chart"],
-      sourceAdmin: admin,
-    });
-    expect(result).toEqual({ ok: true, jobId: "job-1", status: "SUCCEEDED" });
+    expect(enqueueSyncJob).toHaveBeenCalledWith("group-1", [
+      "metaobject:size_chart",
+    ]);
+    // The first run starts in the background, after the response.
+    expect(driveSyncJob).toHaveBeenCalledWith("job-1");
+    expect(waitUntil).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: true, jobId: "job-1" });
   });
 
   it("rejects an empty selection without touching the sync engine", async () => {
@@ -149,7 +162,7 @@ describe("app.groups.$groupId.definitions action", () => {
 
     const result = await action(formDataRequest([["intent", "sync"]]));
 
-    expect(runSyncJob).not.toHaveBeenCalled();
+    expect(enqueueSyncJob).not.toHaveBeenCalled();
     expect(result).toEqual({
       ok: false,
       error: "Select at least one definition.",
@@ -166,7 +179,7 @@ describe("app.groups.$groupId.definitions action", () => {
       ]),
     );
 
-    expect(runSyncJob).not.toHaveBeenCalled();
+    expect(enqueueSyncJob).not.toHaveBeenCalled();
     expect(result).toEqual({
       ok: false,
       error: "This group has no approved target stores yet.",
@@ -193,7 +206,7 @@ describe("app.groups.$groupId.definitions action", () => {
       action(formDataRequest([["selection", "metaobject:size_chart"]])),
     ).rejects.toMatchObject({ init: { status: 400 } });
 
-    expect(runSyncJob).not.toHaveBeenCalled();
+    expect(enqueueSyncJob).not.toHaveBeenCalled();
   });
 
   it("runs a live status check for the checkStatus intent", async () => {
@@ -216,6 +229,6 @@ describe("app.groups.$groupId.definitions action", () => {
       sourceAdmin: admin,
     });
     expect(result).toEqual({ ok: true, statuses });
-    expect(runSyncJob).not.toHaveBeenCalled();
+    expect(enqueueSyncJob).not.toHaveBeenCalled();
   });
 });

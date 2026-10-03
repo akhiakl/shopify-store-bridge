@@ -1,6 +1,6 @@
-import { metaobjectEntriesKey } from "../definitionKey";
-import type { MetaobjectDefinitionRow } from "../definitions.server";
-import { ENTRY_CAP_PER_TYPE } from "../entryCap";
+import { metaobjectEntriesKey } from "~/utils/sync/definitionKey";
+import type { MetaobjectDefinitionRow } from "~/utils/sync/definitions.server";
+import { ENTRY_CAP_PER_TYPE } from "~/utils/sync/entryCap";
 
 interface MetaobjectEntriesSectionProps {
   definitions: MetaobjectDefinitionRow[];
@@ -10,7 +10,7 @@ interface MetaobjectEntriesSectionProps {
 
 function entryDetails(entryCount: number): string {
   if (entryCount > ENTRY_CAP_PER_TYPE) {
-    return `${entryCount} entries. Only the first ${ENTRY_CAP_PER_TYPE} sync per run.`;
+    return `${entryCount} entries. Only the first ${ENTRY_CAP_PER_TYPE} sync per job.`;
   }
   return `${entryCount} entries`;
 }

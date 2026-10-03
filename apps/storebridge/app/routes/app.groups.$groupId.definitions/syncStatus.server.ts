@@ -4,13 +4,13 @@ import { unauthenticated } from "~/shopify.server";
 import {
   metafieldDefinitionKey,
   metaobjectDefinitionKey,
-} from "./definitionKey";
+} from "~/utils/sync/definitionKey";
 import {
   getDefinitionCatalog,
   type getOwnedGroup,
   type MetafieldDefinitionRow,
   type MetaobjectDefinitionRow,
-} from "./definitions.server";
+} from "~/utils/sync/definitions.server";
 
 export type DefinitionSyncStatus = "IN_SYNC" | "OUT_OF_SYNC" | "NOT_SYNCED";
 
@@ -99,7 +99,7 @@ type OwnedGroup = NonNullable<Awaited<ReturnType<typeof getOwnedGroup>>>;
  * Live sync-status check, triggered on demand (not on every page load —
  * see the plan this shipped under for why) by the "Check sync status"
  * button. Re-fetches the source's catalog fresh and every APPROVED
- * target's catalog concurrently, mirroring sync.server.ts's runSyncJob
+ * target's catalog concurrently, mirroring the sync worker's
  * pattern for reaching a target (`unauthenticated.admin`), then diffs each
  * source definition against each target — this is what makes the result
  * trustworthy even when a target's definition was hand-edited or
