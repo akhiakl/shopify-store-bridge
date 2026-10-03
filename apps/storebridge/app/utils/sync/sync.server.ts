@@ -6,20 +6,25 @@ import { syncJobs } from "~/db/syncJobsSchema.server";
 
 import { getCollections } from "./collections.server";
 import { getDefinitionCatalog, getShopPolicies } from "./definitions.server";
+import { getMetafieldValueSets } from "./metafieldValues.server";
 import { getMetaobjectEntries } from "./metaobjectEntries.server";
 import type { SyncPlan } from "./syncTarget.server";
 
+type MetafieldSelector = { ownerType: string; namespace: string; key: string };
+
 export interface ParsedSelection {
   metaobjectTypes: string[];
-  metafieldSelectors: { ownerType: string; namespace: string; key: string }[];
+  metafieldSelectors: MetafieldSelector[];
   policyTypes: string[];
   collectionHandles: string[];
   metaobjectEntryTypes: string[];
+  metafieldValueSelectors: MetafieldSelector[];
 }
 
 /** Inverse of the `definitionKey` helpers in the checkbox components
  * (`metaobject:<type>`, `metafield:<ownerType>:<namespace>:<key>`,
- * `policy:<type>`, `collection:<handle>`, `metaobjectEntries:<type>`) — safe to split on ":" since
+ * `policy:<type>`, `collection:<handle>`, `metaobjectEntries:<type>`,
+ * `metafieldValues:<ownerType>:<namespace>:<key>`) — safe to split on ":" since
  * Shopify's own validation rules for type/namespace/key (alphanumeric,
  * hyphen, underscore only) rule out embedded colons, and `ShopPolicyType`
  * is itself an enum of bare uppercase names. A collection handle is the
@@ -31,6 +36,7 @@ export function parseSelection(keys: string[]): ParsedSelection {
     policyTypes: [],
     collectionHandles: [],
     metaobjectEntryTypes: [],
+    metafieldValueSelectors: [],
   };
   for (const key of keys) {
     const [kind, ...rest] = key.split(":");
@@ -45,6 +51,13 @@ export function parseSelection(keys: string[]): ParsedSelection {
       parsed.collectionHandles.push(rest.join(":"));
     } else if (kind === "metaobjectEntries") {
       parsed.metaobjectEntryTypes.push(rest[0]);
+    } else if (kind === "metafieldValues") {
+      const [ownerType, namespace, fieldKey] = rest;
+      parsed.metafieldValueSelectors.push({
+        ownerType,
+        namespace,
+        key: fieldKey,
+      });
     }
   }
   return parsed;
@@ -65,13 +78,16 @@ export async function resolvePlan(
   const metaobjectDefinitions = catalog.metaobjectDefinitions.filter((def) =>
     selection.metaobjectTypes.includes(def.type),
   );
-  const metafieldDefinitions = catalog.metafieldDefinitions.filter((def) =>
-    selection.metafieldSelectors.some(
-      (sel) =>
-        sel.ownerType === def.ownerType &&
-        sel.namespace === def.namespace &&
-        sel.key === def.key,
-    ),
+  const matches =
+    (selectors: MetafieldSelector[]) => (def: MetafieldSelector) =>
+      selectors.some(
+        (sel) =>
+          sel.ownerType === def.ownerType &&
+          sel.namespace === def.namespace &&
+          sel.key === def.key,
+      );
+  const metafieldDefinitions = catalog.metafieldDefinitions.filter(
+    matches(selection.metafieldSelectors),
   );
   const shopPolicies = allPolicies.filter((policy) =>
     selection.policyTypes.includes(policy.type),
@@ -85,12 +101,20 @@ export async function resolvePlan(
     .map((def) => def.type)
     .filter((type) => selection.metaobjectEntryTypes.includes(type));
   const metaobjectEntries = await getMetaobjectEntries(sourceAdmin, entryTypes);
+  // Same: only definitions that still exist on the source are queried.
+  const metafieldValues = await getMetafieldValueSets(
+    sourceAdmin,
+    catalog.metafieldDefinitions.filter(
+      matches(selection.metafieldValueSelectors),
+    ),
+  );
   return {
     metaobjectDefinitions,
     metafieldDefinitions,
     shopPolicies,
     collections,
     metaobjectEntries,
+    metafieldValues,
   };
 }
 

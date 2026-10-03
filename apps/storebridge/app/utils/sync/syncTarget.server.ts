@@ -14,6 +14,8 @@ import {
   shopPolicyKey,
 } from "./definitionKey";
 import type { MetaobjectEntryRow } from "./metaobjectEntries.server";
+import type { MetafieldValueSet } from "./metafieldValues.server";
+import { metafieldValueSteps } from "./syncMetafieldValues.server";
 import {
   syncMetaobjectEntry,
   type TargetIdCache,
@@ -126,6 +128,7 @@ export interface SyncPlan {
   shopPolicies: ShopPolicyRow[];
   collections: CollectionRow[];
   metaobjectEntries: MetaobjectEntryRow[];
+  metafieldValues: MetafieldValueSet[];
 }
 
 /** Per-target state shared by that target's steps within one run. */
@@ -258,6 +261,8 @@ export function buildSyncSteps(plan: SyncPlan): SyncStep[] {
         await syncMetaobjectEntry(ctx.targetAdmin, entry, ctx.targetIds),
       ),
     ]),
+    // Last: values can reference entries and collections synced above.
+    ...plan.metafieldValues.flatMap(metafieldValueSteps),
   ];
 }
 

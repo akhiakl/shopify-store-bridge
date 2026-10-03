@@ -7,6 +7,7 @@ import { authenticate } from "~/shopify.server";
 import { CheckStatusButton } from "./components/CheckStatusButton";
 import { JobHistoryList } from "./components/JobHistoryList";
 import { MetafieldDefinitionsSection } from "./components/MetafieldDefinitionsSection";
+import { MetafieldValuesSection } from "./components/MetafieldValuesSection";
 import { MetaobjectDefinitionsSection } from "./components/MetaobjectDefinitionsSection";
 import { MetaobjectEntriesSection } from "./components/MetaobjectEntriesSection";
 import { getCollections } from "~/utils/sync/collections.server";
@@ -179,6 +180,14 @@ export default function GroupDefinitions() {
       <s-section heading="Metaobject entries">
         <MetaobjectEntriesSection
           definitions={metaobjectDefinitions}
+          selected={selected}
+          onToggle={toggleKeys}
+        />
+      </s-section>
+
+      <s-section heading="Metafield values">
+        <MetafieldValuesSection
+          definitions={metafieldDefinitions}
           selected={selected}
           onToggle={toggleKeys}
         />

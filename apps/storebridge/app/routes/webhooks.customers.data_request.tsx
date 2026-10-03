@@ -7,13 +7,14 @@ import { authenticate } from "../shopify.server";
  * https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance.
  * A customer asked the store owner for the data an app holds on them.
  *
- * StoreBridge never reads or stores customer records — it only ever deals
- * with metaobject/metafield *definitions* and SHOP-level metafield values
- * (see docs/architecture/definition-sync.md's "Scope" section); the
- * `stores`/`syncGroups`/`syncJobs` tables key everything off `shop`, not a
- * customer id. There's nothing to hand back for this shop's customers, so
- * this just acknowledges receipt — `authenticate.webhook` itself verifies
- * the HMAC and returns a 401 for an invalid one before this code runs.
+ * StoreBridge stores no customer records, emails or metafield values. The
+ * one trace of a customer it keeps is job history: syncing a customer
+ * metafield's values records a `SyncJobItem` per customer, keyed by their
+ * source-store GID, with only the sync outcome (see
+ * webhooks.customers.redact.tsx, which deletes those rows). Answering a
+ * data request with those rows isn't automated yet, so this still just
+ * acknowledges receipt — `authenticate.webhook` itself verifies the HMAC
+ * and returns a 401 for an invalid one before this code runs.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { topic, shop } = await authenticate.webhook(request);

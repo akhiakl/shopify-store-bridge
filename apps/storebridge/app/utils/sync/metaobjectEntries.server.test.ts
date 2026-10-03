@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ENTRY_CAP_PER_TYPE } from "./entryCap";
+import { ENTRY_CAP_PER_TYPE } from "./syncCaps";
 import { getMetaobjectEntries } from "./metaobjectEntries.server";
 
 function jsonResponse(data: unknown) {

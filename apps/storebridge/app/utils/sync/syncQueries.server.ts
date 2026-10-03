@@ -143,3 +143,57 @@ export const METAOBJECT_ID_BY_HANDLE_QUERY = `#graphql
     metaobjectByHandle(handle: $handle) { id }
   }
 `;
+
+/**
+ * Metafield value sync (#63 phase 2). The source is read per batch when a
+ * step runs, so handles, emails and values never sit in the persisted
+ * plan. Owners are matched on the target by natural key: products and
+ * collections by handle, customers by email. Checked against the pinned
+ * 2026-07 schema; scopes read_products / read_customers (covered by the
+ * declared write_* scopes). Customer email is protected customer data and
+ * needs the app's Partner Dashboard access approval.
+ */
+export const METAFIELD_VALUE_SOURCES_QUERY = `#graphql
+  query MetafieldValueSources($ids: [ID!]!, $namespace: String!, $key: String!) {
+    nodes(ids: $ids) {
+      ... on Product {
+        id
+        handle
+        metafield(namespace: $namespace, key: $key) { type value }
+      }
+      ... on Collection {
+        id
+        handle
+        metafield(namespace: $namespace, key: $key) { type value }
+      }
+      ... on Customer {
+        id
+        defaultEmailAddress { emailAddress }
+        metafield(namespace: $namespace, key: $key) { type value }
+      }
+    }
+  }
+`;
+
+export const METAFIELD_REFERENCES_QUERY = `#graphql
+  query MetafieldReferences($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      __typename
+      ... on Product { id handle }
+      ... on Collection { id handle }
+      ... on Metaobject { id type handle }
+    }
+  }
+`;
+
+export const PRODUCT_ID_BY_HANDLE_QUERY = `#graphql
+  query ProductIdByHandle($handle: String!) {
+    productByIdentifier(identifier: { handle: $handle }) { id }
+  }
+`;
+
+export const CUSTOMER_ID_BY_EMAIL_QUERY = `#graphql
+  query CustomerIdByEmail($emailAddress: String!) {
+    customerByIdentifier(identifier: { emailAddress: $emailAddress }) { id }
+  }
+`;

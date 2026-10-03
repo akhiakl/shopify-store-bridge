@@ -112,6 +112,7 @@ describe("getDefinitionCatalog", () => {
       description: null,
       type: "single_line_text_field",
       ownerType: "PRODUCT",
+      valueCount: 0,
     });
 
     expect(catalog.metaobjectDefinitions).toEqual([

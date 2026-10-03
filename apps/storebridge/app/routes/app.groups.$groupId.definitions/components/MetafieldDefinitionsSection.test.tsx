@@ -13,6 +13,7 @@ const definitions: MetafieldDefinitionRow[] = [
     description: null,
     type: "single_line_text_field",
     ownerType: "PRODUCT",
+    valueCount: 0,
   },
   {
     id: "2",
@@ -22,6 +23,7 @@ const definitions: MetafieldDefinitionRow[] = [
     description: null,
     type: "single_line_text_field",
     ownerType: "PRODUCT",
+    valueCount: 0,
   },
 ];
 
