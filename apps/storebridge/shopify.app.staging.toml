@@ -26,7 +26,7 @@ use_legacy_install_flow = false
 
 [webhooks]
 # Keep in sync with shopify.app.toml's api_version.
-api_version = "2026-07"
+api_version = "2026-10"
 
 # Handled by: /app/routes/webhooks.app.uninstalled.tsx
 [[webhooks.subscriptions]]

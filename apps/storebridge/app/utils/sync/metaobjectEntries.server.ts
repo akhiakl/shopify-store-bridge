@@ -4,7 +4,7 @@ import { ENTRY_CAP_PER_TYPE } from "./syncCaps";
 
 const PAGE_SIZE = 50;
 
-/** Checked against the pinned 2026-07 schema: read_metaobjects. */
+/** Checked against the pinned 2026-10 schema: read_metaobjects. */
 const METAOBJECT_ENTRIES_QUERY = `#graphql
   query MetaobjectEntries($type: String!, $first: Int!, $after: String) {
     metaobjects(type: $type, first: $first, after: $after) {
