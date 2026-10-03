@@ -85,6 +85,11 @@ wrong API (e.g. Storefront instead of Admin), check `.graphqlrc.ts`.
 **`The table "Session" does not exist`**: the database hasn't been migrated. Run
 `pnpm exec drizzle-kit migrate` (or `pnpm run setup`, which also does this) against `DATABASE_URL`.
 
+**`role "service_role" does not exist` (or `pnpm dev` stuck on "applying migrations")**: the
+RLS migrations expect Supabase's built-in roles, which a plain local Postgres lacks.
+`pnpm dev` creates them via `scripts/ensure-local-db-roles.mjs` when `DATABASE_URL` points at
+localhost; if you run `drizzle-kit migrate` on its own, run that script first.
+
 **Embedded app navigation breaks the session**: inside the admin iframe, use `Link` from
 `react-router` or Polaris, not `<a>`; use the `redirect` returned from `authenticate.admin`,
 not React Router's own `redirect`; use `useSubmit`, not raw form posts.

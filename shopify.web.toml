@@ -3,4 +3,4 @@ roles = ["frontend", "backend"]
 webhooks_path = "/webhooks/app/uninstalled"
 
 [commands]
-dev = "pnpm exec drizzle-kit migrate && pnpm exec react-router dev"
+dev = "node --env-file-if-exists=.env scripts/ensure-local-db-roles.mjs && pnpm exec drizzle-kit migrate && pnpm exec react-router dev"
