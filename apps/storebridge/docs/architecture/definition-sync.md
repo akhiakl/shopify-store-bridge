@@ -188,6 +188,30 @@ read/write_online_store_navigation.
   synced in the same job resolve. A failed lookup or a rejected write fails the whole
   menu.
 
+## Collection rule sync (#125)
+
+A selected collection (`collection:<handle>`) syncs its shell (title, description, SEO,
+sort order, template; upserted by handle) and then its **rules**, the 2026-07+ `sources`
+model that replaced `ruleSet`.
+
+- **Planning** reads the source collection's sources and replaces every ID with a key
+  both stores share: metafield definitions by owner type/namespace/key, metaobjects by
+  type/handle, hand-picked products and collections (sub-collections, "not in
+  collection" exclusions) by handle. Plain rules (tag, title, type, vendor, status,
+  category, variant price/weight/inventory/title) are kept as their input. Each
+  condition type is aliased by its input key in the read query, because GraphQL can't
+  merge same-named fields of different enum and scalar types.
+- **All or nothing per collection.** If any part can't be mapped (an unknown rule type,
+  another app's shareable source, variant picks, more than 250 picks, or something
+  missing on the target), the target's rules are **left alone** and a SKIPPED
+  `collectionRules:<handle>` row records why. Dropping one rule could make the
+  collection match far more products than on the source.
+- **Rules replace the target's** in one `collectionUpdate` (`sourcesToDelete` for its
+  non-shareable sources + `sourcesToCreate`); other apps' shareable sources are kept.
+  The source is authoritative, so a collection with no rules clears the target's.
+- **Own step, later in the job**: rules run after every collection shell and metaobject
+  entry, so rules pointing at collections or entries synced in the same job resolve.
+
 ## Location sync (#123)
 
 Selecting a location under "Locations" (`location:<name>`) upserts it on each target **by

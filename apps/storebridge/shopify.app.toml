@@ -99,9 +99,11 @@ api_version = "2026-10"
   # https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance
   # StoreBridge holds no customer records, emails or values; the only
   # customer trace is job history from customer metafield value sync
-  # (rows keyed by the source customer's GID). customers/redact deletes
-  # those rows, data_request acknowledges, shop/redact erases the shop's
-  # data. See each handler's doc comment. Customer value sync also needs
+  # (rows keyed by the source customer's GID). customers/data_request
+  # records the request for the in-app Data requests page, which shows and
+  # exports those rows; customers/redact deletes them (and the customer's
+  # requests); shop/redact erases the shop's data. See each handler's doc
+  # comment. Customer value sync also needs
   # protected customer data access approved in the Partner Dashboard.
 
   # Handled by: /app/routes/webhooks.customers.data_request.tsx

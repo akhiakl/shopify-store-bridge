@@ -5,6 +5,7 @@ import db from "~/db.server";
 import { syncJobs } from "~/db/syncJobsSchema.server";
 
 import { getCollections } from "./collections.server";
+import { planCollectionRules } from "./collectionRules.server";
 import { getDefinitionCatalog, getShopPolicies } from "./definitions.server";
 import { getMetafieldValueSets } from "./metafieldValues.server";
 import { getMetaobjectEntries } from "./metaobjectEntries.server";
@@ -106,8 +107,15 @@ export async function resolvePlan(
   const shopPolicies = allPolicies.filter((policy) =>
     selection.policyTypes.includes(policy.type),
   );
-  const collections = allCollections.filter((collection) =>
-    selection.collectionHandles.includes(collection.handle),
+  const collections = await Promise.all(
+    allCollections
+      .filter((collection) =>
+        selection.collectionHandles.includes(collection.handle),
+      )
+      .map(async (collection) => ({
+        ...collection,
+        rules: await planCollectionRules(sourceAdmin, collection.handle),
+      })),
   );
   // Only types that still exist on the source; entries are read after the
   // catalog so a stale or forged type key never triggers a query.

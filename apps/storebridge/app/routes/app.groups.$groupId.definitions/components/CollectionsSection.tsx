@@ -7,10 +7,10 @@ interface CollectionsSectionProps {
   onToggle: (keys: string[], select: boolean) => void;
 }
 
-/** Spelled out per row: a collection arriving empty on a target would
- * otherwise look like a bug. */
+/** Spelled out per row, so a target collection whose rules were left
+ * alone doesn't look like a bug. */
 const SYNC_SCOPE =
-  "Title, description, SEO and sort order. Products and smart-collection conditions aren't synced yet.";
+  "Title, description, SEO, sort order and rules. Rules replace the target's, unless something they use (a product, metafield definition, entry or collection) isn't on that store.";
 
 export function CollectionsSection({
   collections,

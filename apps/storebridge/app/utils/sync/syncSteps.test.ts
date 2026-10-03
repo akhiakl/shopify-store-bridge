@@ -82,6 +82,43 @@ describe("buildSyncSteps", () => {
 
     expect(steps).toHaveLength(3);
   });
+
+  it("adds a rules step after every shell, only for collections with planned rules", async () => {
+    const shell = {
+      title: "T",
+      descriptionHtml: "",
+      sortOrder: "MANUAL",
+      templateSuffix: null,
+      seo: { title: null, description: null },
+    };
+    const steps = buildSyncSteps({
+      metaobjectDefinitions: [],
+      metafieldDefinitions: [],
+      shopPolicies: [],
+      collections: [
+        {
+          ...shell,
+          handle: "a",
+          rules: { skipped: "Its rules come from another app." },
+        },
+        { ...shell, handle: "b" },
+      ],
+      metaobjectEntries: [],
+      metafieldValues: [],
+      menus: [],
+      locations: [],
+    });
+
+    expect(steps).toHaveLength(3);
+    expect(await steps[2](ctx)).toEqual([
+      {
+        key: "collectionRules:a",
+        kind: "DEFINITION",
+        status: "SKIPPED",
+        errorMessage: "Its rules come from another app.",
+      },
+    ]);
+  });
 });
 
 describe("tallyItems", () => {

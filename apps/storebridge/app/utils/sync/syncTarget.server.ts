@@ -5,7 +5,7 @@ import type {
   MetaobjectDefinitionRow,
   ShopPolicyRow,
 } from "./definitions.server";
-import type { CollectionRow } from "./collections.server";
+import { collectionRulesStep } from "./syncCollectionRules.server";
 import {
   collectionKey,
   locationKey,
@@ -25,7 +25,10 @@ import {
   syncMetaobjectEntry,
   type TargetIdCache,
 } from "./syncMetaobjectEntry.server";
-import { syncCollection } from "./syncCollection.server";
+import {
+  syncCollection,
+  type PlannedCollection,
+} from "./syncCollection.server";
 import {
   METAFIELD_DEFINITION_CREATE_MUTATION,
   METAFIELDS_SET_MUTATION,
@@ -131,7 +134,7 @@ export interface SyncPlan {
   metaobjectDefinitions: MetaobjectDefinitionRow[];
   metafieldDefinitions: MetafieldDefinitionRow[];
   shopPolicies: ShopPolicyRow[];
-  collections: CollectionRow[];
+  collections: PlannedCollection[];
   metaobjectEntries: MetaobjectEntryRow[];
   metafieldValues: MetafieldValueSet[];
   menus: PlannedMenu[];
@@ -276,6 +279,10 @@ export function buildSyncSteps(plan: SyncPlan): SyncStep[] {
         await syncMetaobjectEntry(ctx.targetAdmin, entry, ctx.targetIds),
       ),
     ]),
+    // Rules can point at any collection or entry synced above.
+    ...plan.collections.flatMap(({ handle, rules }) =>
+      rules ? [collectionRulesStep(handle, rules)] : [],
+    ),
     // Last: values can reference entries and collections synced above.
     ...plan.metafieldValues.flatMap(metafieldValueSteps),
     // Menus link to policies, collections, entries and products. Plans
