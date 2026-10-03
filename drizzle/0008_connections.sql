@@ -47,14 +47,17 @@ INSERT INTO "SyncJob" ("id", "groupId", "connectionId", "selection", "status", "
 SELECT
 	jt."id", j."groupId", c."id", j."selection",
 	-- A target still PENDING is mid-run: keep the job's QUEUED/RUNNING.
-	CASE jt."status"
+	-- Compared as text: on a fresh database every migration runs in one
+	-- transaction, and Postgres 16 rejects using an enum value (PENDING,
+	-- added by 0005) in the transaction that added it.
+	CASE jt."status"::text
 		WHEN 'PENDING' THEN j."status"
 		WHEN 'SUCCEEDED' THEN 'SUCCEEDED'::"SyncJobStatus"
 		ELSE 'FAILED'::"SyncJobStatus"
 	END,
 	j."startedAt", j."finishedAt",
 	-- The plan is only needed to finish an unfinished target.
-	CASE WHEN jt."status" = 'PENDING' THEN j."plan" END,
+	CASE WHEN jt."status"::text = 'PENDING' THEN j."plan" END,
 	NULL,
 	COALESCE(jt."errorMessage", j."errorMessage"),
 	jt."itemsSynced", jt."itemsSkipped", jt."itemsFailed", jt."stepsDone", jt."stepsTotal"
