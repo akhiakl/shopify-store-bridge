@@ -1,5 +1,6 @@
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 
+import type { PlannedRules } from "./collectionRules.server";
 import type { CollectionRow } from "./collections.server";
 import {
   createOne,
@@ -12,15 +13,31 @@ import {
   COLLECTION_UPDATE_MUTATION,
 } from "./syncQueries.server";
 
+/** A collection's shell plus, once planned, its rules. Plans queued
+ * before rule sync existed carry no `rules`. */
+export type PlannedCollection = CollectionRow & { rules?: PlannedRules };
+
 /**
  * Upserts one collection's shell (title, description, SEO, sort order,
- * template) onto a target, matched by handle. Products and smart-collection
- * conditions aren't carried over, so the target collection starts empty.
+ * template) onto a target, matched by handle. Its rules sync in a later
+ * step (syncCollectionRules.server.ts), once every collection and entry
+ * they can point at exists on the target.
  */
 export async function syncCollection(
   targetAdmin: AdminApiContext,
-  collection: CollectionRow,
+  planned: PlannedCollection,
 ): Promise<CreateResult> {
+  // Only the shell fields: the collection inputs reject anything else.
+  const { handle, title, descriptionHtml, sortOrder, templateSuffix, seo } =
+    planned;
+  const collection = {
+    handle,
+    title,
+    descriptionHtml,
+    sortOrder,
+    templateSuffix,
+    seo,
+  };
   const response = await targetAdmin.graphql(COLLECTION_BY_HANDLE_QUERY, {
     variables: { handle: collection.handle },
   });

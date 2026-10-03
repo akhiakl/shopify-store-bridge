@@ -2,10 +2,9 @@ import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 
 /**
  * Required scope read_products (covered by write_products, see
- * shopify.app.toml). Only the collection's own shell is read: product
- * membership is cross-store record matching (#63), and smart-collection
- * conditions live in the 2026-07 `sources` model, which isn't synced yet
- * (`ruleSet` is deprecated there and has no write-side equivalent).
+ * shopify.app.toml). Only the collection's shell is listed here; its
+ * rules (the `sources` model) are read when a job is planned, by
+ * collectionRules.server.ts.
  */
 const COLLECTIONS_QUERY = `#graphql
   query CollectionsList {

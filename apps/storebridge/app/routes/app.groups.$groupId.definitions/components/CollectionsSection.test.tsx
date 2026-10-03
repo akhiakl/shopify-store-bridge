@@ -36,7 +36,7 @@ describe("CollectionsSection", () => {
     );
   });
 
-  it("explains on each row that products and conditions aren't synced", () => {
+  it("explains on each row what syncs and when rules are left alone", () => {
     render(
       <CollectionsSection
         collections={collections}
@@ -48,7 +48,7 @@ describe("CollectionsSection", () => {
     expect(checkboxByLabel("Select all (2)")).toBeInTheDocument();
     expect(checkboxByLabel("Summer (summer)")).toHaveAttribute(
       "details",
-      expect.stringMatching(/products and smart-collection conditions/i),
+      expect.stringMatching(/rules replace the target's, unless/i),
     );
     expect(checkboxByLabel("Hats (hats)")).toBeInTheDocument();
   });
