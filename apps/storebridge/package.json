@@ -66,9 +66,6 @@
   "devDependencies": {
     "@graphql-codegen/cli": "^5.0.7",
     "@playwright/test": "^1.62.1",
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
-    "@repo/vitest-config": "workspace:*",
     "@shopify/api-codegen-preset": "^1.2.0",
     "@shopify/polaris-types": "^1.0.7",
     "@testing-library/jest-dom": "^7.0.0",

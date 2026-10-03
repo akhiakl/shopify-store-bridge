@@ -172,9 +172,6 @@ importers:
       '@commitlint/config-conventional':
         specifier: ^21.2.0
         version: 21.2.2
-      '@repo/eslint-config':
-        specifier: workspace:*
-        version: link:packages/eslint-config
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.21.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3))(eslint@8.57.1(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
@@ -305,15 +302,6 @@ importers:
       '@playwright/test':
         specifier: ^1.62.1
         version: 1.62.1
-      '@repo/eslint-config':
-        specifier: workspace:*
-        version: link:../../packages/eslint-config
-      '@repo/typescript-config':
-        specifier: workspace:*
-        version: link:../../packages/typescript-config
-      '@repo/vitest-config':
-        specifier: workspace:*
-        version: link:../../packages/vitest-config
       '@shopify/api-codegen-preset':
         specifier: ^1.2.0
         version: 1.2.2(@types/node@26.6.2)(supports-color@7.2.0)(typescript@5.9.3)
@@ -380,50 +368,6 @@ importers:
       vitest:
         specifier: ^4.1.10
         version: 4.1.11(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.6.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.12)(yaml@2.9.0))
-
-  packages/eslint-config:
-    dependencies:
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.21.0
-        version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3))(eslint@8.57.1(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
-      '@typescript-eslint/parser':
-        specifier: ^6.21.0
-        version: 6.21.0(eslint@8.57.1(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
-      eslint:
-        specifier: ^8.57.1
-        version: 8.57.1(supports-color@7.2.0)
-      eslint-config-prettier:
-        specifier: ^10.0.1
-        version: 10.1.8(eslint@8.57.1(supports-color@7.2.0))
-      eslint-import-resolver-typescript:
-        specifier: ^4.4.4
-        version: 4.4.5(eslint-plugin-import@2.32.0)(eslint@8.57.1(supports-color@7.2.0))(supports-color@7.2.0)
-      eslint-plugin-import:
-        specifier: ^2.32.0
-        version: 2.32.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3))(eslint-import-resolver-typescript@4.4.5)(eslint@8.57.1(supports-color@7.2.0))(supports-color@7.2.0)
-      eslint-plugin-jsx-a11y:
-        specifier: ^6.10.2
-        version: 6.10.2(eslint@8.57.1(supports-color@7.2.0))
-      eslint-plugin-react:
-        specifier: ^7.37.5
-        version: 7.37.5(eslint@8.57.1(supports-color@7.2.0))
-      eslint-plugin-react-hooks:
-        specifier: ^7.0.1
-        version: 7.1.1(eslint@8.57.1(supports-color@7.2.0))(supports-color@7.2.0)
-
-  packages/typescript-config: {}
-
-  packages/vitest-config:
-    dependencies:
-      '@testing-library/jest-dom':
-        specifier: ^7.0.0
-        version: 7.0.1(@testing-library/dom@10.4.1)(vitest@4.1.11)
-      vite-tsconfig-paths:
-        specifier: ^5.0.1
-        version: 5.1.4(supports-color@7.2.0)(typescript@5.9.3)(vite@7.3.6(@types/node@26.6.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.12)(yaml@2.9.0))
-      vitest:
-        specifier: ^4.1.10
-        version: 4.1.11(@types/node@26.6.2)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@7.3.6(@types/node@26.6.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.12)(yaml@2.9.0))
 
 packages:
 
@@ -10775,17 +10719,6 @@ snapshots:
       tsconfck: 3.1.6(typescript@5.9.3)
     optionalDependencies:
       vite: 6.4.3(@types/node@26.6.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.12)(yaml@2.9.0)
-    transitivePeerDependencies:
-      - supports-color
-      - typescript
-
-  vite-tsconfig-paths@5.1.4(supports-color@7.2.0)(typescript@5.9.3)(vite@7.3.6(@types/node@26.6.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.12)(yaml@2.9.0)):
-    dependencies:
-      debug: 4.4.3(supports-color@7.2.0)
-      globrex: 0.1.2
-      tsconfck: 3.1.6(typescript@5.9.3)
-    optionalDependencies:
-      vite: 7.3.6(@types/node@26.6.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.12)(yaml@2.9.0)
     transitivePeerDependencies:
       - supports-color
       - typescript
