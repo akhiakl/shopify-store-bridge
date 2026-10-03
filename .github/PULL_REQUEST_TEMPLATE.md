@@ -25,5 +25,5 @@ pnpm run build
 
 ### Checklist
 
-- [ ] Updated `README.md` / `apps/storebridge/README.md` / `AGENTS.md` / `DEPLOYMENT.md` if this changes how the project is run, deployed, or its standards
+- [ ] Updated `README.md` / `AGENTS.md` / `DEPLOYMENT.md` if this changes how the project is run, deployed, or its standards
 - [ ] Commits follow Conventional Commits (enforced by commitlint) and are one logical change each

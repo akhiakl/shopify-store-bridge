@@ -1,9 +1,8 @@
 # Shopify app development
 
-This is a Turborepo monorepo. The Shopify app itself lives in `apps/storebridge`
-(scaffolded from a Shopify app template — see its README for framework-specific
-details); `packages/*` holds shared, reusable config (ESLint, TypeScript, Vitest)
-consumed by workspace members via `"@repo/<name>": "*"`.
+This is a single Shopify app at the repo root, laid out like a fresh `shopify app init`
+scaffold of the React Router template (see `README.md` for framework-specific details).
+pnpm workspaces cover `extensions/*` only.
 
 Use the [Shopify AI Toolkit](https://shopify.dev/docs/apps/build/ai-toolkit) for all Shopify API and platform work. If missing, install it in the agent host per that page (or `npx skills add Shopify/shopify-ai-toolkit --list` for skill-compatible hosts) — do not add tooling to this repo.
 
@@ -47,7 +46,7 @@ Use the official generator when one exists, then tune its output to match §5–
 | Max function parameters   | 3 (4+ → single options object)                                                                |
 | Test coverage             | ≥80% branches/functions/lines/statements, **across every source file** (`coverage.all: true`) |
 
-Approaching 300 lines → split by responsibility (SRP), don't reach for `eslint-disable`. Disabling a limit is itself a "when in doubt, ask" moment (§1) — flag it, don't silently bypass. (One accepted exception exists today: `apps/storebridge/app/entry.server.tsx`'s `handleRequest` has a framework-mandated 4-arg signature from React Router itself.)
+Approaching 300 lines → split by responsibility (SRP), don't reach for `eslint-disable`. Disabling a limit is itself a "when in doubt, ask" moment (§1) — flag it, don't silently bypass. (One accepted exception exists today: `app/entry.server.tsx`'s `handleRequest` has a framework-mandated 4-arg signature from React Router itself.)
 
 ## 6. Design principles
 
@@ -56,7 +55,7 @@ Approaching 300 lines → split by responsibility (SRP), don't reach for `eslint
 
 ### Folder structure — colocate, then promote
 
-`apps/storebridge/app/` uses React Router's file-based routing (`@react-router/fs-routes`) for `routes/`; everything else follows one rule: **build next to what uses it, move it up only once something else needs it too.**
+`app/` uses React Router's file-based routing (`@react-router/fs-routes`) for `routes/`; everything else follows one rule: **build next to what uses it, move it up only once something else needs it too.**
 
 - A route with only a loader/action/component stays a single flat file — `routes/app.foo.tsx`. Don't pre-create empty folders for it.
 - A route that needs its own components/hooks/utils becomes a folder — `routes/app.foo/route.tsx`, with `components/`, `hooks/`, `utils/` subfolders inside as needed (only the ones actually used — no empty scaffolding). `@react-router/fs-routes` only looks one level into `routes/`, and for a folder only checks for a `route.*`/`index.*` file directly inside it — it never recurses into `components/`/`hooks/`/`utils/`, so anything nested there can't be mistaken for a route (verified against the installed package's source; see `app/routes.ts`'s comment).
@@ -68,8 +67,8 @@ Approaching 300 lines → split by responsibility (SRP), don't reach for `eslint
 
 ## 7. Tooling stack (already wired up)
 
-- TypeScript, strict mode. **Unit/component testing:** Vitest + React Testing Library (no Jest). **E2E:** Playwright (`apps/storebridge/e2e`) — runs against a real, migrated Postgres and a forged Shopify session token rather than a live store; see `e2e/support/embedded-fixture.ts`'s doc comment for exactly what's mocked and what isn't.
-- **Git hooks (Husky):** `pre-commit` → lint-staged (ESLint --fix + Prettier); `commit-msg` → commitlint; `pre-push` → typecheck → build → `test:coverage`. Hooks and root-level configs (Husky, commitlint, lint-staged) live at the monorepo root and run via Turborepo (`turbo run <task>`) across all workspaces, not per-app.
+- TypeScript, strict mode. **Unit/component testing:** Vitest + React Testing Library (no Jest). **E2E:** Playwright (`e2e/`) — runs against a real, migrated Postgres and a forged Shopify session token rather than a live store; see `e2e/support/embedded-fixture.ts`'s doc comment for exactly what's mocked and what isn't.
+- **Git hooks (Husky):** `pre-commit` → lint-staged (ESLint --fix + Prettier); `commit-msg` → commitlint; `pre-push` → typecheck → build → `test:coverage`.
 - **Sessions/tokens:** Drizzle → Supabase Postgres (`DATABASE_URL`), via `@shopify/shopify-app-session-storage-drizzle`. No app data here — that's all Shopify metaobjects/metafields (`$app:` namespace).
 - **GraphQL:** wire `@shopify/api-codegen-preset` + `graphql-config` once real operations exist; every operation passes codegen _and_ `validate_graphql_codeblocks` (MCP) before commit.
 

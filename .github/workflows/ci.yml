@@ -40,7 +40,7 @@ jobs:
       # (see .gitignore) since it fetches from shopify.dev each run,
       # keeping it current with whatever API version .graphqlrc.ts pins.
       - name: GraphQL codegen
-        run: pnpm --filter storebridge run graphql-codegen
+        run: pnpm run graphql-codegen
       - name: Typecheck
         run: pnpm run typecheck
       - name: Test
@@ -58,7 +58,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-summary
-          path: apps/storebridge/coverage/coverage-summary.json
+          path: coverage/coverage-summary.json
           retention-days: 7
           if-no-files-found: warn
 
@@ -72,7 +72,7 @@ jobs:
     timeout-minutes: 15
     services:
       # Session storage in production is Supabase Postgres (see
-      # apps/storebridge/app/db/schema.server.ts) — e2e runs against a real
+      # app/db/schema.server.ts) — e2e runs against a real
       # Postgres for the same reason, not sqlite, so a schema mismatch like
       # the one this migration once had (DATETIME instead of TIMESTAMP)
       # can't slip through unnoticed again.
@@ -93,7 +93,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/storebridge_e2e
       # Any values work — nothing in the e2e suite calls the real Shopify
       # API, it forges its own session token locally. See
-      # apps/storebridge/e2e/support/embedded-fixture.ts.
+      # e2e/support/embedded-fixture.ts.
       SHOPIFY_API_KEY: ci-e2e-api-key
       SHOPIFY_API_SECRET: ci-e2e-api-secret
       SCOPES: read_products
@@ -117,7 +117,6 @@ jobs:
       # packages, only files under the given path.
       - name: Resolve Playwright version
         id: playwright-version
-        working-directory: apps/storebridge
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         id: playwright-cache
@@ -127,11 +126,9 @@ jobs:
           key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        working-directory: apps/storebridge
         run: pnpm exec playwright install --with-deps chromium
       - name: Install Playwright OS dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        working-directory: apps/storebridge
         run: pnpm exec playwright install-deps chromium
       # Production Postgres is Supabase, which ships a built-in
       # `service_role` role — the RLS policies in schema.server.ts
@@ -144,7 +141,6 @@ jobs:
           PGPASSWORD=postgres psql -h localhost -U postgres -d storebridge_e2e \
             -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role; END IF; END \$\$;"
       - name: Run database migrations
-        working-directory: apps/storebridge
         run: pnpm exec drizzle-kit migrate
       - name: E2E
         run: pnpm run test:e2e
@@ -153,7 +149,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report
-          path: apps/storebridge/playwright-report/
+          path: playwright-report/
           retention-days: 7
 
   # Single aggregate status — the one check to require in branch protection

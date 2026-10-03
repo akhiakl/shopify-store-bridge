@@ -16,7 +16,7 @@ name: Deploy Shopify app config
 # on-demand, independent of the above.
 #
 # Database migrations run inside the Vercel build itself, not as a step
-# here: apps/storebridge/package.json's `vercel-build` script runs
+# here: package.json's `vercel-build` script runs
 # `drizzle-kit migrate` before `react-router build`, and Vercel's build
 # convention (both the hosted platform build and the `vercel build` CLI
 # invocation below) uses that script instead of the plain `build` one
@@ -139,11 +139,7 @@ jobs:
           echo "Resolved version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      # The Shopify app (shopify.app.*.toml, extensions/) now lives in
-      # apps/storebridge under the Turborepo monorepo layout — run the CLI
-      # from there so it finds the right config.
       - name: Deploy app config
-        working-directory: apps/storebridge
         env:
           SHOPIFY_APP_AUTOMATION_TOKEN: ${{ secrets.SHOPIFY_APP_AUTOMATION_TOKEN }}
         run: |
@@ -169,7 +165,6 @@ jobs:
       # settings — see DEPLOYMENT.md — or this step and that integration
       # will double-deploy on every push.
       - name: Deploy to Vercel
-        working-directory: apps/storebridge
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

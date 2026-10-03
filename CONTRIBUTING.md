@@ -19,27 +19,27 @@ writing code, it's enforced by tooling, not just convention.
 git clone https://github.com/akhiakl/shopify-store-bridge.git
 cd shopify-store-bridge
 pnpm install --frozen-lockfile
-cp apps/storebridge/.env.example apps/storebridge/.env
+cp .env.example .env
 ```
 
-Fill in `apps/storebridge/.env`:
+Fill in `.env`:
 
 - `DATABASE_URL` — your local (or Supabase) Postgres connection string
 - `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SCOPES`, `SHOPIFY_APP_URL` — set by `shopify app
-config link` once you've linked a Shopify app registration (see `apps/storebridge/package.json`'s
+config link` once you've linked a Shopify app registration (see `package.json`'s
   `config:link*` scripts); any values work for running tests, since nothing in the test
   suites calls the real Shopify API
 
 Then apply migrations:
 
 ```bash
-pnpm --filter storebridge exec drizzle-kit migrate
+pnpm exec drizzle-kit migrate
 ```
 
 ## Running the app
 
 ```bash
-pnpm --filter storebridge run dev
+pnpm run dev
 ```
 
 This runs `shopify app dev`, which needs a linked Shopify app (see Setup above) — it logs
@@ -52,9 +52,9 @@ pnpm run test:coverage      # unit — Vitest + React Testing Library, ≥80% co
 pnpm run test:e2e           # e2e — Playwright; needs the env vars + migrated database above
 ```
 
-`test:e2e` builds the app first (`turbo`'s task graph handles this) and boots it against
+`test:e2e` builds the app first and boots it against
 `DATABASE_URL` — it forges its own Shopify session token locally rather than calling the
-real API, so no live store is needed. See `apps/storebridge/e2e/support/embedded-fixture.ts`
+real API, so no live store is needed. See `e2e/support/embedded-fixture.ts`
 for how.
 
 ## Linting & type-checking
@@ -79,6 +79,5 @@ Trunk-based: `main` is the trunk, short-lived branches merge via PR after CI pas
 ## Where to go next
 
 - [`AGENTS.md`](AGENTS.md) — standards enforced on every change
-- [`apps/storebridge/README.md`](apps/storebridge/README.md) — the app's stack, auth/GraphQL
-  usage, webhooks
+- [`README.md`](README.md) — the app's stack, auth/GraphQL usage, webhooks
 - [`DEPLOYMENT.md`](DEPLOYMENT.md) — Shopify app registration + Vercel hosting
