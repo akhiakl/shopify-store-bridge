@@ -1,6 +1,5 @@
 packages:
-  - "apps/*"
-  - "apps/storebridge/extensions/*"
+  - "extensions/*"
 # Packages whose install-time build scripts pnpm runs. The first three are
 # well-known, necessary native-binary build steps from their packages'
 # actual maintainers (not arbitrary transitive postinstalls) — esbuild and

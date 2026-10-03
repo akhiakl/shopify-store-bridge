@@ -25,8 +25,8 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    // Assumes `pnpm run build` already ran — see the test:e2e turbo task
-    // (dependsOn: ["build"]) rather than rebuilding on every test run here.
+    // Assumes a fresh build — `pnpm run test:e2e` builds first, rather than
+    // rebuilding here on every Playwright run.
     command: "pnpm run start",
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,

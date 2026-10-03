@@ -1,9 +1,6 @@
 node_modules
 .DS_Store
 
-# Turborepo's local cache
-.turbo
-
 .cache
 build
 database.sqlite
@@ -39,7 +36,7 @@ blob-report
 
 # GraphQL codegen output (@shopify/api-codegen-preset, .graphqlrc.ts) —
 # regenerated from the live Admin API schema, not checked in.
-apps/storebridge/app/types/
+app/types/
 
 # Vercel CLI / build output
 .vercel
