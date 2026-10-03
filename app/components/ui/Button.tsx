@@ -5,7 +5,7 @@ import { cn } from "~/utils/cn";
 
 /**
  * Shared button styling for the marketing site. Also exports `buttonVariants`
- * so non-`<button>` elements (e.g. an anchor CTA) can reuse the same classes —
+ * so non-`<button>` elements (e.g. an anchor CTA) can reuse the same classes:
  * a deliberate, shadcn-style exception to the one-export-per-file convention.
  */
 export const buttonVariants = cva(

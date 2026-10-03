@@ -11,7 +11,7 @@ import {
  * Redeems a pairing-authorization link (see ConnectStoreForm/
  * pairing.server.ts's requestPairing). A trailing-underscore route name
  * (app.stores_.authorize) so it lands at /app/stores/authorize without
- * nesting under app.stores/route.tsx's layout — this is its own page, not
+ * nesting under app.stores/route.tsx's layout: this is its own page, not
  * part of the dashboard.
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -46,7 +46,7 @@ export default function AuthorizePairing() {
   // Checked first: a successful approve makes the target no longer
   // PENDING, so the loader's own revalidation after this action returns
   // ok:false too (same "PENDING and unexpired" check the action just
-  // passed) — without this branch a successful approval would render the
+  // passed), without this branch a successful approval would render the
   // generic invalid/expired banner below instead of confirming success.
   if (actionData?.ok) {
     return (

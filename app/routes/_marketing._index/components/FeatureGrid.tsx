@@ -7,7 +7,7 @@ const features = [
   },
   {
     title: "Definition sync",
-    body: "Push metaobject and metafield definitions — and SHOP-level metafield values — from a source store to its approved targets with one click.",
+    body: "Push metaobject and metafield definitions (and SHOP-level metafield values) from a source store to its approved targets with one click.",
   },
   {
     title: "Job history",

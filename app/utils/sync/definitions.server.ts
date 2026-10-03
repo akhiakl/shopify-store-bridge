@@ -6,7 +6,7 @@ import { syncGroups } from "~/db/schema.server";
 
 /**
  * Metafield definitions are queried per `MetafieldOwnerType`, not as one
- * flat list — this is a reduced set of the most common owner types, not
+ * flat list: this is a reduced set of the most common owner types, not
  * the full enum. Extend as needed; each entry is one extra query, not a
  * schema change.
  */
@@ -25,7 +25,7 @@ const METAFIELD_OWNER_TYPES = [
 /**
  * Query shape confirmed via `validate_graphql_codeblocks` against
  * Shopify's live schema. It reported no required-scope line for this
- * particular query — Shopify's own docs say reading definitions needs
+ * particular query: Shopify's own docs say reading definitions needs
  * scope appropriate to the owner type, so that's not treated as "no scope
  * needed"; see shopify.app.toml's comment for what's actually declared.
  */
@@ -76,7 +76,7 @@ export interface MetafieldDefinitionRow {
   description: string | null;
   type: string;
   ownerType: (typeof METAFIELD_OWNER_TYPES)[number];
-  /** How many records on the source have a value for this definition —
+  /** How many records on the source have a value for this definition:
    * shown so a merchant can see when value sync's per-job cap applies. */
   valueCount: number;
 }
@@ -91,7 +91,7 @@ export interface MetaobjectFieldDefinition {
 /**
  * Confirmed via `validate_graphql_codeblocks`: valid query shape, required
  * scope read_legal_policies (see shopify.app.toml). `ShopPolicy.id` isn't
- * needed here — `type` is the stable identifier `shopPolicyKey` and the
+ * needed here: `type` is the stable identifier `shopPolicyKey` and the
  * update mutation both key off.
  */
 const SHOP_POLICIES_QUERY = `#graphql
@@ -116,18 +116,18 @@ export interface MetaobjectDefinitionRow {
   id: string;
   type: string;
   name: string;
-  /** Full field list — needed to recreate this type on a target store
+  /** Full field list: needed to recreate this type on a target store
    * (sync.server.ts); `fieldCount` below is just its length, kept so the
    * browse-only UI (MetaobjectDefinitionsSection) doesn't need to know
    * that. */
   fieldDefinitions: MetaobjectFieldDefinition[];
   fieldCount: number;
-  /** How many entries of this type exist on the source — shown so a
+  /** How many entries of this type exist on the source: shown so a
    * merchant can see when entry sync's per-run cap applies. */
   entryCount: number;
 }
 
-/** One `metafieldDefinitions` call per owner type — the API has no single
+/** One `metafieldDefinitions` call per owner type: the API has no single
  * "all owner types" query (see the note above `METAFIELD_OWNER_TYPES`). */
 async function fetchMetafieldDefinitions(
   admin: AdminApiContext,
@@ -224,7 +224,7 @@ export async function getDefinitionCatalog(admin: AdminApiContext) {
   return { metafieldDefinitions, metaobjectDefinitions };
 }
 
-/** Kept separate from `getDefinitionCatalog` — shop policies are a distinct
+/** Kept separate from `getDefinitionCatalog`: shop policies are a distinct
  * sync category (no cross-store record reference, unlike metaobjects/
  * metafields) with their own section in the UI, not another field on the
  * same catalog shape. */

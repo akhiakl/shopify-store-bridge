@@ -7,7 +7,7 @@ import { inArray } from "drizzle-orm";
 /**
  * Data + auth setup for scripts/screenshot-app.mjs. Deliberately separate
  * from e2e/support/* (those are .ts, loaded by the Playwright test runner;
- * this is a plain-Node script) rather than sharing a loader — small enough
+ * this is a plain-Node script) rather than sharing a loader: small enough
  * that duplicating the session-token signing and table shapes here is
  * cheaper than wiring cross-runtime TS imports for one script. Table/column
  * names must stay in sync with app/db/schema.server.ts.

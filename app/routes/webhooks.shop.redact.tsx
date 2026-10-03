@@ -6,18 +6,18 @@ import { sessions, stores } from "~/db/schema.server";
 import { authenticate } from "~/shopify.server";
 
 /**
- * Mandatory compliance webhook (shop/redact) — required before public App
+ * Mandatory compliance webhook (shop/redact): required before public App
  * Store submission, see
  * https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance.
  * Sent 48 hours after a store owner uninstalls the app; erase everything
  * StoreBridge holds for that shop.
  *
- * Deleting the `Store` row cascades to everything keyed off it —
+ * Deleting the `Store` row cascades to everything keyed off it:
  * `SyncGroup` (as source), `SyncGroupTarget` (as target membership), and
- * from there `SyncJob`/`SyncJobTarget`/`SyncJobItem` — see schema.server.ts
+ * from there `SyncJob`/`SyncJobTarget`/`SyncJobItem`: see schema.server.ts
  * and syncJobsSchema.server.ts's `onDelete: "cascade"` foreign keys. The
  * `Session` row is also deleted defensively even though
- * webhooks.app.uninstalled.tsx already does this on uninstall — this
+ * webhooks.app.uninstalled.tsx already does this on uninstall: this
  * webhook can in principle arrive without a prior uninstalled webhook
  * having been processed. *
  * `CustomerDataRequest` is keyed by shop, not `Store`, so it's deleted

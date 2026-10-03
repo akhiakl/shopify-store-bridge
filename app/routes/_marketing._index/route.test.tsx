@@ -4,7 +4,7 @@ import { createRoutesStub } from "react-router";
 
 import MarketingHome, { loader } from "./route";
 
-// shopify.server pulls in the Drizzle/pg-backed session storage — stub the
+// shopify.server pulls in the Drizzle/pg-backed session storage: stub the
 // one export this route actually reads so the test doesn't need a database.
 vi.mock("~/shopify.server", () => ({ login: vi.fn() }));
 
@@ -47,7 +47,7 @@ describe("marketing home page", () => {
       }),
     ).toBeInTheDocument();
     // Required so an empty submit never leaves this page for the plain
-    // Polaris /auth/login error screen — see AGENTS.md UX conventions.
+    // Polaris /auth/login error screen: see AGENTS.md UX conventions.
     expect(screen.getByLabelText(/shop domain/i)).toBeRequired();
     expect(screen.getByText("Store pairing")).toBeInTheDocument();
     expect(screen.getByText("Definition sync")).toBeInTheDocument();

@@ -25,7 +25,7 @@ export const syncGroupTargetStatusEnum = pgEnum("SyncGroupTargetStatus", [
 // or camelCase columns without a real rename migration against Supabase.
 //
 // This file holds the pairing domain (Session/Store/SyncGroup/
-// SyncGroupTarget) — see syncJobsSchema.server.ts for the sync-job
+// SyncGroupTarget): see syncJobsSchema.server.ts for the sync-job
 // domain, split out once this file started pushing past the 300-line
 // limit. RLS policies for both live in rls.server.ts's serviceRoleOnly.
 
@@ -33,13 +33,13 @@ export const syncGroupTargetStatusEnum = pgEnum("SyncGroupTargetStatus", [
  * Shopify session/token storage. Column names/modifiers here also have to
  * stay identical to
  * @shopify/shopify-app-session-storage-drizzle's own reference schema
- * (postgres.schema.ts) — DrizzleSessionStoragePostgres's constructor takes
+ * (postgres.schema.ts): DrizzleSessionStoragePostgres's constructor takes
  * `PostgresSessionTable = typeof sessionTable` from that file, and
  * Drizzle's PgColumn generics encode the column name/nullability/default
  * literally, so any deviation breaks the type. Don't touch this table
  * without checking that file first.
  *
- * No `.enableRLS()` chain here (unlike the other tables below) — it
+ * No `.enableRLS()` chain here (unlike the other tables below): it
  * changes the table's type to `Omit<PgTableWithColumns<T>, 'enableRLS'>`,
  * which no longer satisfies `PostgresSessionTable`. RLS is already ON for
  * this table (enabled directly in Supabase); only the policy is declared
@@ -70,7 +70,7 @@ export const sessions = pgTable(
 );
 
 /** A Shopify shop that has StoreBridge installed. Kept separate from
- * `sessions` (auth/token state only) — this is where StoreBridge's own
+ * `sessions` (auth/token state only): this is where StoreBridge's own
  * business data about a shop anchors. */
 export const stores = pgTable(
   "Store",
@@ -87,7 +87,7 @@ export const stores = pgTable(
 
 /** A source store's collection of paired target stores. The store the
  * merchant is currently in when they create a group is always the
- * source — there's no source picker. */
+ * source: there's no source picker. */
 export const syncGroups = pgTable(
   "SyncGroup",
   {
@@ -103,7 +103,7 @@ export const syncGroups = pgTable(
   () => [serviceRoleOnly("SyncGroup")],
 ).enableRLS();
 
-/** One target store's membership in a sync group — the pairing "invite,"
+/** One target store's membership in a sync group: the pairing "invite,"
  * requested from the source side. See pairing.server.ts's requestPairing
  * doc comment for why authTokenHash exists. */
 export const syncGroupTargets = pgTable(
@@ -138,7 +138,7 @@ export const syncGroupTargets = pgTable(
 // --- DRIZZLE RELATIONS ---
 // Sync-job-domain tables (SyncJob/SyncJobTarget/SyncJobItem) declare their
 // own `store`/`group` one() relations pointing at these tables in
-// syncJobsSchema.server.ts — a table's relations() can be declared in a
+// syncJobsSchema.server.ts: a table's relations() can be declared in a
 // different file than the table itself, as long as both end up in the
 // combined schema object db.server.ts passes to drizzle(). No back-
 // reference (e.g. a `syncJobs` field here) is declared on stores/

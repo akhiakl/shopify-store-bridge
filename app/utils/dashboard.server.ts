@@ -5,12 +5,12 @@ import { stores, syncGroups, syncGroupTargets } from "~/db/schema.server";
 import { syncJobs } from "~/db/syncJobsSchema.server";
 
 // Promoted out of app.stores/pairing.server.ts once App Home (app._index.tsx)
-// became a second consumer of `getDashboardData` — it's no longer specific
+// became a second consumer of `getDashboardData`: it's no longer specific
 // to the "Connected stores" route. `pairing.server.ts` keeps the pairing
 // *mutations* (requestPairing, approve/decline/regenerate) and imports
 // `getOrCreateStore` from here.
 
-/** Upsert-by-shop — the update is a no-op (self-assign) purely to make the
+/** Upsert-by-shop: the update is a no-op (self-assign) purely to make the
  * insert return the existing row on conflict, mirroring Prisma's upsert. */
 export async function getOrCreateStore(shop: string) {
   const [store] = await db
@@ -53,7 +53,7 @@ export async function getDashboardData(shop: string) {
   return { ownedGroups, incomingRequests, memberships };
 }
 
-/** Most recent sync jobs across every group this shop owns as a source —
+/** Most recent sync jobs across every group this shop owns as a source:
  * for App Home's "recent activity" list, which has no single group to
  * scope to (unlike JobHistoryList, which is per-group). Takes the owned
  * group ids directly (from a `getDashboardData` call the caller already

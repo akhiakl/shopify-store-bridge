@@ -239,7 +239,7 @@ describe("syncToTarget", () => {
             }),
           );
         }
-        // ShopId query fails — no data, no shop id.
+        // ShopId query fails: no data, no shop id.
         return Promise.resolve(jsonResponse({}));
       }),
     };

@@ -1,6 +1,6 @@
 # This file stores configurations for your Shopify app.
 #
-# This is the PRODUCTION environment config — a separate Shopify app
+# This is the PRODUCTION environment config: a separate Shopify app
 # registration from shopify.app.staging.toml. Deploy with:
 #
 #   pnpm run deploy -- --config production
@@ -11,24 +11,24 @@
 client_id = ""
 name = "storebridge"
 # TODO(unverified): confirm/replace once `shopify app config link` runs against
-# the real production app — this is scaffold-standard, not a verified value.
+# the real production app: this is scaffold-standard, not a verified value.
 application_url = "https://example.com"
 embedded = true
 
 [access_scopes]
-# read_metaobject_definitions: confirmed via Shopify's Admin GraphQL docs —
+# read_metaobject_definitions: confirmed via Shopify's Admin GraphQL docs:
 # metaobjectDefinitions "Requires read_metaobject_definitions access scope."
 # (app.groups.$groupId.definitions/definitions.server.ts's
 # fetchMetaobjectDefinitions).
 #
 # write_metaobject_definitions: confirmed via shopify.dev's "Manage
-# metaobject definitions" guide — metaobjectDefinitionCreate needs both the
+# metaobject definitions" guide: metaobjectDefinitionCreate needs both the
 # read and write scopes. Used by sync.server.ts's runSyncJob.
 #
 # write_products / write_customers / write_orders: confirmed via
 # shopify.dev's "Manage metafield definitions" guide ("the appropriate
 # access scopes for the owner type ... write_products for product
-# metafields, or write_customers for customer metafields") — covers
+# metafields, or write_customers for customer metafields"): covers
 # METAFIELD_OWNER_TYPES' PRODUCT/PRODUCTVARIANT/COLLECTION, CUSTOMER, and
 # ORDER entries respectively. write_products also covers collection sync
 # (collections.server.ts / syncCollection.server.ts): collections/
@@ -37,25 +37,25 @@ embedded = true
 # the pinned 2026-10 schema (graphql-codegen in CI), not just the Dev MCP
 # validator, which validated against an older version.
 #
-# write_content: confirmed via shopify.dev — PAGE, BLOG, and ARTICLE
+# write_content: confirmed via shopify.dev: PAGE, BLOG, and ARTICLE
 # objects each "Requires read_content access scope" (or the narrower
 # read_online_store_pages for Page/Blog specifically, but content covers
-# all three) — covers METAFIELD_OWNER_TYPES' remaining PAGE/BLOG/ARTICLE
+# all three): covers METAFIELD_OWNER_TYPES' remaining PAGE/BLOG/ARTICLE
 # entries.
 #
-# TODO(unverified) — SHOP: syncTarget.server.ts's syncShopMetafieldValue
+# TODO(unverified): SHOP: syncTarget.server.ts's syncShopMetafieldValue
 # now actively calls metafieldsSet against the target's Shop, and
 # metafieldsSet "requires the same access level needed to mutate the
-# owner resource" (shopify.dev) — but there's no plain "write_shop"/
+# owner resource" (shopify.dev), but there's no plain "write_shop"/
 # "write_shop_settings" scope in Shopify's canonical scope list, and
 # which scope (if any) actually gates shop-owned metafields specifically
 # wasn't confirmed this session. If sync calls start failing with a
-# permissions error on SHOP-owned metafields specifically, this is why —
+# permissions error on SHOP-owned metafields specifically, this is why:
 # confirm via Shopify Dev MCP and add the real scope name here.
 #
 # read_legal_policies / write_legal_policies: confirmed via
 # `graphql_schema` + `validate_graphql_codeblocks` against Shopify's live
-# Admin API (shopify.dev itself was unreachable this session) —
+# Admin API (shopify.dev itself was unreachable this session):
 # `shopPolicies` requires read_legal_policies, `shopPolicyUpdate` requires
 # write_legal_policies and read_legal_policies. Used by
 # definitions.server.ts's fetchShopPolicies and syncTarget.server.ts's
@@ -95,7 +95,7 @@ api_version = "2026-10"
   topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
 
-  # Mandatory for public apps — see:
+  # Mandatory for public apps: see:
   # https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance
   # StoreBridge holds no customer records, emails or values; the only
   # customer trace is job history from customer metafield value sync

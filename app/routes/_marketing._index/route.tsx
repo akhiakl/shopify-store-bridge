@@ -29,7 +29,7 @@ export default function MarketingHome() {
         <div>
           <Badge variant="outline">Embedded Shopify app</Badge>
           <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
-            Store definitions, in sync — not by accident.
+            Store definitions, in sync, not by accident.
           </h1>
           <p className="mt-4 text-lg text-neutral-600">
             Pair Shopify stores and keep their metaobject and metafield

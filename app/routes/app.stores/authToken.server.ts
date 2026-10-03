@@ -4,7 +4,7 @@ import { AUTH_TOKEN_TTL_MINUTES } from "./authTokenTtl";
 
 /**
  * How long a generated pairing-authorization link stays valid. Pairing is
- * a same-owner, both-stores-in-hand flow (see store-pairing.md) — the
+ * a same-owner, both-stores-in-hand flow (see store-pairing.md): the
  * merchant sending the link and the one opening it are typically doing so
  * within the same short session, not over days, so a long TTL isn't
  * buying anything except a bigger window for a leaked link. 15 minutes
@@ -17,7 +17,7 @@ const AUTH_TOKEN_TTL_MS = AUTH_TOKEN_TTL_MINUTES * 60 * 1000;
 /**
  * Generates a pairing-authorization token: a raw, URL-safe secret to hand
  * to the caller (shown once, put in the shareable link) and its SHA-256
- * hash to persist instead (never store the raw value — same reasoning as
+ * hash to persist instead (never store the raw value, same reasoning as
  * a password reset token).
  */
 export function generateAuthToken(): {

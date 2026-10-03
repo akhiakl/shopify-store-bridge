@@ -11,7 +11,7 @@ import { relations, sql } from "drizzle-orm";
 import { serviceRoleOnly } from "./rls.server";
 import { stores, syncGroups } from "./schema.server";
 
-// Sync-job domain — split out of schema.server.ts (the pairing domain)
+// Sync-job domain: split out of schema.server.ts (the pairing domain)
 // once that file started pushing past the 300-line limit. `stores`/
 // `syncGroups` are imported one-way from there; nothing in
 // schema.server.ts imports back from here, so there's no circular
@@ -47,7 +47,7 @@ export const syncJobTargetStatusEnum = pgEnum("SyncJobTargetStatus", [
   "SKIPPED",
 ]);
 
-/** Per-item outcome within a `SyncJobTarget` — same three-way split
+/** Per-item outcome within a `SyncJobTarget`, same three-way split
  * `createOne` in syncTarget.server.ts already returns (ok / ok+skipped /
  * error), just persisted instead of only folded into a count. */
 export const syncJobItemStatusEnum = pgEnum("SyncJobItemStatus", [
@@ -65,11 +65,11 @@ export const syncJobItemKindEnum = pgEnum("SyncJobItemKind", [
 
 // --- TABLES ---
 
-/** One "Sync now" click for a group — pushes the selected metafield/metaobject
+/** One "Sync now" click for a group: pushes the selected metafield/metaobject
  * definitions (see app.groups.$groupId.definitions/sync.server.ts) from the
  * group's source store to each of its APPROVED targets. `selection` is the
  * raw definition keys the UI submitted (same `metaobject:<type>` /
- * `metafield:<ownerType>:<namespace>:<key>` keys the checkboxes use) — kept
+ * `metafield:<ownerType>:<namespace>:<key>` keys the checkboxes use): kept
  * verbatim so job history can show what was actually requested, not just
  * the outcome. */
 export const syncJobs = pgTable(
@@ -100,7 +100,7 @@ export const syncJobs = pgTable(
   () => [serviceRoleOnly("SyncJob")],
 ).enableRLS();
 
-/** One target store's result within a `SyncJob` — item counts for an
+/** One target store's result within a `SyncJob`: item counts for an
  * at-a-glance summary; the exact Shopify userError (if any) is kept in
  * `errorMessage` for a target-level failure (e.g. its session couldn't be
  * loaded), not a per-item one. Per-item detail lives in `SyncJobItem`. */
@@ -118,7 +118,7 @@ export const syncJobTargets = pgTable(
       .references(() => stores.id, { onDelete: "cascade" }),
     status: syncJobTargetStatusEnum("status").notNull(),
     itemsSynced: integer("itemsSynced").notNull().default(0),
-    /** Already existed on the target (Shopify's `TAKEN` userError code) —
+    /** Already existed on the target (Shopify's `TAKEN` userError code):
      * counted separately from itemsFailed so a clean re-run doesn't read
      * as an error; see syncTarget.server.ts's createOne. */
     itemsSkipped: integer("itemsSkipped").notNull().default(0),
@@ -133,7 +133,7 @@ export const syncJobTargets = pgTable(
 ).enableRLS();
 
 /** One definition (or SHOP-metafield value) attempted within a
- * `SyncJobTarget` — lets job history answer "which one failed," not just
+ * `SyncJobTarget`: lets job history answer "which one failed," not just
  * "how many." `key` reuses the same selection-key format the checkbox UI
  * and sync.server.ts's parseSelection already use (`metaobject:<type>` /
  * `metafield:<ownerType>:<namespace>:<key>`); `kind` distinguishes a

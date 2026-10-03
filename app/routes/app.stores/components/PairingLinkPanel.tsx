@@ -23,7 +23,7 @@ export function PairingLinkPanel({ authorizeUrl }: PairingLinkPanelProps) {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard API can be unavailable (insecure context, denied
-      // permission) — the link above is still selectable/clickable as a
+      // permission): the link above is still selectable/clickable as a
       // fallback, so this failure needs no user-facing error.
     }
   }

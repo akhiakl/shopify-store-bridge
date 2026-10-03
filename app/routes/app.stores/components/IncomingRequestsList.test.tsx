@@ -41,7 +41,7 @@ describe("IncomingRequestsList", () => {
     render(<Stub initialEntries={["/"]} />);
 
     expect(
-      screen.getByText(/source\.myshopify\.com — EU stores/),
+      screen.getByText(/source\.myshopify\.com \(EU stores\)/),
     ).toBeInTheDocument();
     expect(document.querySelectorAll("form")).toHaveLength(1);
   });

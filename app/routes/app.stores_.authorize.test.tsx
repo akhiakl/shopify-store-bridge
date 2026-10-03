@@ -159,7 +159,7 @@ describe("AuthorizePairing page", () => {
   it("surfaces the action's specific error when approving fails", async () => {
     // Mirrors the real route: a failed approve means the underlying
     // request is no longer PENDING/unexpired, so the loader's own
-    // revalidation after the action also flips to ok:false — the
+    // revalidation after the action also flips to ok:false: the
     // component has to rely on actionData.error for the specific reason.
     let responded = false;
     const Stub = createRoutesStub([

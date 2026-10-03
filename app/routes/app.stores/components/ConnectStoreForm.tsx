@@ -9,10 +9,10 @@ type ConnectActionData =
 
 /**
  * Invite a target store (by domain) into a new sync group. The current
- * store is always the source — there's no source picker, see AGENTS.md's
+ * store is always the source: there's no source picker, see AGENTS.md's
  * store-pairing notes. On success, shows a one-time authorization link to
  * copy and send to whoever actually runs the target store (outside this
- * app) — Shopify has no API to confirm the two shops share an owner, so
+ * app): Shopify has no API to confirm the two shops share an owner, so
  * that out-of-band handoff is the proof; only the link's holder can
  * approve the pairing.
  */
@@ -40,7 +40,7 @@ export function ConnectStoreForm() {
       {data?.ok && (
         <s-banner tone="success" heading="Pairing request created">
           <s-paragraph>
-            Send this link to whoever runs the target store — only they can
+            Send this link to whoever runs the target store. Only they can
             approve it.
           </s-paragraph>
           <PairingLinkPanel authorizeUrl={data.authorizeUrl} />

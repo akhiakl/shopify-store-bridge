@@ -7,12 +7,12 @@ interface IncomingRequestsListProps {
 }
 
 /**
- * Pending pairing invites for the current store — visibility only.
+ * Pending pairing invites for the current store: visibility only.
  * Approving requires the one-time link the source shared out-of-band (see
  * app.stores.authorize.tsx and pairing.server.ts's requestPairing) rather
  * than a button here, since anyone who can see this list could otherwise
  * approve a pairing for a store they don't actually run. Declining stays
- * available here — it's harmless either way.
+ * available here: it's harmless either way.
  */
 export function IncomingRequestsList({ requests }: IncomingRequestsListProps) {
   return (
@@ -37,7 +37,7 @@ function RequestRow({
       <s-stack direction="inline" gap="base" alignItems="center">
         <s-paragraph>
           {request.group.source.shop}
-          {request.group.name ? ` — ${request.group.name}` : ""} — waiting for
+          {request.group.name ? ` (${request.group.name})` : ""}, waiting for
           the pairing link sent to you to be opened and confirmed
         </s-paragraph>
         <declineFetcher.Form method="post">

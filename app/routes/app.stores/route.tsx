@@ -18,7 +18,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return getDashboardData(session.shop);
 };
 
-/** Shared by the "connect" and "regenerate" intents — both end up handing
+/** Shared by the "connect" and "regenerate" intents: both end up handing
  * the merchant the same shareable authorize link shape. */
 function buildAuthorizeUrl(
   token: string,
@@ -38,10 +38,10 @@ function buildAuthorizeUrl(
  * Handles the three form intents this route posts: inviting a target
  * store into a sync group ("connect"), declining an incoming pairing
  * request ("decline"), and reissuing a lost/expired authorize link for a
- * still-pending request the source sent ("regenerate") — approving one
+ * still-pending request the source sent ("regenerate"): approving one
  * happens on app.stores.authorize instead, since it requires the one-time
- * token from the invite (see pairing.server.ts). `session.shop` — never
- * form input — is the caller's identity, so a store can only act on its
+ * token from the invite (see pairing.server.ts). `session.shop` (never
+ * form input) is the caller's identity, so a store can only act on its
  * own behalf.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {

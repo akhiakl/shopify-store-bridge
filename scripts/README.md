@@ -11,13 +11,13 @@ session would normally provide:
 - **Styling**: real Polaris Web Components load their definitions from
   `https://cdn.shopify.com/shopifycloud/polaris.js` at runtime. Where
   that host isn't reachable (sandboxed CI/dev environments), the script
-  intercepts it and injects `mock-polaris.css` instead — a plain-CSS
+  intercepts it and injects `mock-polaris.css` instead: a plain-CSS
   approximation (tag/attribute selectors, `content: attr(...)` for props
   like `heading`) that keeps structure, spacing, and flow legible. **It is
-  not real Polaris** — treat the output as a layout/flow preview, not a
+  not real Polaris**: treat the output as a layout/flow preview, not a
   pixel-accurate one. If `cdn.shopify.com` _is_ reachable, prefer running
   a real embedded session (`shopify app dev`) and screenshotting that
-  instead — it'll be the real thing, not a mock.
+  instead: it'll be the real thing, not a mock.
 
 ## Usage
 

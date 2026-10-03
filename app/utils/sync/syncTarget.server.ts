@@ -43,10 +43,10 @@ import {
   type CreateResult,
 } from "./runMutation.server";
 
-/** Copies one SHOP metafield's current value from source to target — a
+/** Copies one SHOP metafield's current value from source to target: a
  * no-op (not a failure) if the source has no value set yet for it. A
  * top-level GraphQL error reading the source (missing scope, bad query) is
- * a real failure, not "no value set" — reported the same way `createOne`
+ * a real failure, not "no value set": reported the same way `createOne`
  * reports one on the write side, rather than silently recording SKIPPED. */
 async function syncShopMetafieldValue({
   sourceAdmin,
@@ -91,7 +91,7 @@ export interface SyncTally {
   itemsFailed: number;
 }
 
-/** One definition (or value-sync) attempt's outcome — persisted verbatim
+/** One definition (or value-sync) attempt's outcome: persisted verbatim
  * as a `SyncJobItem` row by the sync worker, so job history can show which
  * item failed, not just how many. `key` reuses the same
  * `metaobject:<type>` / `metafield:<ownerType>:<namespace>:<key>` format

@@ -1,6 +1,6 @@
 # `push` and `pull_request` both fire for a same-repo PR branch (push
 # because you pushed a commit, pull_request:synchronize because that branch
-# has an open PR) — scoping `push` to just the trunk branches means a PR
+# has an open PR): scoping `push` to just the trunk branches means a PR
 # branch only triggers once, via `pull_request`, instead of running every
 # job twice for the identical commit.
 on:
@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       # Installs pnpm (version read from package.json's "packageManager"
-      # field — keep that in sync rather than pinning a version here too)
+      # field: keep that in sync rather than pinning a version here too)
       # and this leg's Node version in one step, plus caches the pnpm
       # store. `pnpm install` (below) auto-detects the CI env var GitHub
       # Actions sets and runs in frozen-lockfile mode, npm ci's equivalent.
@@ -36,7 +36,7 @@ jobs:
       - name: Lint
         run: pnpm run lint
       # Regenerates app/types/* from the live Admin API schema (AGENTS.md
-      # §7 — every GraphQL operation should pass codegen). Not checked in
+      # §7: every GraphQL operation should pass codegen). Not checked in
       # (see .gitignore) since it fetches from shopify.dev each run,
       # keeping it current with whatever API version .graphqlrc.ts pins.
       - name: GraphQL codegen
@@ -51,7 +51,7 @@ jobs:
           SHOPIFY_API_KEY: ci-placeholder
           SHOPIFY_APP_URL: https://ci-placeholder.example.com
       # One leg's coverage is enough for the Quality Gate job's PR summary
-      # — always() so it still uploads (or harmlessly warns "no files
+      # always() so it still uploads (or harmlessly warns "no files
       # found") if a later step like Build fails after Test succeeded.
       - name: Upload coverage summary
         if: matrix.version == 24 && always()
@@ -66,13 +66,13 @@ jobs:
     name: End-to-End Tests
     runs-on: ubuntu-latest
     # A cold Playwright install + the suite itself normally finishes well
-    # under 10 minutes — cap it so a hung install/download (observed once:
+    # under 10 minutes: cap it so a hung install/download (observed once:
     # a run sat "in progress" for 40+ minutes) fails fast instead of tying
     # up the runner and blocking the Quality Gate indefinitely.
     timeout-minutes: 15
     services:
       # Session storage in production is Supabase Postgres (see
-      # app/db/schema.server.ts) — e2e runs against a real
+      # app/db/schema.server.ts): e2e runs against a real
       # Postgres for the same reason, not sqlite, so a schema mismatch like
       # the one this migration once had (DATETIME instead of TIMESTAMP)
       # can't slip through unnoticed again.
@@ -91,7 +91,7 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/storebridge_e2e
-      # Any values work — nothing in the e2e suite calls the real Shopify
+      # Any values work: nothing in the e2e suite calls the real Shopify
       # API, it forges its own session token locally. See
       # e2e/support/embedded-fixture.ts.
       SHOPIFY_API_KEY: ci-e2e-api-key
@@ -109,7 +109,7 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
       # The Chromium binary download (~100MB) is what makes "install
-      # Playwright" slow, not the OS package install — cache it keyed on
+      # Playwright" slow, not the OS package install: cache it keyed on
       # the actually-installed @playwright/test version so a version bump
       # invalidates the cache automatically. OS-level deps still have to
       # install every run regardless of cache-hit: GitHub-hosted runners
@@ -131,7 +131,7 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium
       # Production Postgres is Supabase, which ships a built-in
-      # `service_role` role — the RLS policies in schema.server.ts
+      # `service_role` role: the RLS policies in schema.server.ts
       # (`serviceRoleOnly`, via drizzle-orm/supabase's `serviceRole`) all
       # grant access `TO "service_role"`. This plain postgres:16 service
       # container has no such role, so `drizzle-kit migrate` fails on the
@@ -152,8 +152,8 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # Single aggregate status — the one check to require in branch protection
-  # instead of naming every verify/e2e matrix leg individually — plus the
+  # Single aggregate status: the one check to require in branch protection
+  # instead of naming every verify/e2e matrix leg individually, plus the
   # PR summary comment. `always()` so it runs (and reports) even when
   # verify/e2e failed; it fails itself at the end based on their results.
   quality-gate:

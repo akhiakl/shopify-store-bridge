@@ -5,12 +5,12 @@ import { sessions } from "~/db/schema.server";
 
 /**
  * Seeds a Session row that @shopify/shopify-app-react-router's
- * authenticate.admin() will treat as an already-active offline session —
+ * authenticate.admin() will treat as an already-active offline session:
  * confirmed by reading the installed package's token-exchange strategy
  * (strategies/token-exchange.js): it returns the existing session directly,
  * with no network call to Shopify, whenever `session.isActive()` is true.
  * That only requires a truthy `accessToken` and a null/never-expired
- * `expires` — see @shopify/shopify-api's lib/session/session.js.
+ * `expires`: see @shopify/shopify-api's lib/session/session.js.
  *
  * The row's id must be `offline_<shop>` to match
  * @shopify/shopify-api's getOfflineId(shop).

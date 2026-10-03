@@ -16,7 +16,7 @@ interface SignSessionTokenOptions {
 }
 
 /**
- * Signs a Shopify embedded-app session token (JWT) for e2e tests — stands
+ * Signs a Shopify embedded-app session token (JWT) for e2e tests: stands
  * in for the token Shopify's App Bridge would normally mint client-side.
  *
  * Claim shape and signing confirmed by reading the installed

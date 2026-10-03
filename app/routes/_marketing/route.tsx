@@ -9,7 +9,7 @@ import tailwindHref from "./tailwind.css?url";
 /**
  * Marketing-site shell: nav header + footer, wrapping every public page
  * (`_marketing._index`, and future pages like pricing/about) via a pathless
- * layout route. Scoped Tailwind stylesheet only loads on these routes —
+ * layout route. Scoped Tailwind stylesheet only loads on these routes:
  * embedded admin routes under `app.*` keep using Polaris Web Components
  * untouched.
  */
@@ -40,7 +40,7 @@ export default function MarketingLayout() {
         <Outlet />
       </main>
       <footer className="border-t border-neutral-200 py-6 text-center text-xs text-neutral-500">
-        StoreBridge — sync Shopify metaobject and metafield definitions between
+        StoreBridge: sync Shopify metaobject and metafield definitions between
         stores.
       </footer>
     </div>

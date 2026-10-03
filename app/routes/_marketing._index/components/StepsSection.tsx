@@ -9,7 +9,7 @@ const steps = [
     number: "02",
     label: "Approve",
     title: "Reviewed from the target side",
-    body: "Nothing lands until the target store approves the pairing — no accidental cross-store changes.",
+    body: "Nothing lands until the target store approves the pairing: no accidental cross-store changes.",
   },
   {
     number: "03",
@@ -19,7 +19,7 @@ const steps = [
   },
 ] as const;
 
-/** "How it works" — three-step summary of the pairing → approval → sync flow. */
+/** "How it works": three-step summary of the pairing → approval → sync flow. */
 export function StepsSection() {
   return (
     <section
@@ -35,7 +35,7 @@ export function StepsSection() {
           {steps.map((step) => (
             <div key={step.number} className="border-t border-neutral-700 pt-4">
               <p className="font-mono text-xs text-neutral-400">
-                {step.number} — {step.label.toUpperCase()}
+                {step.number} · {step.label.toUpperCase()}
               </p>
               <p className="mt-2 font-semibold">{step.title}</p>
               <p className="mt-1 text-sm text-neutral-400">{step.body}</p>

@@ -3,7 +3,7 @@ import { Button } from "~/components/ui/Button";
 import { Card } from "~/components/ui/Card";
 
 /**
- * Illustrative mock of a definition-sync review — not live data. Shows what
+ * Illustrative mock of a definition-sync review, not live data. Shows what
  * a target-store reviewer sees before a metaobject definition change ships,
  * mirroring the "pairing approved before anything syncs" feature.
  */
@@ -37,7 +37,7 @@ export function HeroPreviewCard() {
         </div>
 
         <p className="mt-3 text-xs text-neutral-500">
-          Unchanged: label, position — 3 other fields hidden from review
+          Unchanged: label, position (3 other fields hidden from review)
         </p>
 
         <div className="mt-4 flex justify-end gap-2 border-t border-neutral-200 pt-4">

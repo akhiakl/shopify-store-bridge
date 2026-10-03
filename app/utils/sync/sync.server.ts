@@ -29,7 +29,7 @@ export interface ParsedSelection {
 /** Inverse of the `definitionKey` helpers in the checkbox components
  * (`metaobject:<type>`, `metafield:<ownerType>:<namespace>:<key>`,
  * `policy:<type>`, `collection:<handle>`, `metaobjectEntries:<type>`,
- * `metafieldValues:<ownerType>:<namespace>:<key>`, `menu:<handle>`, `location:<name>`) — safe to split on ":" since
+ * `metafieldValues:<ownerType>:<namespace>:<key>`, `menu:<handle>`, `location:<name>`): safe to split on ":" since
  * Shopify's own validation rules for type/namespace/key (alphanumeric,
  * hyphen, underscore only) rule out embedded colons, and `ShopPolicyType`
  * is itself an enum of bare uppercase names. Collection and menu handles
@@ -75,7 +75,7 @@ export function parseSelection(keys: string[]): ParsedSelection {
   return parsed;
 }
 
-/** Never trusts the browser for the actual definition shape — only the
+/** Never trusts the browser for the actual definition shape, only the
  * selection *keys* cross the wire; the definitions themselves are read
  * from the source store when the job starts. */
 export async function resolvePlan(

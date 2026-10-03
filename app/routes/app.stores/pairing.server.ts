@@ -8,12 +8,12 @@ import { generateAuthToken, hashAuthToken } from "./authToken.server";
 
 /**
  * Shop-domain format check for the "connect a store" input. Accepts either
- * a bare store handle (just the name, e.g. "poc-liquid" — the common case
+ * a bare store handle (just the name, e.g. "poc-liquid": the common case
  * a merchant will actually type) or the full `*.myshopify.com` domain;
  * a bare handle gets the suffix appended. Doesn't accept a custom domain:
  * Shopify sessions are always keyed by the `*.myshopify.com` handle, never
  * a custom domain, and this app has no way to resolve one to the other
- * before a session exists for that shop (see `isShopInstalled` below) —
+ * before a session exists for that shop (see `isShopInstalled` below):
  * accepting custom-domain input would just fail there every time, which
  * is worse than not offering it. Not Admin API surface, so this doesn't
  * need Shopify Dev MCP verification, just input sanitization.
@@ -45,15 +45,15 @@ type RequestPairingResult =
   | { ok: false; error: string; installUrl?: string };
 
 /**
- * Invites a target store into a sync group owned by `sourceShop` — creates
+ * Invites a target store into a sync group owned by `sourceShop`: creates
  * a new group when `groupId` is omitted, otherwise adds to an existing one
  * the source store actually owns. Returns a one-time authorization token
- * (never stored raw — see authToken.server.ts) the caller shares
+ * (never stored raw: see authToken.server.ts) the caller shares
  * out-of-band with whoever actually runs the target store; only that
  * token, redeemed from the target's own authenticated session, can
  * approve the pairing (approvePairingRequest). Shopify has no API to
  * prove two shops share an owner, so this out-of-band secret is the
- * strongest available proof — the same pattern Slack Connect/Stripe
+ * strongest available proof: the same pattern Slack Connect/Stripe
  * Connect use for cross-tenant linking.
  */
 export async function requestPairing({
@@ -136,7 +136,7 @@ export type PendingTargetByToken = NonNullable<
 
 /**
  * Looks up the pending request a raw authorization token points to,
- * scoped to the shop redeeming it — `shop` must be the caller's
+ * scoped to the shop redeeming it: `shop` must be the caller's
  * authenticated session.shop, never form/URL input, or any shop could
  * inspect (though not approve) another shop's pending request just by
  * guessing a target id. Returns null for an invalid, expired, wrong-shop,
@@ -162,7 +162,7 @@ export async function getPendingRequestByToken(token: string, shop: string) {
 }
 
 /**
- * Approves a pairing request — the only path that can, since Shopify has
+ * Approves a pairing request: the only path that can, since Shopify has
  * no way to confirm the approving session actually belongs to whoever the
  * source intended (see requestPairing's comment). Single-use: the token
  * is cleared on success so it can't be replayed.
@@ -195,7 +195,7 @@ export async function approvePairingRequest({
 }
 
 /**
- * Declines a pairing request from the regular dashboard list — no token
+ * Declines a pairing request from the regular dashboard list: no token
  * needed, since declining is harmless either way. `shop` must be the
  * caller's authenticated session.shop, never form input, or any shop
  * could decline any other shop's pairing requests.
@@ -233,7 +233,7 @@ export async function declinePairingRequest({
 
 /**
  * Issues a fresh authorization token for a still-PENDING request whose
- * original link expired (48h) or got lost — the alternative today is
+ * original link expired (48h) or got lost: the alternative today is
  * decline-and-reinvite, which loses the request's place if the source
  * wanted to keep it. Source-authorized, not target-authorized (unlike
  * declinePairingRequest): only the source decides to resend a link,
@@ -263,7 +263,7 @@ export async function regeneratePairingRequest({
   }
 
   const { raw, hash, expiresAt } = generateAuthToken();
-  // Guard the write on status too, not just id — the read above is stale by
+  // Guard the write on status too, not just id: the read above is stale by
   // the time this runs, and without this a concurrent approve/decline could
   // land between the check and the update, reintroducing a token on a
   // request that's no longer PENDING (breaking the "token cleared after

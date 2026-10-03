@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /**
  * A minimal stand-in for Drizzle's fluent query builders
  * (`db.insert(...).values(...).returning()`,
- * `db.update(...).set(...).where(...).returning()`) — every chain method
+ * `db.update(...).set(...).where(...).returning()`): every chain method
  * returns the same mock object so calls can keep chaining (e.g. `.where()`
  * followed by `.returning()`), and the object is itself thenable so a bare
  * `await db.update(t).set(v).where(...)` with no `.returning()` resolves
@@ -461,7 +461,7 @@ describe("regeneratePairingRequest", () => {
   });
 
   it("errors instead of reintroducing a token when the request was responded to between the read and the write", async () => {
-    // The read sees PENDING, but the guarded update matches nothing —
+    // The read sees PENDING, but the guarded update matches nothing,
     // e.g. a concurrent approve/decline landed in between. Regressing
     // this to an unguarded `.where(eq(id, targetId))` would silently
     // reintroduce a token on a request that's no longer PENDING instead

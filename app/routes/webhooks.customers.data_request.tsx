@@ -5,7 +5,7 @@ import { customerDataRequests } from "~/db/complianceSchema.server";
 import { authenticate } from "~/shopify.server";
 
 /**
- * Mandatory compliance webhook (customers/data_request) — required before
+ * Mandatory compliance webhook (customers/data_request): required before
  * public App Store submission, see
  * https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance.
  * A customer asked the store owner for the data an app holds on them.

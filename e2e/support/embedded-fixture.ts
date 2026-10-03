@@ -7,7 +7,7 @@ import {
 } from "./shopify-session";
 
 /**
- * A fake, e2e-only shop domain — never a real store. Seeded and torn down
+ * A fake, e2e-only shop domain, never a real store. Seeded and torn down
  * per test so runs don't leak state into each other.
  */
 export const TEST_SHOP = "storebridge-e2e-test.myshopify.com";
@@ -16,7 +16,7 @@ interface EmbeddedFixtures {
   /** A valid, freshly-signed session token for TEST_SHOP. */
   sessionToken: string;
   /**
-   * Extra HTTP headers carrying the session token — pass to
+   * Extra HTTP headers carrying the session token: pass to
    * `request.get(url, { headers })` (or `context.setExtraHTTPHeaders`) so
    * `authenticate.admin()` finds it via the Authorization header, matching
    * how App Bridge attaches it in the real embedded app.
@@ -32,7 +32,7 @@ export const test = base.extend<EmbeddedFixtures>({
     if (!apiKey || !apiSecretKey) {
       throw new Error(
         "SHOPIFY_API_KEY / SHOPIFY_API_SECRET must be set to run embedded-app e2e tests " +
-          "(any test values work — nothing here calls the real Shopify API).",
+          "(any test values work: nothing here calls the real Shopify API).",
       );
     }
 
@@ -48,7 +48,7 @@ export const test = base.extend<EmbeddedFixtures>({
 });
 
 // One pg.Pool is shared across every test in this worker (module-level
-// singleton in db.server.ts) — close it once after the last test runs
+// singleton in db.server.ts): close it once after the last test runs
 // instead of per-test, or a still-open handle can make `playwright test`
 // hang/flap on exit.
 test.afterAll(async () => {

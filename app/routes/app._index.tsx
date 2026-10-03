@@ -7,7 +7,7 @@ import { JOB_STATUS_TONE } from "~/utils/syncJobStatusTone";
 import { authenticate } from "../shopify.server";
 
 /**
- * App Home — a real dashboard now that pairing and definition sync both
+ * App Home: a real dashboard now that pairing and definition sync both
  * exist: quick counts, recent sync activity across every group this shop
  * owns, and links into "Connected stores" and each group's definitions
  * page. Replaces the earlier placeholder that just described what would
@@ -31,8 +31,8 @@ export default function Index() {
       <s-page heading="StoreBridge">
         <s-section heading="Welcome to StoreBridge">
           <s-paragraph>
-            You haven&apos;t connected any stores yet — start on Connected
-            stores to invite a target store into a sync group.
+            You haven&apos;t connected any stores yet: start on Connected stores
+            to invite a target store into a sync group.
           </s-paragraph>
           <s-link href="/app/stores">Connected stores</s-link>
         </s-section>

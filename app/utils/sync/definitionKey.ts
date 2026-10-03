@@ -9,7 +9,7 @@ import type {
  * engine (`syncTarget.server.ts`, `sync.server.ts`'s `parseSelection`), and
  * the sync-status checker (`syncStatus.server.ts`) all need to agree on the
  * same `metaobject:<type>` / `metafield:<ownerType>:<namespace>:<key>`
- * shape to join their results back to one definition — promoted here once
+ * shape to join their results back to one definition: promoted here once
  * a fourth consumer needed it, per AGENTS.md's "used elsewhere → promote"
  * rule.
  */
