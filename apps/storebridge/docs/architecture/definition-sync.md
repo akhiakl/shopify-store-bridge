@@ -15,11 +15,12 @@ after the existing read-only browser (`definitions.server.ts`) and a much smalle
 than syncing actual product/metaobject data.
 
 One exception: **SHOP-owned metafield values do sync**, riding along with their
-definition (see "Shop metafield value sync" below). Resource-level values (Product,
-Customer, Order, …) don't, and won't until something solves the harder problem those
-need — matching which record on the target corresponds to which record on the source,
-since the two stores have entirely separate catalogs with no shared IDs. Shop is the one
-owner type where that problem doesn't exist: there's exactly one Shop per store.
+definition (see "Shop metafield value sync" below). Shop is the one owner type with no
+record-matching problem: there's exactly one Shop per store. Values on other records
+need to know which target record corresponds to which source record, since the two
+stores have separate catalogs with no shared IDs. Product, collection and customer
+values now sync by natural key (see "Metafield value sync" below); other owner types
+still don't.
 
 Every job is manually triggered: the merchant selects definitions on the checkbox UI and
 clicks "Sync now." There's no webhook or scheduler — see "Things intentionally not
@@ -138,6 +139,33 @@ behind it: issue #63. In short:
 - One `SyncJobItem` per entry (`metaobjectEntry:<type>:<handle>`,
   `kind: VALUE`) — bounded by the cap.
 
+## Metafield value sync (#63, phase 2)
+
+Selecting a definition under "Metafield values" (`metafieldValues:<ownerType>:<namespace>:<key>`)
+syncs the values records hold for it. Only owner types with a natural key both stores
+share are offered: **products and collections by handle, customers by email**.
+Variants, orders, pages, blogs and articles have none in the 2026-07 API.
+
+- **Plan holds IDs only.** Planning lists the source records that have a value
+  (`metafieldDefinition(identifier).metafields`), capped at `VALUE_CAP_PER_DEFINITION`
+  (1,000). Each step reads the current value plus the record's handle or email from the
+  source _when it runs_, so emails and values are never written to StoreBridge's database.
+- **Steps are batches of 25**, the `metafieldsSet` limit. Per batch: one source read, one
+  reference lookup, a target lookup per record (`productByIdentifier` /
+  `collectionByIdentifier` / `customerByIdentifier`, cached per target), then one
+  `metafieldsSet`. `metafieldsSet` is atomic, so a rejected write fails the whole batch.
+- **Unmatched records are SKIPPED with a reason** (no match on the target, no value or
+  no longer on the source, customer without an email) and listed in job history.
+- **References.** `product_reference`, `collection_reference` and `metaobject_reference`
+  (and their `list.` forms) are rewritten to the target's GIDs by handle (type + handle for
+  metaobjects). Values sync after entries and collections, so references to records synced
+  in the same job resolve. Any other reference type fails that record.
+- **Customers.** Reading `defaultEmailAddress` is protected customer data and needs the
+  app's access approved in the Partner Dashboard; without it, those batches fail with
+  Shopify's error. Job-history rows key customers by their **source GID**, never by email,
+  and `customers/redact` deletes those rows (see `webhooks.customers.redact.tsx`).
+- Source authoritative, deletes not propagated, same as entries.
+
 ## Job/job-target/job-item schema
 
 One `SyncJob` row per "Sync now" click (group, requested selection, overall status,
@@ -173,6 +201,5 @@ object spread into one `schema` object for Drizzle's relational query API.
 
 - **Webhooks/automatic sync on source change.** Manual-trigger only, per the product
   decision this feature shipped with. Revisit once merchants actually ask for it.
-- **Resource-level metafield value sync** (Product/Customer/Order/…). Needs a
-  record-matching step this app doesn't have yet — see "Scope" above. The
-  agreed approach (natural keys: handle/email) is phase 2 of #63.
+- **Value sync for owners without a shared key** (variants, orders, pages,
+  blogs, articles). Would need a mapping table or custom IDs; see #63.
