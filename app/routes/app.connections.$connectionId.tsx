@@ -3,6 +3,7 @@ import { Outlet, useLoaderData, useLocation } from "react-router";
 
 import { NavButtons } from "~/components/NavButtons";
 import { CONNECTION_STATUS } from "~/utils/connectionStatus";
+import { storeAdminUrl } from "~/utils/storeAdminUrl";
 import { requireConnectionPage } from "~/utils/sync/connectionRoute.server";
 
 /** One page per syncable type, so each loads only its own data from the
@@ -26,6 +27,7 @@ export const loader = async (args: LoaderFunctionArgs) => {
     role,
     sourceShop: connection.source.shop,
     targetShop: connection.target.shop,
+    apiKey: process.env.SHOPIFY_API_KEY ?? "",
   };
 };
 
@@ -37,27 +39,38 @@ export const loader = async (args: LoaderFunctionArgs) => {
  * requireConnectionPage) and may slot a primary action (SyncButton) into
  * this `s-page`. */
 export default function ConnectionLayout() {
-  const { connectionId, status, role, sourceShop, targetShop } =
+  const { connectionId, status, role, sourceShop, targetShop, apiKey } =
     useLoaderData<typeof loader>();
   const { pathname } = useLocation();
   const base = `/app/connections/${connectionId}`;
   const badge = CONNECTION_STATUS[status];
+  const otherShop = role === "source" ? targetShop : sourceShop;
 
   return (
-    <s-page heading={role === "source" ? targetShop : sourceShop}>
+    <s-page heading={otherShop}>
       <s-link slot="breadcrumb-actions" href="/app/stores">
         Connected stores
       </s-link>
       <s-section>
         <s-stack gap="base">
-          <s-stack direction="inline" gap="small-200" alignItems="center">
-            <s-badge tone={badge.tone}>{badge.label}</s-badge>
-            <s-paragraph>
-              {role === "source"
-                ? `Sync from this store to ${targetShop}.`
-                : `Pull from ${sourceShop} into this store.`}
-            </s-paragraph>
-          </s-stack>
+          <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="center">
+            <s-stack direction="inline" gap="small-200" alignItems="center">
+              <s-badge tone={badge.tone}>{badge.label}</s-badge>
+              <s-paragraph>
+                {role === "source"
+                  ? `Sync from this store to ${targetShop}.`
+                  : `Pull from ${sourceShop} into this store.`}
+              </s-paragraph>
+            </s-stack>
+            {/* This connection's page in StoreBridge in the other store, not
+                its admin home: that's where its side is managed. */}
+            <s-button
+              href={storeAdminUrl(otherShop, apiKey, base)}
+              target="_blank"
+            >
+              Open connected store
+            </s-button>
+          </s-grid>
           <NavButtons
             items={PAGES.map((page) => ({
               label: page.label,

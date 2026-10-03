@@ -30,6 +30,7 @@ describe("connection layout loader", () => {
       role: "target",
       sourceShop: "src.myshopify.com",
       targetShop: "tgt.myshopify.com",
+      apiKey: expect.any(String),
     });
   });
 });
@@ -48,6 +49,7 @@ function renderAt(
         role,
         sourceShop: "src.myshopify.com",
         targetShop: "tgt.myshopify.com",
+        apiKey: "key-1",
       }),
       children: [
         { index: true, Component: () => <p>history</p> },
@@ -73,6 +75,13 @@ describe("ConnectionLayout", () => {
     expect(
       screen.getByText("Sync from this store to tgt.myshopify.com."),
     ).toBeInTheDocument();
+    expect(screen.getByText("Open connected store")).toHaveAttribute(
+      "href",
+      "https://admin.shopify.com/store/tgt/apps/key-1/app/connections/conn-1",
+    );
+    expect(
+      screen.getByText("Sync from this store to tgt.myshopify.com."),
+    ).toBeInTheDocument();
     expect(screen.getByText("Connected")).toHaveAttribute("tone", "success");
     expect(screen.getByText("Metafields")).toHaveAttribute(
       "variant",
@@ -89,6 +98,13 @@ describe("ConnectionLayout", () => {
 
     expect(
       await screen.findByText("Pull from src.myshopify.com into this store."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Open connected store")).toHaveAttribute(
+      "href",
+      "https://admin.shopify.com/store/src/apps/key-1/app/connections/conn-1",
+    );
+    expect(
+      screen.getByText("Pull from src.myshopify.com into this store."),
     ).toBeInTheDocument();
     expect(document.querySelector("s-page")).toHaveAttribute(
       "heading",
