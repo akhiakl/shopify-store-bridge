@@ -166,6 +166,28 @@ Variants, orders, pages, blogs and articles have none in the 2026-07 API.
   and `customers/redact` deletes those rows (see `webhooks.customers.redact.tsx`).
 - Source authoritative, deletes not propagated, same as entries.
 
+## Navigation menu sync (#122)
+
+Selecting a menu under "Navigation menus" (`menu:<handle>`) creates it on each target,
+or replaces the items of the target menu with the same handle (`menuUpdate` replaces the
+whole item list; a default menu's handle is never changed). Scopes:
+read/write_online_store_navigation.
+
+- **Links are resolved at planning time.** `planMenus` turns each item's source
+  `resourceId` into a cross-store identity and persists that instead: product,
+  collection and metaobject links become a handle (type + handle for metaobjects, via
+  the same lookup as metafield references), and policy links become the policy type.
+  Frontpage, catalog, all-collections, search and URL links need nothing.
+- **At sync time** each link is looked up on the target. A link with no match (record
+  missing on the target, policy not set up there) is **dropped together with its
+  sub-items** and recorded as a SKIPPED `menuItem:<handle>:<title path>` row with the
+  reason, so a partly synced menu is visible in job history.
+- **Page, blog, article and customer-account links are always dropped**: they have no
+  lookup by shared key yet. The menu row in the UI says how many a menu has.
+- Menus run last, after policies, collections, entries and values, so links to records
+  synced in the same job resolve. A failed lookup or a rejected write fails the whole
+  menu.
+
 ## Job/job-target/job-item schema
 
 One `SyncJob` row per "Sync now" click (group, requested selection, overall status,
@@ -203,3 +225,5 @@ object spread into one `schema` object for Drizzle's relational query API.
   decision this feature shipped with. Revisit once merchants actually ask for it.
 - **Value sync for owners without a shared key** (variants, orders, pages,
   blogs, articles). Would need a mapping table or custom IDs; see #63.
+- **Page, blog and article menu links.** Dropped for the same reason; menus sync
+  everything else (#122).
