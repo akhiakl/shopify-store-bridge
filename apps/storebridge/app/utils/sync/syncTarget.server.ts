@@ -15,6 +15,8 @@ import {
 } from "./definitionKey";
 import type { MetaobjectEntryRow } from "./metaobjectEntries.server";
 import type { MetafieldValueSet } from "./metafieldValues.server";
+import type { PlannedMenu } from "./menus.server";
+import { menuStep } from "./syncMenu.server";
 import { metafieldValueSteps } from "./syncMetafieldValues.server";
 import {
   syncMetaobjectEntry,
@@ -129,6 +131,7 @@ export interface SyncPlan {
   collections: CollectionRow[];
   metaobjectEntries: MetaobjectEntryRow[];
   metafieldValues: MetafieldValueSet[];
+  menus: PlannedMenu[];
 }
 
 /** Per-target state shared by that target's steps within one run. */
@@ -263,6 +266,9 @@ export function buildSyncSteps(plan: SyncPlan): SyncStep[] {
     ]),
     // Last: values can reference entries and collections synced above.
     ...plan.metafieldValues.flatMap(metafieldValueSteps),
+    // Menus link to policies, collections, entries and products. Plans
+    // queued before menu sync existed have no `menus`.
+    ...(plan.menus ?? []).map(menuStep),
   ];
 }
 

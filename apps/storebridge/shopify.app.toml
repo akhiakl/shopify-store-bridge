@@ -66,7 +66,13 @@ embedded = true
 # `*_metaobject_definitions` scopes above only cover the schema. Reported
 # by validate_graphql_codeblocks: metaobjects/nodes/metaobjectByHandle need
 # read_metaobjects, metaobjectUpsert needs write_metaobjects.
-scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content,read_legal_policies,write_legal_policies,read_metaobjects,write_metaobjects"
+#
+# read_online_store_navigation / write_online_store_navigation: navigation
+# menu sync (menus.server.ts / syncMenu.server.ts). Reported by
+# validate_graphql_codeblocks: `menus` needs read_online_store_navigation,
+# menuCreate/menuUpdate need both. Adding them asks each installed store to
+# approve the new scopes.
+scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content,read_legal_policies,write_legal_policies,read_metaobjects,write_metaobjects,read_online_store_navigation,write_online_store_navigation"
 use_legacy_install_flow = false
 
 [webhooks]

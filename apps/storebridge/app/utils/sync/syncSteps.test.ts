@@ -76,6 +76,7 @@ describe("buildSyncSteps", () => {
         { type: "faq", handle: "q1", status: null, fields: [] },
       ],
       metafieldValues: [],
+      menus: [],
     });
 
     expect(steps).toHaveLength(3);
@@ -113,6 +114,7 @@ describe("shop policy steps", () => {
         collections: [],
         metaobjectEntries: [],
         metafieldValues: [],
+        menus: [],
         shopPolicies: [
           { type: "REFUND_POLICY", title: "Refund policy", body: "30 days." },
         ],

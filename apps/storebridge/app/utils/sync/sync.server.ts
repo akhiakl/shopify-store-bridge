@@ -8,6 +8,7 @@ import { getCollections } from "./collections.server";
 import { getDefinitionCatalog, getShopPolicies } from "./definitions.server";
 import { getMetafieldValueSets } from "./metafieldValues.server";
 import { getMetaobjectEntries } from "./metaobjectEntries.server";
+import { getMenus, planMenus } from "./menus.server";
 import type { SyncPlan } from "./syncTarget.server";
 
 type MetafieldSelector = { ownerType: string; namespace: string; key: string };
@@ -19,16 +20,18 @@ export interface ParsedSelection {
   collectionHandles: string[];
   metaobjectEntryTypes: string[];
   metafieldValueSelectors: MetafieldSelector[];
+  menuHandles: string[];
 }
 
 /** Inverse of the `definitionKey` helpers in the checkbox components
  * (`metaobject:<type>`, `metafield:<ownerType>:<namespace>:<key>`,
  * `policy:<type>`, `collection:<handle>`, `metaobjectEntries:<type>`,
- * `metafieldValues:<ownerType>:<namespace>:<key>`) — safe to split on ":" since
+ * `metafieldValues:<ownerType>:<namespace>:<key>`, `menu:<handle>`) — safe to split on ":" since
  * Shopify's own validation rules for type/namespace/key (alphanumeric,
  * hyphen, underscore only) rule out embedded colons, and `ShopPolicyType`
- * is itself an enum of bare uppercase names. A collection handle is the
- * last segment, so it's rejoined rather than assumed colon-free. */
+ * is itself an enum of bare uppercase names. Collection and menu handles
+ * are the last segment, so they're rejoined rather than assumed
+ * colon-free. */
 export function parseSelection(keys: string[]): ParsedSelection {
   const parsed: ParsedSelection = {
     metaobjectTypes: [],
@@ -37,6 +40,7 @@ export function parseSelection(keys: string[]): ParsedSelection {
     collectionHandles: [],
     metaobjectEntryTypes: [],
     metafieldValueSelectors: [],
+    menuHandles: [],
   };
   for (const key of keys) {
     const [kind, ...rest] = key.split(":");
@@ -49,6 +53,8 @@ export function parseSelection(keys: string[]): ParsedSelection {
       parsed.policyTypes.push(rest[0]);
     } else if (kind === "collection") {
       parsed.collectionHandles.push(rest.join(":"));
+    } else if (kind === "menu") {
+      parsed.menuHandles.push(rest.join(":"));
     } else if (kind === "metaobjectEntries") {
       parsed.metaobjectEntryTypes.push(rest[0]);
     } else if (kind === "metafieldValues") {
@@ -70,10 +76,11 @@ export async function resolvePlan(
   sourceAdmin: AdminApiContext,
   selection: ParsedSelection,
 ): Promise<SyncPlan> {
-  const [catalog, allPolicies, allCollections] = await Promise.all([
+  const [catalog, allPolicies, allCollections, allMenus] = await Promise.all([
     getDefinitionCatalog(sourceAdmin),
     getShopPolicies(sourceAdmin),
     getCollections(sourceAdmin),
+    selection.menuHandles.length ? getMenus(sourceAdmin) : [],
   ]);
   const metaobjectDefinitions = catalog.metaobjectDefinitions.filter((def) =>
     selection.metaobjectTypes.includes(def.type),
@@ -108,6 +115,10 @@ export async function resolvePlan(
       matches(selection.metafieldValueSelectors),
     ),
   );
+  const menus = await planMenus(
+    sourceAdmin,
+    allMenus.filter((menu) => selection.menuHandles.includes(menu.handle)),
+  );
   return {
     metaobjectDefinitions,
     metafieldDefinitions,
@@ -115,6 +126,7 @@ export async function resolvePlan(
     collections,
     metaobjectEntries,
     metafieldValues,
+    menus,
   };
 }
 

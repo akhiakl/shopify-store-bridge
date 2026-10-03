@@ -62,3 +62,13 @@ export function metafieldValueKey(
 ): string {
   return `metafieldValue:${def.ownerType}:${def.namespace}:${def.key}:${record}`;
 }
+
+export function menuKey(handle: string): string {
+  return `menu:${handle}`;
+}
+
+/** Job-history key for a menu item that couldn't be synced. `path` is its
+ * titles from the top level down, joined with " > ". */
+export function menuItemKey(menuHandle: string, path: string): string {
+  return `menuItem:${menuHandle}:${path}`;
+}

@@ -23,6 +23,9 @@ vi.mock("~/utils/sync/definitions.server", () => ({
 const { getCollections } = vi.hoisted(() => ({ getCollections: vi.fn() }));
 vi.mock("~/utils/sync/collections.server", () => ({ getCollections }));
 
+const { getMenus } = vi.hoisted(() => ({ getMenus: vi.fn() }));
+vi.mock("~/utils/sync/menus.server", () => ({ getMenus }));
+
 const { getJobHistory } = vi.hoisted(() => ({ getJobHistory: vi.fn() }));
 vi.mock("~/utils/sync/sync.server", () => ({ getJobHistory }));
 
@@ -73,6 +76,7 @@ describe("app.groups.$groupId.definitions loader", () => {
     });
     getShopPolicies.mockResolvedValue([]);
     getCollections.mockResolvedValue([]);
+    getMenus.mockResolvedValue([]);
     getJobHistory.mockResolvedValue([]);
 
     const result = await loader({
@@ -90,6 +94,7 @@ describe("app.groups.$groupId.definitions loader", () => {
     expect(getDefinitionCatalog).toHaveBeenCalledWith(admin);
     expect(getShopPolicies).toHaveBeenCalledWith(admin);
     expect(getCollections).toHaveBeenCalledWith(admin);
+    expect(getMenus).toHaveBeenCalledWith(admin);
     expect(getJobHistory).toHaveBeenCalledWith("group-1");
     expect(resumeStalledJobs).toHaveBeenCalledWith("group-1");
     expect(result).toEqual({
@@ -97,6 +102,7 @@ describe("app.groups.$groupId.definitions loader", () => {
       jobs: [],
       shopPolicies: [],
       collections: [],
+      menus: [],
       metafieldDefinitions: [],
       metaobjectDefinitions: [],
     });
