@@ -28,6 +28,15 @@ describe("marketing home loader", () => {
     ).rejects.toMatchObject({ status: 302 });
   });
 
+  it.each(["host=abc", "embedded=1"])(
+    "redirects any embedded load (%s) to /app",
+    async (query) => {
+      await expect(
+        loader(loaderArgs(`https://storebridge.example/?${query}`)),
+      ).rejects.toMatchObject({ status: 302 });
+    },
+  );
+
   it("returns showForm without a shop param", async () => {
     const result = await loader(loaderArgs("https://storebridge.example/"));
     expect(result).toEqual({ showForm: true });

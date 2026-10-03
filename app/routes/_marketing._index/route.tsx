@@ -13,7 +13,14 @@ import { StepsSection } from "./components/StepsSection";
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
 
-  if (url.searchParams.get("shop")) {
+  // Any embedded load belongs in the app, not on the landing page: the
+  // admin always sends one of these when it opens the app in its iframe.
+  const { searchParams } = url;
+  if (
+    searchParams.get("shop") ||
+    searchParams.get("host") ||
+    searchParams.get("embedded") === "1"
+  ) {
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
