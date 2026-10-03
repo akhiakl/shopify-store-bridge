@@ -8,19 +8,18 @@ Owned and shaped by `@shopify/shopify-app-session-storage-drizzle`, not applicat
 
 Don't add columns to this table for app purposes, and don't rename its columns: `sessions`' column names/modifiers in `schema.server.ts` are pinned to exactly match `@shopify/shopify-app-session-storage-drizzle`'s own reference schema (its `DrizzleSessionStoragePostgres` constructor is typed against that literal shape). If a schema migration ever changes its shape upstream, that's a `@shopify/shopify-app-session-storage-drizzle` version bump, not a hand edit.
 
-## `Store` / `SyncGroup` / `SyncGroupTarget`: StoreBridge's own
+## `Store` / `Connection`: StoreBridge's own
 
 Everything else: the actual product. See `store-pairing.md` for the domain logic; this is just the shape:
 
 - **`Store`**: one row per shop that's ever been involved in a pairing, either as source or target. Created lazily (upsert-on-conflict) the first time a shop appears in either role, not on install: a shop can be _invited_ before it's ever opened the `/app/stores` dashboard itself.
-- **`SyncGroup`**: a source store's named (or unnamed) collection of paired targets. `sourceId` is fixed at creation; there's no "transfer ownership" operation.
-- **`SyncGroupTarget`**: the actual pairing record, one row per (group, target store) pair, with a lifecycle: `PENDING` → `APPROVED` | `DECLINED`. Carries `authTokenHash`/`authTokenExpiresAt` for the out-of-band approval mechanism (see `store-pairing.md`): null once approved/declined or once the token's been redeemed.
+- **`Connection`**: one source store paired with one target store (`sourceStoreId`, `targetStoreId`, unique per pair), with a lifecycle: `PENDING` → `APPROVED` | `DECLINED`. Carries `authTokenHash`/`authTokenExpiresAt` for the out-of-band approval mechanism (see `store-pairing.md`): null once approved/declined or once the token's been redeemed. A connection is named after the other store in the UI; there's no name column. Syncing to several stores means one connection each.
 
-Table and column names here (`Store`, `SyncGroup`, `SyncGroupTarget`, camelCase columns) match what the original Prisma-based schema created in Supabase: carried over as-is during the Prisma→Drizzle migration so existing data didn't need a rename migration. `Store`/`SyncGroup`/`SyncGroupTarget` primary keys default to Postgres's own `gen_random_uuid()` now, not Prisma's app-side `cuid()`: both are just opaque text ids, so this only affects the format of newly-inserted rows, not existing ones.
+Connections replaced an earlier "sync group" model (a named group per source, with any number of targets) in migration `0008_connections.sql`, which converted each group-and-target pair into a connection and split each multi-target job into one job per connection. Table and column names elsewhere (`Store`, camelCase columns) still match what the original Prisma-based schema created in Supabase. Primary keys default to Postgres's own `gen_random_uuid()`: opaque text ids.
 
 ## Why Postgres, not Shopify metaobjects
 
-The project's default for shop-local data is Shopify's own metaobjects/metafields (`$app:` namespace): see AGENTS.md's tooling section. Pairing data is the deliberate exception: a `SyncGroupTarget` row represents a relationship spanning _two_ shops' worth of state (an invite pending approval before either side has agreed to trust the other), which can't be represented as a single shop's metaobject without picking one side to own it awkwardly. A real database is the natural fit for genuinely cross-shop state; metaobjects remain correct for anything that's actually local to one shop.
+The project's default for shop-local data is Shopify's own metaobjects/metafields (`$app:` namespace): see AGENTS.md's tooling section. Pairing data is the deliberate exception: a `Connection` row represents a relationship spanning _two_ shops' worth of state (an invite pending approval before either side has agreed to trust the other), which can't be represented as a single shop's metaobject without picking one side to own it awkwardly. A real database is the natural fit for genuinely cross-shop state; metaobjects remain correct for anything that's actually local to one shop.
 
 ## Migrations
 

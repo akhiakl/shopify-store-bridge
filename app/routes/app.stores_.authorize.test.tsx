@@ -47,10 +47,10 @@ describe("app.stores.authorize loader", () => {
     expect(result).toEqual({ ok: false });
   });
 
-  it("returns the source shop and group name for a valid token", async () => {
+  it("returns the source shop for a valid token", async () => {
     authenticateAdmin.mockResolvedValue({ session: { shop: SHOP } });
     getPendingRequestByToken.mockResolvedValue({
-      group: { name: "EU stores", source: { shop: "source.myshopify.com" } },
+      source: { shop: "source.myshopify.com" },
     });
 
     const result = await loader({
@@ -63,7 +63,6 @@ describe("app.stores.authorize loader", () => {
       ok: true,
       token: "good",
       sourceShop: "source.myshopify.com",
-      groupName: "EU stores",
     });
   });
 });
@@ -110,7 +109,7 @@ describe("AuthorizePairing page", () => {
     );
   });
 
-  it("renders the Approve/Not now button group for a valid pending request", async () => {
+  it("renders the Approve/Not now buttons for a valid pending request", async () => {
     const Stub = createRoutesStub([
       {
         path: "/",
@@ -119,7 +118,6 @@ describe("AuthorizePairing page", () => {
           ok: true,
           token: "good",
           sourceShop: "source.myshopify.com",
-          groupName: "EU stores",
         }),
       },
     ]);
@@ -138,7 +136,6 @@ describe("AuthorizePairing page", () => {
           ok: true,
           token: "good",
           sourceShop: "source.myshopify.com",
-          groupName: null,
         }),
         action: () => ({ ok: true }),
       },
@@ -173,7 +170,6 @@ describe("AuthorizePairing page", () => {
                 ok: true,
                 token: "good",
                 sourceShop: "source.myshopify.com",
-                groupName: null,
               },
         action: () => {
           responded = true;

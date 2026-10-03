@@ -130,6 +130,13 @@ export async function resolvePlan(
       matches(selection.metafieldValueSelectors),
     ),
   );
+  // The Shop has exactly one record per store, so its value needs no
+  // owner lookup: just the definition, read at sync time.
+  const shopMetafieldValues = catalog.metafieldDefinitions.filter(
+    (def) =>
+      def.ownerType === "SHOP" &&
+      matches(selection.metafieldValueSelectors)(def),
+  );
   const menus = await planMenus(
     sourceAdmin,
     allMenus.filter((menu) => selection.menuHandles.includes(menu.handle)),
@@ -141,6 +148,7 @@ export async function resolvePlan(
     collections,
     metaobjectEntries,
     metafieldValues,
+    shopMetafieldValues,
     menus,
     locations: allLocations.filter((location) =>
       selection.locationNames.includes(location.name),
@@ -148,13 +156,13 @@ export async function resolvePlan(
   };
 }
 
-export async function getJobHistory(groupId: string) {
+export async function getJobHistory(connectionId: string) {
   return db.query.syncJobs.findMany({
-    where: eq(syncJobs.groupId, groupId),
+    where: eq(syncJobs.connectionId, connectionId),
     // The page polls this while a job runs; the plan can be thousands of
     // entries and the UI never needs it.
     columns: { plan: false },
-    with: { targets: { with: { store: true, items: true } } },
+    with: { items: true },
     orderBy: [desc(syncJobs.startedAt)],
     limit: 20,
   });

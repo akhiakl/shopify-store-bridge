@@ -8,8 +8,8 @@ type ConnectActionData =
   | { ok: false; error: string; installUrl?: string };
 
 /**
- * Invite a target store (by domain) into a new sync group. The current
- * store is always the source: there's no source picker, see AGENTS.md's
+ * Invite a target store (by domain) to connect, with the current store
+ * as the source. The current store is always the source: there's no source picker, see AGENTS.md's
  * store-pairing notes. On success, shows a one-time authorization link to
  * copy and send to whoever actually runs the target store (outside this
  * app): Shopify has no API to confirm the two shops share an owner, so
@@ -55,11 +55,6 @@ export function ConnectStoreForm() {
             details="your-store or your-store.myshopify.com"
             autocomplete="off"
             required
-          ></s-text-field>
-          <s-text-field
-            name="groupName"
-            label="Group name (optional)"
-            autocomplete="off"
           ></s-text-field>
           <s-button type="submit" variant="primary" loading={isSubmitting}>
             Send pairing request

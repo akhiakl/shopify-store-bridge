@@ -1,8 +1,8 @@
 # Definition sync jobs
 
-Once a sync group has an APPROVED target (`store-pairing.md`), the source can push its
-metaobject/metafield definitions to that target from
-`app.groups.$groupId.definitions`. This doc covers the design decisions that aren't
+Once a connection is APPROVED (`store-pairing.md`), the source can push its
+metaobject/metafield definitions (and the other types below) to the target from the
+connection's pages under `/app/connections/:connectionId`. This doc covers the design decisions that aren't
 obvious from the code. The engine lives in `app/utils/sync/`: selection parsing and
 plan resolution in `sync.server.ts`, per-target steps in `syncTarget.server.ts`, and
 background execution in `syncQueue.server.ts` / `syncWorker.server.ts`.
@@ -14,9 +14,10 @@ The first sync-execution feature syncs **definitions** (the schema: a metaobject
 after the existing read-only browser (`definitions.server.ts`) and a much smaller surface
 than syncing actual product/metaobject data.
 
-One exception: **SHOP-owned metafield values do sync**, riding along with their
-definition (see "Shop metafield value sync" below). Shop is the one owner type with no
-record-matching problem: there's exactly one Shop per store. Values on other records
+Values sync only when selected on the Values tab, never as a side effect of selecting a
+definition. **SHOP-owned metafield values** are the simplest case (see "Shop metafield
+value sync" below): Shop is the one owner type with no record-matching problem, since
+there's exactly one Shop per store. Values on other records
 need to know which target record corresponds to which source record, since the two
 stores have separate catalogs with no shared IDs. Product, collection and customer
 values now sync by natural key (see "Metafield value sync" below); other owner types
@@ -25,6 +26,40 @@ still don't.
 Every job is manually triggered: the merchant selects definitions on the checkbox UI and
 clicks "Sync now." There's no webhook or scheduler: see "Things intentionally not
 built" below.
+
+## One page per type
+
+`app.connections.$connectionId.tsx` is a layout (titled with the other store's name,
+breadcrumb, status, page nav). Its index route
+is the Job history page, and each type has its own child route: `metafields`
+(Definitions | Values tabs), `metaobjects` (Definitions | Entries tabs), `policies`,
+`collections`, `menus`, `locations`. Each page loads only its own data from the
+source, keeps its own selection, and posts its own "Sync now", so a job usually
+covers one type. Tabs use `?tab=` on the same route, so one selection spans both tabs
+(a definition and its values can go in one job).
+
+"Sync now" is the page's primary action, slotted into the layout's `s-page`, so the
+embedded admin shows it in the title bar and it stays visible on long lists. The
+connection's pages are linked from the layout, not the admin sidebar: Shopify's app nav
+is one flat level for the whole app and can't nest per-connection pages.
+
+Every page's loader and action go through `utils/sync/connectionRoute.server.ts`, because
+React Router runs a layout's loader in parallel with its children's, so a child can't
+rely on the layout's access check.
+
+Shop branding (logo, colors, slogan) can't be a page: the Admin API has no `brand`
+field on `Shop` and no mutation to update it. Brand is readable only from Liquid and
+the Storefront API.
+
+## Target-started syncs (pull into itself)
+
+The target of an APPROVED connection can open the same pages (linked as "Sync from
+source" on Connected stores) and pull from the source. `utils/sync/connectionAccess.server.ts`
+decides who the viewer is: the source can open its connection in any state; the target
+only once it has approved. Either way the pages browse the source's catalog: through
+the source's stored offline session when the target is viewing, and "Sync now" queues
+the same job, since a connection has only the one target. Approving the pairing is what
+allows the target to read the source's catalog.
 
 ## Cross-shop admin access: `unauthenticated.admin`
 
@@ -44,13 +79,13 @@ and starts its first run with `waitUntil` (`@vercel/functions`), which keeps the
 function alive after the response is sent. Chosen over a hosted queue (QStash,
 Inngest) to avoid a new vendor; the project is on Vercel Hobby.
 
-- **Plan once.** The first run reads everything selected from the source and saves it
-  on the job (`plan`), then creates one `PENDING` `SyncJobTarget` per target that's
-  APPROVED at that moment. Every later run works from that snapshot. The plan is
-  cleared when the job finishes.
+- **Plan once.** The first run checks the connection is still APPROVED, reads
+  everything selected from the source and saves it on the job (`plan`, with
+  `stepsTotal`). Every later run works from that snapshot. The plan is cleared when
+  the job finishes.
 - **Resumable steps.** `buildSyncSteps(plan)` turns the plan into a deterministic,
-  ordered list of steps; each target stores `stepsDone`/`stepsTotal`, and a run
-  continues from `stepsDone`. Progress is saved once per target per run. A run that
+  ordered list of steps; the job stores `stepsDone`/`stepsTotal`, and a run
+  continues from `stepsDone`. Progress is saved once per run. A run that
   dies before saving redoes those steps next time, which is harmless because every
   step is an idempotent create/upsert.
 - **Time-boxed runs.** Each run stops starting new steps after `RUN_BUDGET_MS` (25s),
@@ -61,8 +96,8 @@ Inngest) to avoid a new vendor; the project is on Vercel Hobby.
 - **One run per job.** A run claims the job by setting `lockedUntil` (90s) with a
   conditional update; a second run finds it locked and stops ("busy"). A run that
   dies leaves the lock to expire.
-- **Recovery** for a lost hand-off or a dead run: the sync page's loader restarts its
-  group's stalled jobs (and polls every 3s while a job is unfinished, so an open page
+- **Recovery** for a lost hand-off or a dead run: the Job history page's loader
+  restarts its connection's stalled jobs (and polls every 3s while a job is unfinished, so an open page
   keeps it moving), and a daily Vercel Cron (`vercel.json`; Hobby allows daily only)
   calls the same endpoint with GET to sweep every stalled job.
 
@@ -95,21 +130,23 @@ no `TAKEN`-style duplicate error to begin with.
 
 ## Shop metafield value sync
 
-For each selected metafield definition with `ownerType: SHOP`, once its definition step
-succeeds or is skipped-as-`TAKEN` on a target, `syncTarget.server.ts` also copies its
-_value_:
+Selecting a Shop definition's value on the Values tab (`metafieldValues:SHOP:<namespace>:<key>`,
+the same key shape as other owner types) puts that definition in the plan's
+`shopMetafieldValues`. Its step in `syncTarget.server.ts` copies the store's own value:
 
 1. Read the source's current value: `shop { metafield(namespace, key) { value type } }`.
    `null` (no value set yet) is a no-op, not a failure.
 2. Fetch the target's own Shop id once per target (`{ shop { id } }`), not per
-   definition: the first time a SHOP-owned def needs it.
+   definition: the first time a Shop value needs it.
 3. Write it with `metafieldsSet([{ ownerId: <target Shop id>, namespace, key, value,
 type }])`.
 
-No new selection UI: this rides along automatically with the existing
-`metafield:SHOP:<namespace>:<key>` checkbox: selecting a shop metafield definition
-means "sync this and its value," since for Shop (unlike Product/Customer/Order) there's
-no ambiguity about _which_ value that means.
+This used to ride along automatically with the `metafield:SHOP:…` definition checkbox.
+It was split out because a merchant picking definitions expects only the schema to
+change on the target, not store data. The definition step now never touches values;
+the Values tab says to sync the definition first if the target lacks it. Plans queued
+before the split have no `shopMetafieldValues`, which `buildSyncSteps` treats as empty,
+so their step counts (and saved resume points) are unchanged.
 
 ## Metaobject entry sync (#63, phase 1)
 
@@ -229,33 +266,27 @@ Scopes: read/write_locations.
   by one fails that location: those belong to the fulfillment app.
 - Inventory, local pickup and shipping settings aren't synced.
 
-## Job/job-target/job-item schema
+## Job/job-item schema
 
-One `SyncJob` row per "Sync now" click (group, requested selection, overall status,
-timing), one `SyncJobTarget` row per target that was APPROVED when the job ran
-(per-target status, item counts, error), and one `SyncJobItem` row per definition-or-value
-attempt within that target (`key`: the same `metaobject:<type>` /
-`metafield:<ownerType>:<namespace>:<key>` format the selection UI uses, unchanged for
-both steps of a SHOP metafield; `kind`: `DEFINITION` | `VALUE` is what distinguishes the
-definition-create attempt from the value-copy attempt that can follow it for the same
-key; `status`: `SUCCEEDED` | `SKIPPED` | `FAILED`; `errorMessage`). Same reasoning as `Store`/
-`SyncGroup`/`SyncGroupTarget`'s split in `data-model.md`: a job's overall status, one
-target's result, and one item's outcome within that target are genuinely different
-things: a run can succeed for one target and fail for another, and within a failed
-target only one of several selected items might be the actual problem.
-`runSyncSteps` returns each run's `items`, folded into counts by `tallyItems`: the counts and the
-per-item detail travel together, but `SyncJobTarget` keeps only the counts (cheap to
-render a summary line from) while the per-item detail is `SyncJobItem` rows, joined in by
-`getJobHistory` and rendered by `JobHistoryList` (only failed items are surfaced there
-today ("N synced, M already existed, K failed" plus a line per failure), since a
-successful or skipped item's `key`/`kind` alone isn't yet useful to show).
+One `SyncJob` row per "Sync now" click: its connection, the requested selection, status,
+timing, the saved plan and progress (`stepsDone`/`stepsTotal`), and item counts
+(`itemsSynced`/`itemsSkipped`/`itemsFailed`). One `SyncJobItem` row per item attempted
+(`key`: the selection-key format from `definitionKey.ts`; `kind`: `DEFINITION` |
+`VALUE`; `status`: `SUCCEEDED` | `SKIPPED` | `FAILED`; `errorMessage`). The counts make
+the history table's one-line summary cheap; the items are what "View details" lists
+(only failures and reasoned skips).
 
-Schema file split: `SyncJob`/`SyncJobTarget`/`SyncJobItem` live in
+Jobs used to have a `SyncJobTarget` row per target, back when a job could go to several
+stores; with one target per connection it was folded into `SyncJob` (migration
+`0008_connections.sql`). `PARTIAL` stays in the status enum for jobs recorded before
+then.
+
+Schema file split: `SyncJob`/`SyncJobItem` live in
 `app/db/syncJobsSchema.server.ts`, not `schema.server.ts` (which holds the pairing domain:
-`Session`/`Store`/`SyncGroup`/`SyncGroupTarget`): adding `SyncJobItem` would have pushed
+`Session`/`Store`/`Connection`): adding `SyncJobItem` would have pushed
 `schema.server.ts` past the 300-line file limit (AGENTS.md §5). The import graph is
 strictly one-directional to avoid an ESM circular-import risk: `syncJobsSchema.server.ts`
-imports `stores`/`syncGroups` from `schema.server.ts`, never the reverse; the shared
+imports `connections` from `schema.server.ts`, never the reverse; the shared
 `serviceRoleOnly` RLS-policy helper lives in its own leaf file (`rls.server.ts`) so both
 schema files can import it without importing each other. `db.server.ts` combines both via
 object spread into one `schema` object for Drizzle's relational query API.

@@ -5,16 +5,14 @@ import { describe, expect, it, vi } from "vitest";
 import { ConnectStoreForm } from "./ConnectStoreForm";
 
 describe("ConnectStoreForm", () => {
-  it("renders the domain and group name fields", () => {
+  it("asks only for the target store's domain", () => {
     const Stub = createRoutesStub([{ path: "/", Component: ConnectStoreForm }]);
     render(<Stub initialEntries={["/"]} />);
 
     expect(
       document.querySelector('s-text-field[name="targetDomain"]'),
     ).toBeInTheDocument();
-    expect(
-      document.querySelector('s-text-field[name="groupName"]'),
-    ).toBeInTheDocument();
+    expect(document.querySelectorAll("s-text-field")).toHaveLength(1);
   });
 
   it("shows the returned error and install link when the target isn't installed", async () => {

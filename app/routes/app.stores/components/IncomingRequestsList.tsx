@@ -34,20 +34,19 @@ function RequestRow({
 
   return (
     <s-box padding="base" border="base" borderRadius="base">
-      <s-stack direction="inline" gap="base" alignItems="center">
+      <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="center">
         <s-paragraph>
-          {request.group.source.shop}
-          {request.group.name ? ` (${request.group.name})` : ""}, waiting for
-          the pairing link sent to you to be opened and confirmed
+          {request.source.shop} wants to sync into this store. Open the pairing
+          link they sent you to approve.
         </s-paragraph>
         <declineFetcher.Form method="post">
           <input type="hidden" name="intent" value="decline" />
-          <input type="hidden" name="targetId" value={request.id} />
+          <input type="hidden" name="connectionId" value={request.id} />
           <s-button type="submit" tone="critical" loading={isDeclining}>
             Decline
           </s-button>
         </declineFetcher.Form>
-      </s-stack>
+      </s-grid>
     </s-box>
   );
 }

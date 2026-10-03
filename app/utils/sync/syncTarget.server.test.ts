@@ -27,6 +27,7 @@ async function syncToTarget({
       collections: [],
       metaobjectEntries: [],
       metafieldValues: [],
+      shopMetafieldValues: [],
       menus: [],
       locations: [],
       ...plan,
@@ -66,6 +67,8 @@ const shopMetafieldDef = {
   ownerType: "SHOP" as const,
   valueCount: 0,
 };
+
+const VALUE_KEY = "metafieldValues:SHOP:custom:support_email";
 
 describe("syncToTarget", () => {
   it("counts a successful metaobject definition create as synced", async () => {
@@ -247,15 +250,12 @@ describe("syncToTarget", () => {
     const result = await syncToTarget({
       sourceAdmin: sourceAdmin as never,
       targetAdmin: targetAdmin as never,
-      metaobjectDefinitions: [],
-      metafieldDefinitions: [shopMetafieldDef],
+      shopMetafieldValues: [shopMetafieldDef],
     });
 
-    const key = "metafield:SHOP:custom:support_email";
     expect(result.items).toEqual([
-      { key, kind: "DEFINITION", status: "SUCCEEDED", errorMessage: null },
       {
-        key,
+        key: VALUE_KEY,
         kind: "VALUE",
         status: "FAILED",
         errorMessage: "Could not resolve the target store's Shop id.",
@@ -267,7 +267,7 @@ describe("syncToTarget", () => {
     expect(sourceAdmin.graphql).not.toHaveBeenCalled();
   });
 
-  it("syncs a SHOP metafield's value after its definition is confirmed", async () => {
+  it("syncs a SHOP metafield's value when the value is selected", async () => {
     const sourceAdmin = {
       graphql: vi.fn((query: string) =>
         Promise.resolve(
@@ -317,21 +317,23 @@ describe("syncToTarget", () => {
     const result = await syncToTarget({
       sourceAdmin: sourceAdmin as never,
       targetAdmin: targetAdmin as never,
-      metaobjectDefinitions: [],
-      metafieldDefinitions: [shopMetafieldDef],
+      shopMetafieldValues: [shopMetafieldDef],
     });
 
-    // Definition create (synced) + value set (synced) = 2 items for one selected def.
-    expect(result.tallies).toEqual({
-      itemsSynced: 2,
-      itemsSkipped: 0,
-      itemsFailed: 0,
-    });
-    const key = "metafield:SHOP:custom:support_email";
     expect(result.items).toEqual([
-      { key, kind: "DEFINITION", status: "SUCCEEDED", errorMessage: null },
-      { key, kind: "VALUE", status: "SUCCEEDED", errorMessage: null },
+      {
+        key: VALUE_KEY,
+        kind: "VALUE",
+        status: "SUCCEEDED",
+        errorMessage: null,
+      },
     ]);
+    // The definition isn't created along with the value.
+    expect(
+      targetAdmin.graphql.mock.calls.some(([q]) =>
+        q.includes("MetafieldDefinitionCreate"),
+      ),
+    ).toBe(false);
     expect(
       targetAdmin.graphql.mock.calls.some(([q]) => q.includes("MetafieldsSet")),
     ).toBe(true);
@@ -368,25 +370,17 @@ describe("syncToTarget", () => {
     const result = await syncToTarget({
       sourceAdmin: sourceAdmin as never,
       targetAdmin: targetAdmin as never,
-      metaobjectDefinitions: [],
-      metafieldDefinitions: [shopMetafieldDef],
+      shopMetafieldValues: [shopMetafieldDef],
     });
 
-    const key = "metafield:SHOP:custom:support_email";
     expect(result.items).toEqual([
-      { key, kind: "DEFINITION", status: "SUCCEEDED", errorMessage: null },
       {
-        key,
+        key: VALUE_KEY,
         kind: "VALUE",
         status: "FAILED",
         errorMessage: "Access denied for shop metafield reads",
       },
     ]);
-    expect(result.tallies).toEqual({
-      itemsSynced: 1,
-      itemsSkipped: 0,
-      itemsFailed: 1,
-    });
     expect(
       targetAdmin.graphql.mock.calls.some(([q]) => q.includes("MetafieldsSet")),
     ).toBe(false);
@@ -419,23 +413,49 @@ describe("syncToTarget", () => {
     const result = await syncToTarget({
       sourceAdmin: sourceAdmin as never,
       targetAdmin: targetAdmin as never,
-      metaobjectDefinitions: [],
-      metafieldDefinitions: [shopMetafieldDef],
+      shopMetafieldValues: [shopMetafieldDef],
     });
 
-    expect(result.tallies).toEqual({
-      itemsSynced: 1,
-      itemsSkipped: 1,
-      itemsFailed: 0,
-    });
-    const key = "metafield:SHOP:custom:support_email";
     expect(result.items).toEqual([
-      { key, kind: "DEFINITION", status: "SUCCEEDED", errorMessage: null },
-      { key, kind: "VALUE", status: "SKIPPED", errorMessage: null },
+      { key: VALUE_KEY, kind: "VALUE", status: "SKIPPED", errorMessage: null },
     ]);
     expect(
       targetAdmin.graphql.mock.calls.some(([q]) => q.includes("MetafieldsSet")),
     ).toBe(false);
+  });
+
+  it("syncs only the definition when a SHOP definition is selected alone", async () => {
+    const sourceAdmin = { graphql: vi.fn() };
+    const targetAdmin = {
+      graphql: vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({
+            metafieldDefinitionCreate: {
+              createdDefinition: { id: "gid://1" },
+              userErrors: [],
+            },
+          }),
+        ),
+      ),
+    };
+
+    const result = await syncToTarget({
+      sourceAdmin: sourceAdmin as never,
+      targetAdmin: targetAdmin as never,
+      metafieldDefinitions: [shopMetafieldDef],
+    });
+
+    expect(result.items).toEqual([
+      {
+        key: "metafield:SHOP:custom:support_email",
+        kind: "DEFINITION",
+        status: "SUCCEEDED",
+        errorMessage: null,
+      },
+    ]);
+    // No value read on the source, no Shop id lookup on the target.
+    expect(sourceAdmin.graphql).not.toHaveBeenCalled();
+    expect(targetAdmin.graphql).toHaveBeenCalledTimes(1);
   });
 
   it("never fetches the target's shop id when nothing selected is SHOP-owned", async () => {

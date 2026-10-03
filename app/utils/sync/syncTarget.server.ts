@@ -10,6 +10,7 @@ import {
   collectionKey,
   locationKey,
   metafieldDefinitionKey,
+  metafieldValuesKey,
   metaobjectDefinitionKey,
   metaobjectEntryKey,
   shopPolicyKey,
@@ -137,6 +138,10 @@ export interface SyncPlan {
   collections: PlannedCollection[];
   metaobjectEntries: MetaobjectEntryRow[];
   metafieldValues: MetafieldValueSet[];
+  /** SHOP-owned definitions whose one value (the store's own) is
+   * selected on the Values tab. Absent from plans queued before Shop
+   * values were split from their definitions. */
+  shopMetafieldValues?: MetafieldDefinitionRow[];
   menus: PlannedMenu[];
   locations: LocationRow[];
 }
@@ -171,8 +176,7 @@ export function createStepContext(
   };
 }
 
-/** One unit of resumable work: usually one item, two for a SHOP metafield
- * (definition, then its value). */
+/** One unit of resumable work; most steps produce one item. */
 export type SyncStep = (ctx: StepContext) => Promise<SyncItemResult[]>;
 
 function metaobjectDefinitionStep(def: MetaobjectDefinitionRow): SyncStep {
@@ -197,13 +201,11 @@ function metaobjectDefinitionStep(def: MetaobjectDefinitionRow): SyncStep {
   };
 }
 
-/** A SHOP-owned definition also carries its value once the definition is
- * confirmed on the target (created or already there). A missing target
- * Shop id is recorded as a failed VALUE item rather than skipped silently,
- * so the job can't report SUCCEEDED when the value never copied. */
+/** Creates the definition only. Values, the Shop's included, are their
+ * own selection on the Values tab, so picking a definition never copies
+ * data along with it. */
 function metafieldDefinitionStep(def: MetafieldDefinitionRow): SyncStep {
   return async (ctx) => {
-    const key = metafieldDefinitionKey(def);
     const result = await createOne(
       ctx.targetAdmin,
       METAFIELD_DEFINITION_CREATE_MUTATION,
@@ -218,11 +220,17 @@ function metafieldDefinitionStep(def: MetafieldDefinitionRow): SyncStep {
         },
       },
     );
-    const items = [toItem(key, "DEFINITION", result)];
-    if (!result.ok || def.ownerType !== "SHOP") return items;
+    return [toItem(metafieldDefinitionKey(def), "DEFINITION", result)];
+  };
+}
 
+/** Copies the store's own value for a SHOP-owned definition. A missing
+ * target Shop id is recorded as a failed item rather than skipped
+ * silently, so the job can't report SUCCEEDED when nothing copied. */
+function shopMetafieldValueStep(def: MetafieldDefinitionRow): SyncStep {
+  return async (ctx) => {
     const targetShopId = await ctx.targetShopId();
-    const valueResult: CreateResult = targetShopId
+    const result: CreateResult = targetShopId
       ? await syncShopMetafieldValue({
           sourceAdmin: ctx.sourceAdmin,
           targetAdmin: ctx.targetAdmin,
@@ -230,7 +238,7 @@ function metafieldDefinitionStep(def: MetafieldDefinitionRow): SyncStep {
           def,
         })
       : { ok: false, error: "Could not resolve the target store's Shop id." };
-    return [...items, toItem(key, "VALUE", valueResult)];
+    return [toItem(metafieldValuesKey(def), "VALUE", result)];
   };
 }
 
@@ -285,6 +293,7 @@ export function buildSyncSteps(plan: SyncPlan): SyncStep[] {
     ),
     // Last: values can reference entries and collections synced above.
     ...plan.metafieldValues.flatMap(metafieldValueSteps),
+    ...(plan.shopMetafieldValues ?? []).map(shopMetafieldValueStep),
     // Menus link to policies, collections, entries and products. Plans
     // queued before menu sync existed have no `menus`.
     ...(plan.menus ?? []).map(menuStep),

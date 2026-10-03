@@ -1,6 +1,6 @@
 # Store pairing
 
-The core feature: one shop (the **source**) invites another shop (the **target**) into a **sync group**, so data can flow between them. This doc is about the trust/authorization model, which is the non-obvious part: the CRUD itself is straightforward and lives in `app/routes/app.stores/pairing.server.ts`.
+The core feature: one shop (the **source**) invites another shop (the **target**) to form a **connection**, so data can flow from source to target. A connection has exactly one source and one target; a source that syncs to several stores has one connection each. This doc is about the trust/authorization model, which is the non-obvious part: the CRUD itself is straightforward and lives in `app/routes/app.stores/pairing.server.ts`.
 
 ## The problem: Shopify has no cross-store ownership API
 
@@ -12,7 +12,7 @@ That matters because the obvious-seeming design (source invites by domain, targe
 
 Same pattern Slack Connect and Stripe Connect use for cross-tenant linking, since they hit the identical structural problem (no platform-level "same owner" signal to lean on):
 
-1. **`requestPairing`** (source side) creates the `SyncGroupTarget` row _and_ a single-use, 15-minute-expiring token: `authToken.server.ts` generates 32 random bytes, returns the raw value exactly once, and persists only its SHA-256 hash (same reasoning as a password-reset token: the raw value should never be recoverable from the database). The short TTL reflects that this is a same-owner, both-stores-in-hand flow, not a days-later handoff; "Resend link" below covers a link that expires before it's used.
+1. **`requestPairing`** (source side) creates the `Connection` row _and_ a single-use, 15-minute-expiring token: `authToken.server.ts` generates 32 random bytes, returns the raw value exactly once, and persists only its SHA-256 hash (same reasoning as a password-reset token: the raw value should never be recoverable from the database). The short TTL reflects that this is a same-owner, both-stores-in-hand flow, not a days-later handoff; "Resend link" below covers a link that expires before it's used.
 2. The source gets back a shareable link (`/app/stores/authorize?token=...&shop=<target>`) to send to whoever they actually intend to pair with, through a channel _outside this app_: email, Slack, whatever they already trust that contact through. This out-of-band handoff is the actual proof: only someone who received the link from the source can act on it.
 3. **`approvePairingRequest`** (target side, via `app.stores_.authorize.tsx`) requires the token: it's the only path that can move a request to `APPROVED`. Getting there via the general dashboard list isn't possible; `IncomingRequestsList` is deliberately read-only-plus-decline.
 4. **Decline doesn't need the token.** It's available directly from the dashboard list (`declinePairingRequest`) because declining is harmless regardless of who does it: there's no scenario where an unwanted "no" causes damage, so gating it would just be friction with no security benefit.
@@ -22,10 +22,17 @@ Same pattern Slack Connect and Stripe Connect use for cross-tenant linking, sinc
 
 `app.stores_.authorize.tsx`'s filename is a deliberate choice: the trailing underscore (`app.stores_.authorize`, React Router's flat-routes nesting-escape convention) makes it a **sibling** of `app.stores/route.tsx` in the URL (`/app/stores/authorize`) while still nesting under `app.tsx`'s layout, not under `app.stores`'s. That means it inherits `app.tsx`'s `authenticate.admin()` gate directly, so opening the link for a shop that's never installed StoreBridge just triggers the normal install/OAuth flow (see `auth.md`) as a side effect of hitting any protected route, then continues straight to the authorize page once that completes. No custom "check if installed, redirect to install, remember where to come back" logic was needed; it's what the auth middleware already does for any deep link.
 
+## One connection per store pair
+
+`requestPairing` refuses a second connection to a store that's already connected
+(APPROVED) or still waiting (PENDING: "Resend link" covers a lost link). A DECLINED
+connection is reopened instead: back to PENDING with a fresh token, since there's no
+other way to ask again.
+
 ## Lifecycle at a glance
 
 ```
-requestPairing ──► SyncGroupTarget{status: PENDING, authTokenHash: set}
+requestPairing ──► Connection{status: PENDING, authTokenHash: set}
                           │                              │
                     declinePairingRequest          approvePairingRequest
                     (dashboard, no token)          (authorize link, token required)

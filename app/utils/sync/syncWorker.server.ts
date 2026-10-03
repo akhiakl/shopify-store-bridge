@@ -1,13 +1,8 @@
-import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 import { and, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 
 import db from "~/db.server";
-import { syncGroups } from "~/db/schema.server";
-import {
-  syncJobItems,
-  syncJobs,
-  syncJobTargets,
-} from "~/db/syncJobsSchema.server";
+import { connections } from "~/db/schema.server";
+import { syncJobItems, syncJobs } from "~/db/syncJobsSchema.server";
 import { unauthenticated } from "~/shopify.server";
 
 import { parseSelection, resolvePlan } from "./sync.server";
@@ -27,7 +22,6 @@ const LOCK_SECONDS = 90;
 export type RunOutcome = "done" | "more" | "busy";
 
 type JobRow = typeof syncJobs.$inferSelect;
-type TargetStatus = "SUCCEEDED" | "FAILED" | "SKIPPED" | "PENDING";
 
 const UNFINISHED = ["QUEUED", "RUNNING"] as const;
 
@@ -50,7 +44,7 @@ async function claimJob(jobId: string): Promise<JobRow | undefined> {
 
 async function finishJob(
   jobId: string,
-  outcome: { status: "SUCCEEDED" | "FAILED" | "PARTIAL"; error?: string },
+  outcome: { status: "SUCCEEDED" | "FAILED"; error?: string },
 ) {
   await db
     .update(syncJobs)
@@ -64,31 +58,34 @@ async function finishJob(
     .where(eq(syncJobs.id, jobId));
 }
 
-function rollUp(statuses: TargetStatus[]): "SUCCEEDED" | "FAILED" | "PARTIAL" {
-  if (statuses.every((s) => s === "SUCCEEDED")) return "SUCCEEDED";
-  if (statuses.every((s) => s === "FAILED")) return "FAILED";
-  return "PARTIAL";
-}
+const errorText = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
-type Source = Awaited<ReturnType<typeof sourceAdminFor>>;
-
-async function sourceAdminFor(groupId: string) {
-  const group = await db.query.syncGroups.findFirst({
-    where: eq(syncGroups.id, groupId),
-    with: { source: true, targets: true },
+async function loadConnection(connectionId: string) {
+  const connection = await db.query.connections.findFirst({
+    where: eq(connections.id, connectionId),
+    with: { source: true, target: true },
   });
-  if (!group) throw new Error("This sync group no longer exists.");
-  const { admin } = await unauthenticated.admin(group.source.shop);
-  return { group, sourceAdmin: admin };
+  if (!connection) throw new Error("This connection no longer exists.");
+  return connection;
 }
 
-/** First run of a job: snapshot the plan from the source and create one
- * PENDING row per target that's APPROVED right now. Returns false when
- * the job finished here (nothing to sync, or no approved targets). */
+type Connection = Awaited<ReturnType<typeof loadConnection>>;
+
+/** First run of a job: snapshot the plan from the source. Returns false
+ * when the job finished here (nothing to sync, or not approved). */
 async function planJob(
   job: JobRow,
-  { group, sourceAdmin }: Source,
+  connection: Connection,
+  sourceAdmin: Parameters<typeof resolvePlan>[0],
 ): Promise<boolean> {
+  if (connection.status !== "APPROVED") {
+    await finishJob(job.id, {
+      status: "FAILED",
+      error: `${connection.target.shop} hasn't approved this connection.`,
+    });
+    return false;
+  }
   const plan = await resolvePlan(sourceAdmin, parseSelection(job.selection));
 
   // None of the selection keys matched anything in the source's current
@@ -102,78 +99,59 @@ async function planJob(
     return false;
   }
 
-  const approved = group.targets.filter((t) => t.status === "APPROVED");
-  if (approved.length === 0) {
-    await finishJob(job.id, { status: "SUCCEEDED" });
-    return false;
-  }
   const stepsTotal = buildSyncSteps(plan).length;
-  await db.insert(syncJobTargets).values(
-    approved.map((target) => ({
-      jobId: job.id,
-      storeId: target.storeId,
-      status: "PENDING" as const,
-      stepsTotal,
-    })),
-  );
   await db
     .update(syncJobs)
-    .set({ plan, status: "RUNNING" })
+    .set({ plan, status: "RUNNING", stepsTotal })
     .where(eq(syncJobs.id, job.id));
-  job.plan = plan;
+  Object.assign(job, { plan, stepsTotal });
   return true;
 }
 
-type PendingTarget = typeof syncJobTargets.$inferSelect & {
-  store: { shop: string };
-};
-
-/** Works one target from its saved step index until done or `deadline`,
+/** Works the job from its saved step index until done or `deadline`,
  * persisting the run's items and progress. Steps are idempotent upserts,
- * so if a run dies before saving, redoing those steps is harmless. */
-async function workTarget(
-  target: PendingTarget,
-  context: { plan: SyncPlan; sourceAdmin: AdminApiContext; deadline: number },
-) {
-  try {
-    const { admin: targetAdmin } = await unauthenticated.admin(
-      target.store.shop,
-    );
-    const steps = buildSyncSteps(context.plan);
-    const { items, next } = await runSyncSteps({
-      steps,
-      ctx: createStepContext(context.sourceAdmin, targetAdmin),
-      from: target.stepsDone,
-      deadline: context.deadline,
-    });
-    if (items.length > 0) {
-      await db
-        .insert(syncJobItems)
-        .values(items.map((item) => ({ jobTargetId: target.id, ...item })));
-    }
-    const tallies = tallyItems(items);
-    const failed = target.itemsFailed + tallies.itemsFailed;
-    const done = next >= steps.length;
+ * so if a run dies before saving, redoing those steps is harmless.
+ * Returns whether every step is done. */
+async function workJob(
+  job: JobRow,
+  context: {
+    connection: Connection;
+    sourceAdmin: Parameters<typeof resolvePlan>[0];
+    deadline: number;
+  },
+): Promise<boolean> {
+  const { admin: targetAdmin } = await unauthenticated.admin(
+    context.connection.target.shop,
+  );
+  const steps = buildSyncSteps(job.plan as SyncPlan);
+  const { items, next } = await runSyncSteps({
+    steps,
+    ctx: createStepContext(context.sourceAdmin, targetAdmin),
+    from: job.stepsDone,
+    deadline: context.deadline,
+  });
+  if (items.length > 0) {
     await db
-      .update(syncJobTargets)
-      .set({
-        stepsDone: next,
-        itemsSynced: target.itemsSynced + tallies.itemsSynced,
-        itemsSkipped: target.itemsSkipped + tallies.itemsSkipped,
-        itemsFailed: failed,
-        status: !done ? "PENDING" : failed === 0 ? "SUCCEEDED" : "FAILED",
-      })
-      .where(eq(syncJobTargets.id, target.id));
-  } catch (error) {
-    await db
-      .update(syncJobTargets)
-      .set({
-        status: "FAILED",
-        errorMessage:
-          error instanceof Error ? error.message : "Couldn't reach this store.",
-      })
-      .where(eq(syncJobTargets.id, target.id));
+      .insert(syncJobItems)
+      .values(items.map((item) => ({ jobId: job.id, ...item })));
   }
+  const tallies = tallyItems(items);
+  const itemsFailed = job.itemsFailed + tallies.itemsFailed;
+  await db
+    .update(syncJobs)
+    .set({
+      stepsDone: next,
+      itemsSynced: job.itemsSynced + tallies.itemsSynced,
+      itemsSkipped: job.itemsSkipped + tallies.itemsSkipped,
+      itemsFailed,
+    })
+    .where(eq(syncJobs.id, job.id));
+
+  if (next < steps.length) return false;
+  await finishJob(job.id, {
+    status: itemsFailed === 0 ? "SUCCEEDED" : "FAILED",
+  });
+  return true;
 }
 
 /**
@@ -188,43 +166,21 @@ export async function processSyncJob(
   const job = await claimJob(jobId);
   if (!job) return "busy";
 
-  let source: Source;
   try {
-    source = await sourceAdminFor(job.groupId);
-    if (!job.plan && !(await planJob(job, source))) return "done";
+    const connection = await loadConnection(job.connectionId);
+    const { admin: sourceAdmin } = await unauthenticated.admin(
+      connection.source.shop,
+    );
+    if (!job.plan && !(await planJob(job, connection, sourceAdmin))) {
+      return "done";
+    }
+    const done = await workJob(job, { connection, sourceAdmin, deadline });
+    return done ? "done" : "more";
   } catch (error) {
     await finishJob(job.id, {
       status: "FAILED",
-      error:
-        error instanceof Error
-          ? error.message
-          : "Couldn't read the source store.",
+      error: errorText(error, "Couldn't reach one of the stores."),
     });
-    return "done";
-  }
-
-  try {
-    const pending = await db.query.syncJobTargets.findMany({
-      where: and(
-        eq(syncJobTargets.jobId, job.id),
-        eq(syncJobTargets.status, "PENDING"),
-      ),
-      with: { store: true },
-    });
-    for (const target of pending) {
-      if (Date.now() >= deadline) break;
-      await workTarget(target, {
-        plan: job.plan as SyncPlan,
-        sourceAdmin: source.sourceAdmin,
-        deadline,
-      });
-    }
-
-    const targets = await db.query.syncJobTargets.findMany({
-      where: eq(syncJobTargets.jobId, job.id),
-    });
-    if (targets.some((t) => t.status === "PENDING")) return "more";
-    await finishJob(job.id, { status: rollUp(targets.map((t) => t.status)) });
     return "done";
   } finally {
     // Release early so the next run doesn't wait out the lock. Harmless

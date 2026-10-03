@@ -14,10 +14,13 @@ export const RUN_BUDGET_MS = 25_000;
  * Vercel Cron path in vercel.json. */
 export const WORKER_PATH = "/api/sync-worker";
 
-export async function enqueueSyncJob(groupId: string, selection: string[]) {
+export async function enqueueSyncJob(
+  connectionId: string,
+  selection: string[],
+) {
   const [job] = await db
     .insert(syncJobs)
-    .values({ groupId, selection, status: "QUEUED" })
+    .values({ connectionId, selection, status: "QUEUED" })
     .returning();
   return job;
 }
@@ -61,20 +64,20 @@ export async function driveSyncJob(jobId: string): Promise<void> {
 
 /** Restarts unfinished jobs nobody is working on: one whose run died, or
  * whose hand-off to the next run was lost. Called by the daily cron and
- * whenever a group's sync page loads. Each restart is lock-protected, so
+ * whenever a connection's Job history page loads. Each restart is lock-protected, so
  * overlapping calls are harmless. Runs unattended in `waitUntil`, so it
  * never throws. */
-export async function resumeStalledJobs(groupId?: string): Promise<void> {
+export async function resumeStalledJobs(connectionId?: string): Promise<void> {
   try {
     await Promise.all(
-      (await findStalledJobs(groupId)).map((job) => driveSyncJob(job.id)),
+      (await findStalledJobs(connectionId)).map((job) => driveSyncJob(job.id)),
     );
   } catch (error) {
     console.error("Couldn't look up stalled sync jobs", error);
   }
 }
 
-function findStalledJobs(groupId?: string) {
+function findStalledJobs(connectionId?: string) {
   return db
     .select({ id: syncJobs.id })
     .from(syncJobs)
@@ -82,7 +85,7 @@ function findStalledJobs(groupId?: string) {
       and(
         inArray(syncJobs.status, ["QUEUED", "RUNNING"]),
         or(isNull(syncJobs.lockedUntil), lt(syncJobs.lockedUntil, sql`now()`)),
-        groupId ? eq(syncJobs.groupId, groupId) : undefined,
+        connectionId ? eq(syncJobs.connectionId, connectionId) : undefined,
       ),
     )
     .limit(5);

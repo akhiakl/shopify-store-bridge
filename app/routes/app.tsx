@@ -17,7 +17,9 @@ export default function App() {
   return (
     <AppProvider apiKey={apiKey}>
       <s-app-nav>
-        <s-link href="/app">Home</s-link>
+        {/* No "Home" entry: the app's name in the admin sidebar already
+            links home ("/", which redirects an embedded load to /app), so
+            a Home link would just list it twice. */}
         <s-link href="/app/stores">Connected stores</s-link>
         <s-link href="/app/data-requests">Data requests</s-link>
       </s-app-nav>

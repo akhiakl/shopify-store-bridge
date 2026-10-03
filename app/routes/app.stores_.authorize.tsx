@@ -25,8 +25,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return {
     ok: true as const,
     token,
-    sourceShop: pending.group.source.shop,
-    groupName: pending.group.name,
+    sourceShop: pending.source.shop,
   };
 };
 
@@ -86,11 +85,9 @@ export default function AuthorizePairing() {
     <s-page heading="Confirm pairing">
       <s-section heading={`Pairing request from ${data.sourceShop}`}>
         <s-paragraph>
-          {data.groupName
-            ? `You're being invited to join the "${data.groupName}" sync group.`
-            : "You're being invited to join a sync group."}{" "}
-          Only approve this if you recognize {data.sourceShop} and were given
-          this link by someone who actually runs it.
+          {`${data.sourceShop} wants to sync its data into this store.`} Only
+          approve this if you recognize {data.sourceShop} and were given this
+          link by someone who actually runs it.
         </s-paragraph>
         <Form method="post">
           <input type="hidden" name="token" value={data.token} />

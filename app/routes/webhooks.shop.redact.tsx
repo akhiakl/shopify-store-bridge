@@ -13,8 +13,8 @@ import { authenticate } from "~/shopify.server";
  * StoreBridge holds for that shop.
  *
  * Deleting the `Store` row cascades to everything keyed off it:
- * `SyncGroup` (as source), `SyncGroupTarget` (as target membership), and
- * from there `SyncJob`/`SyncJobTarget`/`SyncJobItem`: see schema.server.ts
+ * `Connection` (as source or target), and from there
+ * `SyncJob`/`SyncJobItem`: see schema.server.ts
  * and syncJobsSchema.server.ts's `onDelete: "cascade"` foreign keys. The
  * `Session` row is also deleted defensively even though
  * webhooks.app.uninstalled.tsx already does this on uninstall: this

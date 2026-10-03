@@ -1,8 +1,4 @@
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
-import { eq } from "drizzle-orm";
-
-import db from "~/db.server";
-import { syncGroups } from "~/db/schema.server";
 
 /**
  * Metafield definitions are queried per `MetafieldOwnerType`, not as one
@@ -129,7 +125,7 @@ export interface MetaobjectDefinitionRow {
 
 /** One `metafieldDefinitions` call per owner type: the API has no single
  * "all owner types" query (see the note above `METAFIELD_OWNER_TYPES`). */
-async function fetchMetafieldDefinitions(
+export async function fetchMetafieldDefinitions(
   admin: AdminApiContext,
 ): Promise<MetafieldDefinitionRow[]> {
   const results = await Promise.all(
@@ -164,7 +160,7 @@ async function fetchMetafieldDefinitions(
   return results.flat();
 }
 
-async function fetchMetaobjectDefinitions(
+export async function fetchMetaobjectDefinitions(
   admin: AdminApiContext,
 ): Promise<MetaobjectDefinitionRow[]> {
   const response = await admin.graphql(METAOBJECT_DEFINITIONS_QUERY);
@@ -204,16 +200,6 @@ async function fetchShopPolicies(
   const response = await admin.graphql(SHOP_POLICIES_QUERY);
   const { data } = await response.json();
   return data?.shop?.shopPolicies ?? [];
-}
-
-/** Confirms `groupId` is a sync group the current shop actually owns as
- * source, before letting it browse (and later, migrate into) that group. */
-export async function getOwnedGroup(groupId: string, shop: string) {
-  const group = await db.query.syncGroups.findFirst({
-    where: eq(syncGroups.id, groupId),
-    with: { source: true, targets: { with: { store: true } } },
-  });
-  return group && group.source.shop === shop ? group : null;
 }
 
 export async function getDefinitionCatalog(admin: AdminApiContext) {

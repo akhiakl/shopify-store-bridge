@@ -191,6 +191,7 @@ describe("resolvePlan", () => {
         "collection:summer",
         "metaobjectEntries:faq",
         "metafieldValues:PRODUCT:custom:care",
+        "metafieldValues:SHOP:custom:care",
         "menu:main-menu",
         "location:Main: Warehouse",
       ]),
@@ -209,6 +210,12 @@ describe("resolvePlan", () => {
         ownerIds: ["gid://Product/1"],
       },
     ]);
+    // The Shop's value needs no owner lookup, just its definition; and
+    // selecting it doesn't select the definition itself.
+    expect(plan.shopMetafieldValues?.map((d) => d.ownerType)).toEqual(["SHOP"]);
+    expect(plan.metafieldDefinitions.some((d) => d.ownerType === "SHOP")).toBe(
+      false,
+    );
     expect(plan.locations).toEqual([
       {
         name: "Main: Warehouse",
@@ -262,15 +269,15 @@ describe("resolvePlan", () => {
 });
 
 describe("getJobHistory", () => {
-  it("queries jobs for the group, newest first, with target results", async () => {
+  it("queries jobs for the connection, newest first, with their items", async () => {
     dbMock.query.syncJobs.findMany.mockResolvedValue([{ id: "job-1" }]);
 
-    const history = await getJobHistory("group-1");
+    const history = await getJobHistory("conn-1");
 
     expect(dbMock.query.syncJobs.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         columns: { plan: false },
-        with: { targets: { with: { store: true, items: true } } },
+        with: { items: true },
       }),
     );
     expect(history).toEqual([{ id: "job-1" }]);

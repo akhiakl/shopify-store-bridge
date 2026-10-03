@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import db from "~/db.server";
-import { stores, syncGroups, syncGroupTargets } from "~/db/schema.server";
+import { connections, stores } from "~/db/schema.server";
 import { syncJobs } from "~/db/syncJobsSchema.server";
 
 // Promoted out of app.stores/pairing.server.ts once App Home (app._index.tsx)
@@ -23,52 +23,54 @@ export async function getOrCreateStore(shop: string) {
 
 export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;
 
+/** The shop's connections from both sides: `outgoing` where it's the
+ * source (any status, so it can see pending/declined invites),
+ * `incomingRequests` still waiting on it as target, and `incoming` it has
+ * already approved or declined. */
 export async function getDashboardData(shop: string) {
   const store = await getOrCreateStore(shop);
 
-  const [ownedGroups, incomingRequests, memberships] = await Promise.all([
-    db.query.syncGroups.findMany({
-      where: eq(syncGroups.sourceId, store.id),
-      with: { targets: { with: { store: true } } },
-      orderBy: [desc(syncGroups.createdAt)],
+  const [outgoing, incomingRequests, incoming] = await Promise.all([
+    db.query.connections.findMany({
+      where: eq(connections.sourceStoreId, store.id),
+      with: { target: true },
+      orderBy: [desc(connections.requestedAt)],
     }),
-    db.query.syncGroupTargets.findMany({
+    db.query.connections.findMany({
       where: and(
-        eq(syncGroupTargets.storeId, store.id),
-        eq(syncGroupTargets.status, "PENDING"),
+        eq(connections.targetStoreId, store.id),
+        eq(connections.status, "PENDING"),
       ),
-      with: { group: { with: { source: true } } },
-      orderBy: [desc(syncGroupTargets.requestedAt)],
+      with: { source: true },
+      orderBy: [desc(connections.requestedAt)],
     }),
-    db.query.syncGroupTargets.findMany({
+    db.query.connections.findMany({
       where: and(
-        eq(syncGroupTargets.storeId, store.id),
-        inArray(syncGroupTargets.status, ["APPROVED", "DECLINED"]),
+        eq(connections.targetStoreId, store.id),
+        inArray(connections.status, ["APPROVED", "DECLINED"]),
       ),
-      with: { group: { with: { source: true } } },
-      orderBy: [desc(syncGroupTargets.respondedAt)],
+      with: { source: true },
+      orderBy: [desc(connections.respondedAt)],
     }),
   ]);
 
-  return { ownedGroups, incomingRequests, memberships };
+  return { outgoing, incomingRequests, incoming };
 }
 
-/** Most recent sync jobs across every group this shop owns as a source:
- * for App Home's "recent activity" list, which has no single group to
- * scope to (unlike JobHistoryList, which is per-group). Takes the owned
- * group ids directly (from a `getDashboardData` call the caller already
- * made) rather than re-deriving them, so the two don't run
- * `getOrCreateStore`/the owned-groups query twice on one page load. Empty
- * `ownedGroupIds` short-circuits before the `inArray` call, since some
- * drivers reject an empty `IN (...)` list. */
-export async function getRecentJobs(ownedGroupIds: string[], limit = 10) {
-  if (ownedGroupIds.length === 0) return [];
+/** Most recent sync jobs across the given connections: for App Home's
+ * "recent activity" list, which has no single connection to scope to
+ * (unlike JobHistoryList). Takes connection ids from a `getDashboardData`
+ * call the caller already made. Empty `connectionIds` short-circuits
+ * before the `inArray` call, since some drivers reject an empty
+ * `IN (...)` list. */
+export async function getRecentJobs(connectionIds: string[], limit = 10) {
+  if (connectionIds.length === 0) return [];
 
   return db.query.syncJobs.findMany({
-    where: inArray(syncJobs.groupId, ownedGroupIds),
+    where: inArray(syncJobs.connectionId, connectionIds),
     // A running job's plan can be thousands of entries; never ship it.
     columns: { plan: false },
-    with: { group: true },
+    with: { connection: { with: { source: true, target: true } } },
     orderBy: [desc(syncJobs.startedAt)],
     limit,
   });

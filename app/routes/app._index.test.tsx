@@ -23,29 +23,38 @@ const Index = (await import("./app._index")).default;
 
 const SHOP = "source-shop.myshopify.com";
 
-function renderAtRoute(dashboardData: {
-  ownedGroups: unknown[];
+type Dashboard = {
+  outgoing: unknown[];
   incomingRequests: unknown[];
-  memberships: unknown[];
+  incoming: unknown[];
   recentJobs: unknown[];
-}) {
+};
+
+const empty: Dashboard = {
+  outgoing: [],
+  incomingRequests: [],
+  incoming: [],
+  recentJobs: [],
+};
+
+function renderAtRoute(overrides: Partial<Dashboard>) {
   const Stub = createRoutesStub([
     {
       path: "/",
       Component: Index,
-      loader: () => dashboardData,
+      loader: () => ({ ...empty, ...overrides }),
     },
   ]);
   return render(<Stub initialEntries={["/"]} />);
 }
 
 describe("App Home loader", () => {
-  it("authenticates, loads dashboard data, and recent jobs scoped to owned groups", async () => {
+  it("loads dashboard data and recent jobs across both directions", async () => {
     authenticateAdmin.mockResolvedValue({ session: { shop: SHOP } });
     getDashboardData.mockResolvedValue({
-      ownedGroups: [{ id: "group-1" }],
+      outgoing: [{ id: "out-1" }],
       incomingRequests: [],
-      memberships: [],
+      incoming: [{ id: "in-1" }],
     });
     getRecentJobs.mockResolvedValue([]);
 
@@ -59,61 +68,82 @@ describe("App Home loader", () => {
     } as never);
 
     expect(authenticateAdmin).toHaveBeenCalledWith(request);
-    expect(getRecentJobs).toHaveBeenCalledWith(["group-1"]);
+    expect(getRecentJobs).toHaveBeenCalledWith(["out-1", "in-1"]);
     expect(result).toEqual({
-      ownedGroups: [{ id: "group-1" }],
+      outgoing: [{ id: "out-1" }],
       incomingRequests: [],
-      memberships: [],
+      incoming: [{ id: "in-1" }],
       recentJobs: [],
     });
   });
 });
 
 describe("App Home", () => {
-  it("shows the empty state with no owned groups", async () => {
-    renderAtRoute({
-      ownedGroups: [],
-      incomingRequests: [],
-      memberships: [],
-      recentJobs: [],
-    });
+  it("shows the empty state with no connections", async () => {
+    renderAtRoute({});
 
     expect(
       await screen.findByText(/haven.t connected any stores yet/i),
     ).toBeInTheDocument();
   });
 
-  it("shows counts and recent activity when groups exist", async () => {
+  it("still shows the empty state when the only incoming connection was declined", async () => {
+    renderAtRoute({ incoming: [{ id: "in-1", status: "DECLINED" }] });
+
+    expect(
+      await screen.findByText(/haven.t connected any stores yet/i),
+    ).toBeInTheDocument();
+  });
+
+  it("counts a store it pulls from as connected", async () => {
+    renderAtRoute({ incoming: [{ id: "in-1", status: "APPROVED" }] });
+
+    expect(
+      await screen.findByText("Pulls from 1 store(s)"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/haven.t connected any stores yet/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the overview when the only activity is an incoming request", async () => {
+    renderAtRoute({ incomingRequests: [{ id: "request-1" }] });
+
+    expect(
+      await screen.findByText(/1 pairing request\(s\) awaiting/i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows counts and recent activity", async () => {
     renderAtRoute({
-      ownedGroups: [
-        {
-          id: "group-1",
-          targets: [{ status: "APPROVED" }, { status: "PENDING" }],
-        },
+      outgoing: [
+        { id: "out-1", status: "APPROVED" },
+        { id: "out-2", status: "PENDING" },
       ],
-      incomingRequests: [{ id: "incoming-1" }],
-      memberships: [],
       recentJobs: [
         {
           id: "job-1",
-          groupId: "group-1",
+          connectionId: "out-1",
           status: "SUCCEEDED",
           startedAt: new Date("2026-01-01T00:00:00Z"),
-          group: { name: "EU stores" },
+          connection: {
+            source: { shop: "a.myshopify.com" },
+            target: { shop: "b.myshopify.com" },
+          },
         },
       ],
     });
 
-    expect(await screen.findByText("1 sync group(s)")).toBeInTheDocument();
-    expect(screen.getByText("1 approved target(s)")).toBeInTheDocument();
+    expect(await screen.findByText("Syncs to 1 store(s)")).toBeInTheDocument();
     expect(
-      screen.getByText(/1 pairing request\(s\) awaiting/i),
+      screen.getByText("1 invite(s) awaiting approval"),
     ).toBeInTheDocument();
-    expect(screen.getByText("EU stores")).toHaveAttribute(
-      "href",
-      "/app/groups/group-1/definitions",
+    expect(
+      screen.getByText("a.myshopify.com → b.myshopify.com"),
+    ).toHaveAttribute("href", "/app/connections/out-1");
+    expect(document.querySelector("s-badge")).toHaveAttribute(
+      "tone",
+      "success",
     );
-    const badge = document.querySelector("s-badge");
-    expect(badge).toHaveAttribute("tone", "success");
   });
 });

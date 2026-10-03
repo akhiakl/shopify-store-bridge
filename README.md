@@ -3,7 +3,7 @@
 An embedded Shopify admin app, built on the [React Router](https://reactrouter.com/) Shopify
 app template ([`shopify-app-template-react-router`](https://github.com/Shopify/shopify-app-template-react-router)).
 
-**Status:** store pairing (sync groups, invite/approve) is built: see
+**Status:** store pairing (connections between two stores, invite/approve) is built: see
 [`docs/architecture/store-pairing.md`](docs/architecture/store-pairing.md). Manually-triggered
 definition sync (metaobject/metafield definitions, source → approved targets), job history,
 and shop-level metafield value sync are built too: see

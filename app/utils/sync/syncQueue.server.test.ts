@@ -46,11 +46,11 @@ afterEach(() => {
 
 describe("enqueueSyncJob", () => {
   it("inserts the job as QUEUED", async () => {
-    const job = await enqueueSyncJob("group-1", ["metaobject:faq"]);
+    const job = await enqueueSyncJob("conn-1", ["metaobject:faq"]);
 
     expect(job).toMatchObject({
       id: "job-1",
-      groupId: "group-1",
+      connectionId: "conn-1",
       selection: ["metaobject:faq"],
       status: "QUEUED",
     });
