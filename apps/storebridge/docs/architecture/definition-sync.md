@@ -188,6 +188,23 @@ read/write_online_store_navigation.
   synced in the same job resolve. A failed lookup or a rejected write fails the whole
   menu.
 
+## Location sync (#123)
+
+Selecting a location under "Locations" (`location:<name>`) upserts it on each target **by
+exact name**, which Shopify keeps unique per store: a match gets the source's address and
+"fulfills online orders" setting (`locationEdit`), no match is created (`locationAdd`).
+Scopes: read/write_locations.
+
+- **Renames aren't tracked.** A location renamed on the source creates a new one on the
+  target at the next sync; the old one stays. Matching by a stored source ID was
+  considered and rejected as more machinery than the case needs.
+- **Active state isn't synced.** Deactivating needs inventory moved first, so each store
+  manages it. Only active source locations are offered, but an inactive target location
+  with the same name is still edited rather than duplicated.
+- **Fulfillment-service locations are left out** on the source, and a target name held
+  by one fails that location: those belong to the fulfillment app.
+- Inventory, local pickup and shipping settings aren't synced.
+
 ## Job/job-target/job-item schema
 
 One `SyncJob` row per "Sync now" click (group, requested selection, overall status,
