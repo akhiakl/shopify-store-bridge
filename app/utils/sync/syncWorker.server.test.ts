@@ -31,8 +31,7 @@ const { dbMock, unauthenticatedMock, state } = vi.hoisted(() => {
         }),
       })),
       query: {
-        syncGroups: { findFirst: vi.fn() },
-        syncJobTargets: { findMany: vi.fn() },
+        connections: { findFirst: vi.fn() },
       },
     },
   };
@@ -101,37 +100,45 @@ const planWith = (defs: unknown[]) => ({
   collections: [],
   metaobjectEntries: [],
   metafieldValues: [],
+  shopMetafieldValues: [],
   menus: [],
   locations: [],
 });
 
-function pendingTarget(overrides: Record<string, unknown> = {}) {
+/** A claimed job row, fresh (no plan yet) unless overridden. */
+function claimedJob(overrides: Record<string, unknown> = {}) {
   return {
-    id: "jt-1",
-    status: "PENDING",
+    id: "job-1",
+    connectionId: "conn-1",
+    selection: ["metaobject:faq"],
+    plan: null,
     stepsDone: 0,
-    stepsTotal: 1,
+    stepsTotal: 0,
     itemsSynced: 0,
     itemsSkipped: 0,
     itemsFailed: 0,
-    store: { shop: "target.myshopify.com" },
     ...overrides,
   };
 }
+
+function connection(status = "APPROVED") {
+  return {
+    id: "conn-1",
+    status,
+    source: { shop: "source.myshopify.com" },
+    target: { shop: "target.myshopify.com" },
+  };
+}
+
+const finishedWith = (status: string) =>
+  expect.objectContaining({ status, plan: null, lockedUntil: null });
 
 beforeEach(() => {
   vi.clearAllMocks();
   state.claimed = [];
   state.updates = [];
   state.inserts = [];
-  dbMock.query.syncGroups.findFirst.mockResolvedValue({
-    id: "group-1",
-    source: { shop: "source.myshopify.com" },
-    targets: [
-      { storeId: "store-1", status: "APPROVED" },
-      { storeId: "store-2", status: "PENDING" },
-    ],
-  });
+  dbMock.query.connections.findFirst.mockResolvedValue(connection());
   unauthenticatedMock.admin.mockImplementation(async (shop: string) => ({
     admin: shop === "source.myshopify.com" ? sourceAdmin : okTarget,
   }));
@@ -140,61 +147,42 @@ beforeEach(() => {
 describe("processSyncJob", () => {
   it("does nothing when another run holds the lock or the job has ended", async () => {
     expect(await processSyncJob("job-1", NO_DEADLINE)).toBe("busy");
-    expect(dbMock.query.syncGroups.findFirst).not.toHaveBeenCalled();
+    expect(dbMock.query.connections.findFirst).not.toHaveBeenCalled();
   });
 
-  it("plans a new job for APPROVED targets only, then syncs and finishes it", async () => {
-    state.claimed = [
-      {
-        id: "job-1",
-        groupId: "group-1",
-        selection: ["metaobject:faq"],
-        plan: null,
-      },
-    ];
-    dbMock.query.syncJobTargets.findMany
-      .mockResolvedValueOnce([pendingTarget()])
-      .mockResolvedValueOnce([{ status: "SUCCEEDED" }]);
+  it("plans a new job, syncs it into the target, and finishes it", async () => {
+    state.claimed = [claimedJob()];
 
     expect(await processSyncJob("job-1", NO_DEADLINE)).toBe("done");
 
-    expect(state.inserts[0].values).toEqual([
-      { jobId: "job-1", storeId: "store-1", status: "PENDING", stepsTotal: 1 },
-    ]);
     expect(state.updates).toContainEqual({
       plan: planWith([faqDefinition]),
       status: "RUNNING",
+      stepsTotal: 1,
     });
-    expect(state.inserts[1].values).toEqual([
+    expect(state.inserts[0].values).toEqual([
       {
-        jobTargetId: "jt-1",
+        jobId: "job-1",
         key: "metaobject:faq",
         kind: "DEFINITION",
         status: "SUCCEEDED",
         errorMessage: null,
       },
     ]);
-    expect(state.updates).toContainEqual(
-      expect.objectContaining({
-        stepsDone: 1,
-        itemsSynced: 1,
-        status: "SUCCEEDED",
-      }),
-    );
-    expect(state.updates).toContainEqual(
-      expect.objectContaining({ status: "SUCCEEDED", plan: null }),
+    expect(state.updates).toContainEqual({
+      stepsDone: 1,
+      itemsSynced: 1,
+      itemsSkipped: 0,
+      itemsFailed: 0,
+    });
+    expect(state.updates).toContainEqual(finishedWith("SUCCEEDED"));
+    expect(unauthenticatedMock.admin).toHaveBeenCalledWith(
+      "target.myshopify.com",
     );
   });
 
   it("fails the job when nothing selected exists on the source anymore", async () => {
-    state.claimed = [
-      {
-        id: "job-1",
-        groupId: "group-1",
-        selection: ["metaobject:gone"],
-        plan: null,
-      },
-    ];
+    state.claimed = [claimedJob({ selection: ["metaobject:gone"] })];
 
     expect(await processSyncJob("job-1", NO_DEADLINE)).toBe("done");
 
@@ -205,121 +193,105 @@ describe("processSyncJob", () => {
           "None of the selected items exist on the source store anymore.",
       }),
     );
-    expect(state.inserts).toHaveLength(0);
+    expect(state.inserts).toEqual([]);
   });
 
-  it("succeeds trivially when no target is APPROVED", async () => {
-    dbMock.query.syncGroups.findFirst.mockResolvedValue({
-      id: "group-1",
-      source: { shop: "source.myshopify.com" },
-      targets: [],
-    });
-    state.claimed = [
-      {
-        id: "job-1",
-        groupId: "group-1",
-        selection: ["metaobject:faq"],
-        plan: null,
-      },
-    ];
+  it("fails a job whose connection isn't approved, without reading the source", async () => {
+    dbMock.query.connections.findFirst.mockResolvedValue(connection("PENDING"));
+    state.claimed = [claimedJob()];
 
     expect(await processSyncJob("job-1", NO_DEADLINE)).toBe("done");
-    expect(state.updates).toContainEqual(
-      expect.objectContaining({ status: "SUCCEEDED" }),
-    );
-  });
 
-  it("fails the job with the reason when the source store can't be reached", async () => {
-    unauthenticatedMock.admin.mockRejectedValue(new Error("no session"));
-    state.claimed = [
-      {
-        id: "job-1",
-        groupId: "group-1",
-        selection: ["metaobject:faq"],
-        plan: null,
-      },
-    ];
-
-    expect(await processSyncJob("job-1", NO_DEADLINE)).toBe("done");
-    expect(state.updates).toContainEqual(
-      expect.objectContaining({ status: "FAILED", errorMessage: "no session" }),
-    );
-  });
-
-  it("resumes a planned job from the target's saved step and reports work left at the deadline", async () => {
-    const twoDefs = planWith([
-      faqDefinition,
-      { ...faqDefinition, type: "chef" },
-    ]);
-    state.claimed = [
-      { id: "job-1", groupId: "group-1", selection: [], plan: twoDefs },
-    ];
-    dbMock.query.syncJobTargets.findMany
-      .mockResolvedValueOnce([
-        pendingTarget({ stepsDone: 1, stepsTotal: 3, itemsSynced: 1 }),
-      ])
-      .mockResolvedValueOnce([{ status: "PENDING" }]);
-
-    expect(await processSyncJob("job-1", NO_DEADLINE)).toBe("more");
-
-    // Only the second step ran; the first was done in an earlier run.
-    expect(okTarget.graphql).toHaveBeenCalledTimes(1);
     expect(state.updates).toContainEqual(
       expect.objectContaining({
-        stepsDone: 2,
-        itemsSynced: 2,
-        status: "SUCCEEDED",
+        status: "FAILED",
+        errorMessage: "target.myshopify.com hasn't approved this connection.",
       }),
     );
-    // Lock released for the next run.
-    expect(state.updates.at(-1)).toEqual({ lockedUntil: null });
+    expect(sourceAdmin.graphql).not.toHaveBeenCalled();
   });
 
-  it("stops before starting a target once the deadline has passed", async () => {
-    state.claimed = [
-      {
-        id: "job-1",
-        groupId: "group-1",
-        selection: [],
-        plan: planWith([faqDefinition]),
-      },
-    ];
-    dbMock.query.syncJobTargets.findMany
-      .mockResolvedValueOnce([pendingTarget()])
-      .mockResolvedValueOnce([{ status: "PENDING" }]);
-
-    expect(await processSyncJob("job-1", 0)).toBe("more");
-    expect(okTarget.graphql).not.toHaveBeenCalled();
-  });
-
-  it("marks a target FAILED when it can't be reached and rolls mixed results up to PARTIAL", async () => {
-    unauthenticatedMock.admin.mockImplementation(async (shop: string) => {
-      if (shop === "down.myshopify.com") throw new Error("Target offline");
-      return {
-        admin: shop === "source.myshopify.com" ? sourceAdmin : okTarget,
-      };
-    });
-    state.claimed = [
-      {
-        id: "job-1",
-        groupId: "group-1",
-        selection: [],
-        plan: planWith([faqDefinition]),
-      },
-    ];
-    dbMock.query.syncJobTargets.findMany
-      .mockResolvedValueOnce([
-        pendingTarget({ id: "jt-down", store: { shop: "down.myshopify.com" } }),
-      ])
-      .mockResolvedValueOnce([{ status: "SUCCEEDED" }, { status: "FAILED" }]);
+  it("fails the job with the reason when the connection is gone", async () => {
+    dbMock.query.connections.findFirst.mockResolvedValue(undefined);
+    state.claimed = [claimedJob()];
 
     expect(await processSyncJob("job-1", NO_DEADLINE)).toBe("done");
-    expect(state.updates).toContainEqual({
-      status: "FAILED",
-      errorMessage: "Target offline",
-    });
+
     expect(state.updates).toContainEqual(
-      expect.objectContaining({ status: "PARTIAL" }),
+      expect.objectContaining({
+        status: "FAILED",
+        errorMessage: "This connection no longer exists.",
+      }),
+    );
+  });
+
+  it("resumes a planned job from its saved step and reports work left at the deadline", async () => {
+    const plan = planWith([faqDefinition, { ...faqDefinition, type: "b" }]);
+    state.claimed = [
+      claimedJob({ plan, stepsDone: 1, stepsTotal: 2, itemsSynced: 1 }),
+    ];
+    // Let exactly one step run: the deadline passes once it's done.
+    let calls = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => (calls++ === 0 ? 0 : 10));
+
+    expect(await processSyncJob("job-1", 5)).toBe("done");
+
+    // Never re-plans a job that already has one.
+    expect(sourceAdmin.graphql).not.toHaveBeenCalled();
+    expect(state.updates).toContainEqual(
+      expect.objectContaining({ stepsDone: 2, itemsSynced: 2 }),
+    );
+    vi.restoreAllMocks();
+  });
+
+  it("stops before the next step once the deadline has passed", async () => {
+    const plan = planWith([faqDefinition]);
+    state.claimed = [claimedJob({ plan, stepsTotal: 1 })];
+
+    expect(await processSyncJob("job-1", 0)).toBe("more");
+
+    expect(okTarget.graphql).not.toHaveBeenCalled();
+    expect(state.updates).toContainEqual(
+      expect.objectContaining({ stepsDone: 0 }),
+    );
+    expect(state.updates).not.toContainEqual(finishedWith("SUCCEEDED"));
+  });
+
+  it("finishes FAILED when an item failed", async () => {
+    const plan = planWith([faqDefinition]);
+    state.claimed = [claimedJob({ plan, stepsTotal: 1 })];
+    okTarget.graphql.mockResolvedValueOnce(
+      jsonResponse({
+        metaobjectDefinitionCreate: {
+          metaobjectDefinition: null,
+          userErrors: [{ field: ["type"], message: "Bad", code: "INVALID" }],
+        },
+      }) as never,
+    );
+
+    expect(await processSyncJob("job-1", NO_DEADLINE)).toBe("done");
+
+    expect(state.updates).toContainEqual(
+      expect.objectContaining({ itemsFailed: 1 }),
+    );
+    expect(state.updates).toContainEqual(finishedWith("FAILED"));
+  });
+
+  it("fails the job when the target can't be reached", async () => {
+    const plan = planWith([faqDefinition]);
+    state.claimed = [claimedJob({ plan, stepsTotal: 1 })];
+    unauthenticatedMock.admin.mockImplementation(async (shop: string) => {
+      if (shop === "target.myshopify.com") throw new Error("Session gone");
+      return { admin: sourceAdmin };
+    });
+
+    expect(await processSyncJob("job-1", NO_DEADLINE)).toBe("done");
+
+    expect(state.updates).toContainEqual(
+      expect.objectContaining({
+        status: "FAILED",
+        errorMessage: "Session gone",
+      }),
     );
   });
 });

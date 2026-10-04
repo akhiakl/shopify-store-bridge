@@ -6,7 +6,7 @@
 
 _Required if this PR changes UI. If a real Shopify store/dev session isn't
 available, use `scripts/screenshot-app.mjs` (see its
-`scripts/README.md`) — it renders the route with a locally-signed session
+`scripts/README.md`): it renders the route with a locally-signed session
 token and a mocked Polaris stylesheet, since the real one loads from
 `cdn.shopify.com` at runtime. Label mocked screenshots as such; they
 approximate layout/spacing, not exact Polaris styling. Delete this section

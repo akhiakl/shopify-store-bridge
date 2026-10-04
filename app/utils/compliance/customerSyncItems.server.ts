@@ -1,12 +1,8 @@
 import { and, eq, inArray, like } from "drizzle-orm";
 
 import db from "~/db.server";
-import { stores, syncGroups } from "~/db/schema.server";
-import {
-  syncJobItems,
-  syncJobs,
-  syncJobTargets,
-} from "~/db/syncJobsSchema.server";
+import { connections, stores } from "~/db/schema.server";
+import { syncJobItems, syncJobs } from "~/db/syncJobsSchema.server";
 
 /**
  * The job-history rows StoreBridge holds on one customer of `shop`: items
@@ -21,12 +17,11 @@ export function customerSyncItemsWhere(
   shop: string,
   customerId: string | number,
 ) {
-  const sourceJobTargets = db
-    .select({ id: syncJobTargets.id })
-    .from(syncJobTargets)
-    .innerJoin(syncJobs, eq(syncJobs.id, syncJobTargets.jobId))
-    .innerJoin(syncGroups, eq(syncGroups.id, syncJobs.groupId))
-    .innerJoin(stores, eq(stores.id, syncGroups.sourceId))
+  const sourceJobs = db
+    .select({ id: syncJobs.id })
+    .from(syncJobs)
+    .innerJoin(connections, eq(connections.id, syncJobs.connectionId))
+    .innerJoin(stores, eq(stores.id, connections.sourceStoreId))
     .where(eq(stores.shop, shop));
 
   return and(
@@ -34,6 +29,6 @@ export function customerSyncItemsWhere(
       syncJobItems.key,
       `metafieldValue:CUSTOMER:%:gid://shopify/Customer/${customerId}`,
     ),
-    inArray(syncJobItems.jobTargetId, sourceJobTargets),
+    inArray(syncJobItems.jobId, sourceJobs),
   );
 }

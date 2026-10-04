@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 
 /**
- * Starts the app's production server (`npm run start` — assumes `npm run
+ * Starts the app's production server (`npm run start`: assumes `npm run
  * build` already ran) and resolves once it responds, or rejects if it
  * doesn't come up within `timeoutMs`. Mirrors playwright.config.ts's own
  * webServer block, but driven manually since this script isn't a Playwright

@@ -1,30 +1,30 @@
 ---
 name: storebridge-standards
-description: Use whenever writing, editing, or reviewing code in the StoreBridge repo — any TypeScript/React file, GraphQL operation, config, or commit. Covers the project's hard rules on file size, function params, test coverage, git hooks, GraphQL codegen, and commit hygiene. Trigger on any code-producing or committing task in this repo, not just when explicitly asked about "standards."
+description: Use whenever writing, editing, or reviewing code in the StoreBridge repo: any TypeScript/React file, GraphQL operation, config, or commit. Covers the project's hard rules on file size, function params, test coverage, git hooks, GraphQL codegen, and commit hygiene. Trigger on any code-producing or committing task in this repo, not just when explicitly asked about "standards."
 ---
 
 # StoreBridge Engineering Standards
 
-Full detail lives in `AGENTS.md` at the repo root — read it once per session before writing code. This file is the quick-reference trigger.
+Full detail lives in `AGENTS.md` at the repo root: read it once per session before writing code. This file is the quick-reference trigger.
 
 ## Before writing any code
 
-1. If anything is ambiguous — ask. Don't guess and proceed.
+1. If anything is ambiguous, ask. Don't guess and proceed.
 2. Shopify GraphQL → verify via Shopify Dev MCP first; mark unverified if MCP is unavailable.
 3. New dependency → check its actual latest version, don't assume from memory.
 4. Prefer the library's official CLI/init command over a hand-written config.
 
 ## While writing code
 
-- File ≤ 300 lines (source) / ≤ 500 lines (tests) — enforced by ESLint's
+- File ≤ 300 lines (source) / ≤ 500 lines (tests): enforced by ESLint's
   `max-lines` (`.eslintrc.cjs`), not just documented.
   Split by responsibility before reaching for `eslint-disable`.
-- Functions ≤ 3 parameters — 4+ becomes a single options object. Enforced
+- Functions ≤ 3 parameters: 4+ becomes a single options object. Enforced
   the same way (`max-params`).
 - JSDoc on exported symbols and non-obvious logic only; comments explain _why_.
 - Polaris for UI; every async action has loading/error/empty states.
 
-### SOLID, applied to this codebase — not ceremony
+### SOLID, applied to this codebase, not ceremony
 
 - **S**ingle responsibility: a route module's `loader`/`action` orchestrates;
   it doesn't also contain the GraphQL query string, the business rule, _and_
@@ -36,16 +36,16 @@ Full detail lives in `AGENTS.md` at the repo root — read it once per session b
   caller's special case.
 - **L**iskov: don't give a narrower implementation of a shared interface
   (e.g. a webhook handler, a session-storage adapter) surprising
-  preconditions the type doesn't advertise — callers should be able to swap
+  preconditions the type doesn't advertise: callers should be able to swap
   one Shopify webhook route for another without reading its internals first.
 - **I**nterface segregation: a component or function takes the fields it
   actually uses, not the whole `Shop`/`Session` object "in case." Makes
   props easy to test and mock.
 - **D**ependency inversion: routes depend on `app/shopify.server.ts`'s
   exported `authenticate`/`sessionStorage`, never construct a new
-  `shopifyApp(...)` instance inline — one seam, one place to swap for tests.
+  `shopifyApp(...)` instance inline: one seam, one place to swap for tests.
 
-### YAGNI — strictly, not just as a slogan
+### YAGNI: strictly, not just as a slogan
 
 Don't add: a config knob nothing reads yet, a resource type or extension
 point for a "phase 2" that isn't scheduled, an abstraction layer over a
@@ -53,39 +53,39 @@ single implementation "in case we need a second one." When you're tempted
 to build ahead of current scope, either don't, or write down the open
 decision explicitly rather than silently doing it "for completeness."
 
-### Folder structure — colocate, then promote (AGENTS.md §6)
+### Folder structure: colocate, then promote (AGENTS.md §6)
 
 - `app/routes/` is file-based (`@react-router/fs-routes`). A route with no
   helpers of its own stays a flat file; once it needs
   components/hooks/utils, it becomes a folder (`route.tsx` + `components/`,
-  `hooks/`, `utils/` as actually needed — no empty scaffolding).
-- Used by a second route? Promote — `git mv` to shared `app/components/`,
+  `hooks/`, `utils/` as actually needed: no empty scaffolding).
+- Used by a second route? Promote: `git mv` to shared `app/components/`,
   `app/hooks/`, or `app/utils/`. Never promote pre-emptively.
 - One export per file, named to match. Tests sit beside the file they test
   (`useThing.ts` + `useThing.test.ts`), not in a `__tests__/` folder.
 - `~/` (→ `app/`) for anything outside the current folder; a single `../`
   to a colocated sibling is fine, `../../`+ is an ESLint error
-  (`no-restricted-imports`) — move the file or use `~/` instead.
+  (`no-restricted-imports`): move the file or use `~/` instead.
 
 ## Before committing
 
-- Run through `pre-commit` (lint-staged: ESLint --fix + Prettier) mentally — code should already pass it.
+- Run through `pre-commit` (lint-staged: ESLint --fix + Prettier) mentally: code should already pass it.
 - Conventional Commit message (`type(scope): subject`), one logical change per commit.
 - **Never** add AI co-author trailers or "generated with" footers.
 
 ## Before pushing
 
-- Type-check, build, and full test suite (≥80% coverage across every source file, `coverage.all: true`) all pass — these run automatically via Husky `pre-push`.
-- Unit tests (Vitest + RTL) and e2e tests (Playwright) are separate suites — `pnpm run test:coverage` runs unit only; `pnpm run test:e2e` builds then runs e2e. Both must pass, but only unit tests gate the 80% coverage floor.
+- Type-check, build, and full test suite (≥80% coverage across every source file, `coverage.all: true`) all pass: these run automatically via Husky `pre-push`.
+- Unit tests (Vitest + RTL) and e2e tests (Playwright) are separate suites: `pnpm run test:coverage` runs unit only; `pnpm run test:e2e` builds then runs e2e. Both must pass, but only unit tests gate the 80% coverage floor.
 
 ## Repo layout (single app, Shopify CLI scaffold shape)
 
 - Repo root is the Shopify app: `app/`, `drizzle/`, `e2e/`, `extensions/` (the only pnpm workspace members), plus `package.json`, `tsconfig.json`, `.eslintrc.cjs`, `vitest.config.ts`, `playwright.config.ts`, `shopify.app*.toml`.
-- Tooling — `pnpm-workspace.yaml`, `.npmrc`, `commitlint.config.cjs`, `.lintstagedrc.json`, `.husky/*`.
-- `app/db/schema.server.ts` — session/token store (Supabase Postgres) _and_ the app's own cross-shop data (store pairing) — see `docs/architecture/data-model.md` for which is which.
+- Tooling: `pnpm-workspace.yaml`, `.npmrc`, `commitlint.config.cjs`, `.lintstagedrc.json`, `.husky/*`.
+- `app/db/schema.server.ts` (session/token store (Supabase Postgres) _and_ the app's own cross-shop data (store pairing)) see `docs/architecture/data-model.md` for which is which.
 
 ## Deeper context (not covered above)
 
-- `docs/architecture/` — auth/session flow, the data model, and the store-pairing trust design. Read the relevant one before touching auth code or the pairing feature; none of this is derivable from the code alone.
-- `storebridge-auth-troubleshooting` skill — the embedded app isn't authenticating, or a session isn't persisting.
-- `storebridge-dependency-parity` skill — checking whether config/dependencies drifted from what `shopify app init` actually scaffolds.
+- `docs/architecture/`: auth/session flow, the data model, and the store-pairing trust design. Read the relevant one before touching auth code or the pairing feature; none of this is derivable from the code alone.
+- `storebridge-auth-troubleshooting` skill: the embedded app isn't authenticating, or a session isn't persisting.
+- `storebridge-dependency-parity` skill: checking whether config/dependencies drifted from what `shopify app init` actually scaffolds.

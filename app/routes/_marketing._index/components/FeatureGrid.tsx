@@ -2,16 +2,16 @@ import { Card } from "~/components/ui/Card";
 
 const features = [
   {
-    title: "Store pairing",
-    body: "Connect a source store to one or more target stores, with each pairing approved from the target side before anything syncs.",
+    title: "One connection per store",
+    body: "Invite a store by its domain. It joins through a one-time link you send it, so only someone you trusted with the link can connect.",
   },
   {
-    title: "Definition sync",
-    body: "Push metaobject and metafield definitions — and SHOP-level metafield values — from a source store to its approved targets with one click.",
+    title: "Pick exactly what syncs",
+    body: "Choose items type by type, check which are out of sync first, and start the sync from either store.",
   },
   {
     title: "Job history",
-    body: "See exactly what synced, what was skipped as already existing, and what failed, per target and per item.",
+    body: "Every sync shows what was copied, what was skipped because it already existed, and what failed and why.",
   },
 ] as const;
 

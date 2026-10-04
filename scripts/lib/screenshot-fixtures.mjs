@@ -7,7 +7,7 @@ import { inArray } from "drizzle-orm";
 /**
  * Data + auth setup for scripts/screenshot-app.mjs. Deliberately separate
  * from e2e/support/* (those are .ts, loaded by the Playwright test runner;
- * this is a plain-Node script) rather than sharing a loader — small enough
+ * this is a plain-Node script) rather than sharing a loader: small enough
  * that duplicating the session-token signing and table shapes here is
  * cheaper than wiring cross-runtime TS imports for one script. Table/column
  * names must stay in sync with app/db/schema.server.ts.
@@ -16,7 +16,7 @@ import { inArray } from "drizzle-orm";
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle(pool);
 
-const syncGroupTargetStatusEnum = pgEnum("SyncGroupTargetStatus", [
+const connectionStatusEnum = pgEnum("ConnectionStatus", [
   "PENDING",
   "APPROVED",
   "DECLINED",
@@ -37,17 +37,11 @@ const stores = pgTable("Store", {
   shop: text("shop").notNull().unique(),
 });
 
-const syncGroups = pgTable("SyncGroup", {
+const connections = pgTable("Connection", {
   id: text("id").primaryKey(),
-  name: text("name"),
-  sourceId: text("sourceId").notNull(),
-});
-
-const syncGroupTargets = pgTable("SyncGroupTarget", {
-  id: text("id").primaryKey(),
-  groupId: text("groupId").notNull(),
-  storeId: text("storeId").notNull(),
-  status: syncGroupTargetStatusEnum("status").notNull().default("PENDING"),
+  sourceStoreId: text("sourceStoreId").notNull(),
+  targetStoreId: text("targetStoreId").notNull(),
+  status: connectionStatusEnum("status").notNull().default("PENDING"),
   respondedAt: timestamp("respondedAt", { mode: "date" }),
 });
 
@@ -118,9 +112,8 @@ const SCREENSHOT_SHOPS = [
 
 /**
  * Deletes any leftover Store/Session rows from a previous run of this
- * script, so re-running it doesn't pile up duplicate SyncGroups (Store
- * deletion cascades to its groups/memberships - see
- * app/db/schema.server.ts).
+ * script, so re-running it doesn't pile up duplicate connections (Store
+ * deletion cascades to its connections - see app/db/schema.server.ts).
  */
 export async function resetScenarios() {
   await db.delete(stores).where(inArray(stores.shop, SCREENSHOT_SHOPS));
@@ -129,8 +122,8 @@ export async function resetScenarios() {
 
 /**
  * Seeds an empty-state shop (installed, nothing paired yet) and a
- * populated one (an owned group, an incoming request, and a resolved
- * membership) so the two screenshots show StoreBridge before and after
+ * populated one (an outgoing invite, an incoming request, and an approved
+ * incoming connection) so the two screenshots show StoreBridge before and after
  * real use. Returns the shop domains to render.
  */
 export async function seedScenarios() {
@@ -145,32 +138,16 @@ export async function seedScenarios() {
   const partnerStore = await upsertStore(partnerShop);
   const approvedSourceStore = await upsertStore(approvedSourceShop);
 
-  const [ownedGroup] = await db
-    .insert(syncGroups)
-    .values({ sourceId: mainStore.id, name: "EU expansion" })
-    .returning();
-  await db
-    .insert(syncGroupTargets)
-    .values({ groupId: ownedGroup.id, storeId: targetStore.id });
-
-  const [incomingGroup] = await db
-    .insert(syncGroups)
-    .values({ sourceId: partnerStore.id, name: "Wholesale rollout" })
-    .returning();
-  await db
-    .insert(syncGroupTargets)
-    .values({ groupId: incomingGroup.id, storeId: mainStore.id });
-
-  const [approvedGroup] = await db
-    .insert(syncGroups)
-    .values({ sourceId: approvedSourceStore.id, name: "Franchise sync" })
-    .returning();
-  await db.insert(syncGroupTargets).values({
-    groupId: approvedGroup.id,
-    storeId: mainStore.id,
-    status: "APPROVED",
-    respondedAt: new Date(),
-  });
+  await db.insert(connections).values([
+    { sourceStoreId: mainStore.id, targetStoreId: targetStore.id },
+    { sourceStoreId: partnerStore.id, targetStoreId: mainStore.id },
+    {
+      sourceStoreId: approvedSourceStore.id,
+      targetStoreId: mainStore.id,
+      status: "APPROVED",
+      respondedAt: new Date(),
+    },
+  ]);
 
   return { emptyShop, mainShop };
 }

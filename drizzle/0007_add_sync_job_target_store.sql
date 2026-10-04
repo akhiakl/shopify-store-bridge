@@ -1,0 +1,2 @@
+ALTER TABLE "SyncJob" ADD COLUMN "targetStoreId" text;--> statement-breakpoint
+ALTER TABLE "SyncJob" ADD CONSTRAINT "SyncJob_targetStoreId_Store_id_fk" FOREIGN KEY ("targetStoreId") REFERENCES "public"."Store"("id") ON DELETE cascade ON UPDATE no action;

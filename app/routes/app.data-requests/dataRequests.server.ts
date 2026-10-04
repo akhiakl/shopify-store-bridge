@@ -2,12 +2,8 @@ import { desc, eq } from "drizzle-orm";
 
 import db from "~/db.server";
 import { customerDataRequests } from "~/db/complianceSchema.server";
-import { stores } from "~/db/schema.server";
-import {
-  syncJobItems,
-  syncJobs,
-  syncJobTargets,
-} from "~/db/syncJobsSchema.server";
+import { connections, stores } from "~/db/schema.server";
+import { syncJobItems, syncJobs } from "~/db/syncJobsSchema.server";
 import { customerSyncItemsWhere } from "~/utils/compliance/customerSyncItems.server";
 
 /** One job-history row held on the customer, in the shape it's shown and
@@ -47,9 +43,9 @@ async function rowsFor(
       targetShop: stores.shop,
     })
     .from(syncJobItems)
-    .innerJoin(syncJobTargets, eq(syncJobTargets.id, syncJobItems.jobTargetId))
-    .innerJoin(syncJobs, eq(syncJobs.id, syncJobTargets.jobId))
-    .innerJoin(stores, eq(stores.id, syncJobTargets.storeId))
+    .innerJoin(syncJobs, eq(syncJobs.id, syncJobItems.jobId))
+    .innerJoin(connections, eq(connections.id, syncJobs.connectionId))
+    .innerJoin(stores, eq(stores.id, connections.targetStoreId))
     .where(customerSyncItemsWhere(shop, customerId))
     .orderBy(desc(syncJobs.startedAt));
   return rows.map(({ key, ...row }) => ({

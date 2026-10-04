@@ -8,7 +8,7 @@ import { authenticate } from "~/shopify.server";
 import { customerSyncItemsWhere } from "~/utils/compliance/customerSyncItems.server";
 
 /**
- * Mandatory compliance webhook (customers/redact) — required before public
+ * Mandatory compliance webhook (customers/redact): required before public
  * App Store submission, see
  * https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance.
  * A store owner asked to delete a customer's data on their behalf.

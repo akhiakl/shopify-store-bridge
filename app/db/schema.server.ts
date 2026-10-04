@@ -12,7 +12,7 @@ import { relations, sql } from "drizzle-orm";
 import { serviceRoleOnly } from "./rls.server";
 
 // --- ENUMS ---
-export const syncGroupTargetStatusEnum = pgEnum("SyncGroupTargetStatus", [
+export const connectionStatusEnum = pgEnum("ConnectionStatus", [
   "PENDING",
   "APPROVED",
   "DECLINED",
@@ -24,8 +24,7 @@ export const syncGroupTargetStatusEnum = pgEnum("SyncGroupTargetStatus", [
 // no data migration is needed. Don't "clean up" the PascalCase table names
 // or camelCase columns without a real rename migration against Supabase.
 //
-// This file holds the pairing domain (Session/Store/SyncGroup/
-// SyncGroupTarget) — see syncJobsSchema.server.ts for the sync-job
+// This file holds the pairing domain (Session/Store/Connection): see syncJobsSchema.server.ts for the sync-job
 // domain, split out once this file started pushing past the 300-line
 // limit. RLS policies for both live in rls.server.ts's serviceRoleOnly.
 
@@ -33,13 +32,13 @@ export const syncGroupTargetStatusEnum = pgEnum("SyncGroupTargetStatus", [
  * Shopify session/token storage. Column names/modifiers here also have to
  * stay identical to
  * @shopify/shopify-app-session-storage-drizzle's own reference schema
- * (postgres.schema.ts) — DrizzleSessionStoragePostgres's constructor takes
+ * (postgres.schema.ts): DrizzleSessionStoragePostgres's constructor takes
  * `PostgresSessionTable = typeof sessionTable` from that file, and
  * Drizzle's PgColumn generics encode the column name/nullability/default
  * literally, so any deviation breaks the type. Don't touch this table
  * without checking that file first.
  *
- * No `.enableRLS()` chain here (unlike the other tables below) — it
+ * No `.enableRLS()` chain here (unlike the other tables below): it
  * changes the table's type to `Omit<PgTableWithColumns<T>, 'enableRLS'>`,
  * which no longer satisfies `PostgresSessionTable`. RLS is already ON for
  * this table (enabled directly in Supabase); only the policy is declared
@@ -70,7 +69,7 @@ export const sessions = pgTable(
 );
 
 /** A Shopify shop that has StoreBridge installed. Kept separate from
- * `sessions` (auth/token state only) — this is where StoreBridge's own
+ * `sessions` (auth/token state only): this is where StoreBridge's own
  * business data about a shop anchors. */
 export const stores = pgTable(
   "Store",
@@ -85,40 +84,24 @@ export const stores = pgTable(
   () => [serviceRoleOnly("Store")],
 ).enableRLS();
 
-/** A source store's collection of paired target stores. The store the
- * merchant is currently in when they create a group is always the
- * source — there's no source picker. */
-export const syncGroups = pgTable(
-  "SyncGroup",
+/** One source store paired with one target store: the pairing
+ * "invite," requested from the source side and approved by the target.
+ * A connection has exactly one target; syncing to several stores means
+ * one connection each. See pairing.server.ts's requestPairing doc comment
+ * for why authTokenHash exists. */
+export const connections = pgTable(
+  "Connection",
   {
     id: text("id")
       .primaryKey()
       .default(sql`gen_random_uuid()::text`),
-    name: text("name"),
-    sourceId: text("sourceId")
+    sourceStoreId: text("sourceStoreId")
       .notNull()
       .references(() => stores.id, { onDelete: "cascade" }),
-    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
-  },
-  () => [serviceRoleOnly("SyncGroup")],
-).enableRLS();
-
-/** One target store's membership in a sync group — the pairing "invite,"
- * requested from the source side. See pairing.server.ts's requestPairing
- * doc comment for why authTokenHash exists. */
-export const syncGroupTargets = pgTable(
-  "SyncGroupTarget",
-  {
-    id: text("id")
-      .primaryKey()
-      .default(sql`gen_random_uuid()::text`),
-    groupId: text("groupId")
-      .notNull()
-      .references(() => syncGroups.id, { onDelete: "cascade" }),
-    storeId: text("storeId")
+    targetStoreId: text("targetStoreId")
       .notNull()
       .references(() => stores.id, { onDelete: "cascade" }),
-    status: syncGroupTargetStatusEnum("status").notNull().default("PENDING"),
+    status: connectionStatusEnum("status").notNull().default("PENDING"),
     requestedAt: timestamp("requestedAt", { mode: "date" })
       .notNull()
       .defaultNow(),
@@ -127,51 +110,39 @@ export const syncGroupTargets = pgTable(
     authTokenExpiresAt: timestamp("authTokenExpiresAt", { mode: "date" }),
   },
   (table) => [
-    uniqueIndex("SyncGroupTarget_groupId_storeId_key").on(
-      table.groupId,
-      table.storeId,
+    uniqueIndex("Connection_sourceStoreId_targetStoreId_key").on(
+      table.sourceStoreId,
+      table.targetStoreId,
     ),
-    serviceRoleOnly("SyncGroupTarget"),
+    serviceRoleOnly("Connection"),
   ],
 ).enableRLS();
 
 // --- DRIZZLE RELATIONS ---
-// Sync-job-domain tables (SyncJob/SyncJobTarget/SyncJobItem) declare their
-// own `store`/`group` one() relations pointing at these tables in
-// syncJobsSchema.server.ts — a table's relations() can be declared in a
+// Sync-job-domain tables (SyncJob/SyncJobItem) declare their own
+// `connection` one() relation pointing at `connections` in
+// syncJobsSchema.server.ts: a table's relations() can be declared in a
 // different file than the table itself, as long as both end up in the
-// combined schema object db.server.ts passes to drizzle(). No back-
-// reference (e.g. a `syncJobs` field here) is declared on stores/
-// syncGroups since nothing queries that direction today; add one there
-// if that changes, not here.
+// combined schema object db.server.ts passes to drizzle().
 
 export const storesRelations = relations(stores, ({ many }) => ({
-  sourcedGroups: many(syncGroups, { relationName: "SyncGroupSource" }),
-  targetMemberships: many(syncGroupTargets, {
-    relationName: "SyncGroupTargetStore",
+  outgoingConnections: many(connections, {
+    relationName: "ConnectionSource",
+  }),
+  incomingConnections: many(connections, {
+    relationName: "ConnectionTarget",
   }),
 }));
 
-export const syncGroupsRelations = relations(syncGroups, ({ one, many }) => ({
+export const connectionsRelations = relations(connections, ({ one }) => ({
   source: one(stores, {
-    fields: [syncGroups.sourceId],
+    fields: [connections.sourceStoreId],
     references: [stores.id],
-    relationName: "SyncGroupSource",
+    relationName: "ConnectionSource",
   }),
-  targets: many(syncGroupTargets),
+  target: one(stores, {
+    fields: [connections.targetStoreId],
+    references: [stores.id],
+    relationName: "ConnectionTarget",
+  }),
 }));
-
-export const syncGroupTargetsRelations = relations(
-  syncGroupTargets,
-  ({ one }) => ({
-    group: one(syncGroups, {
-      fields: [syncGroupTargets.groupId],
-      references: [syncGroups.id],
-    }),
-    store: one(stores, {
-      fields: [syncGroupTargets.storeId],
-      references: [stores.id],
-      relationName: "SyncGroupTargetStore",
-    }),
-  }),
-);

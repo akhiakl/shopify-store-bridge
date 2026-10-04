@@ -1,12 +1,12 @@
 name: Deploy Shopify app config
 
-# Staging deploys continuously (push to `staging` — that's the point of
+# Staging deploys continuously (push to `staging`: that's the point of
 # having a staging branch: every merge there ships to the staging Shopify
 # app + Vercel Preview immediately, no extra gate).
 #
 # Production is release-gated, deliberately not "push to main": pushing a
 # `v*` tag is what ships shopify.app.toml + the Vercel production build.
-# Merging a PR to main only runs CI (see ci.yml) — it does not deploy
+# Merging a PR to main only runs CI (see ci.yml): it does not deploy
 # anything by itself. Cut a release by tagging the commit on main you want
 # live:
 #   git tag v1.2.0 && git push origin v1.2.0
@@ -22,26 +22,26 @@ name: Deploy Shopify app config
 # invocation below) uses that script instead of the plain `build` one
 # whenever it's present. A failed migration fails the build, and a failed
 # build means the "Deploy to Vercel" step below has nothing prebuilt to
-# ship — no separate gate needed. This exists because Vercel's build never
+# ship: no separate gate needed. This exists because Vercel's build never
 # ran migrations on its own before, so a schema change could ship code that
 # reads a table/column that was never actually created (see DEPLOYMENT.md).
 #
-# The Shopify app config deploy is intentionally decoupled from this — it
+# The Shopify app config deploy is intentionally decoupled from this: it
 # never touches the database, so it runs unconditionally rather than
 # waiting on a migration/build step it has no dependency on.
 #
 # Requires:
-#   SHOPIFY_APP_AUTOMATION_TOKEN — Partner/Dev Dashboard app -> Automation
+#   SHOPIFY_APP_AUTOMATION_TOKEN: Partner/Dev Dashboard app -> Automation
 #     tokens. The older SHOPIFY_CLI_PARTNERS_TOKEN is deprecated as of the
-#     CLI 4.x / May 2026 rollout — don't use it here.
-#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID — needed on both
+#     CLI 4.x / May 2026 rollout: don't use it here.
+#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID: needed on both
 #     environments now that this workflow deploys staging's Vercel Preview
 #     too, not just production. Vercel's own Git integration must have
 #     auto-deploy disabled for both `main` and `staging` (Project Settings
 #     -> Git) or it'll keep shipping deployments on every push there,
 #     independent of this workflow. The migration-bearing `DATABASE_URL`/
 #     `DIRECT_URL` are Vercel project environment variables (Production vs
-#     Preview — see DEPLOYMENT.md), not GitHub secrets, since the build
+#     Preview: see DEPLOYMENT.md), not GitHub secrets, since the build
 #     that needs them runs inside `vercel build` below.
 
 on:
@@ -104,9 +104,9 @@ jobs:
 
       # Shopify CLI 4.x is required for SHOPIFY_APP_AUTOMATION_TOKEN support
       # and the --allow-updates flag. It's intentionally not a project
-      # dependency (see AGENTS.md / Dockerfile) — install it fresh here.
+      # dependency (see AGENTS.md / Dockerfile): install it fresh here.
       # pnpm/setup provisions Node/pnpm's own managed PATH, which `npm
-      # install -g` doesn't land on — install through pnpm so the `shopify`
+      # install -g` doesn't land on: install through pnpm so the `shopify`
       # binary actually resolves in later steps.
       - name: Install Shopify CLI
         run: pnpm add -g @shopify/cli@^4.0.0
@@ -115,11 +115,11 @@ jobs:
       # reads like a changelog instead of the CLI's auto-generated
       # "app-name-<random>" names:
       #   - production runs are triggered by a `v*` tag, so the tag itself
-      #     is the version (v1.2.0 -> 1.2.0) — this is the existing manual
+      #     is the version (v1.2.0 -> 1.2.0): this is the existing manual
       #     release gate, unchanged.
       #   - staging deploys continuously with no tag of its own, so it gets
       #     a prerelease built from the latest reachable tag plus this run's
-      #     number, e.g. 1.2.0-staging.42 — monotonically increasing without
+      #     number, e.g. 1.2.0-staging.42: monotonically increasing without
       #     needing its own tags.
       - name: Resolve version
         id: version
@@ -153,16 +153,16 @@ jobs:
             --source-control-url "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}" \
             --allow-updates
 
-      # Both environments now deploy to Vercel from here — staging no
+      # Both environments now deploy to Vercel from here: staging no
       # longer relies on Vercel's own Git integration to auto-deploy on
       # push (that path deployed independently of whether migrations had
       # run, which is exactly how the `SyncJob`-missing-table incident on
       # staging happened). The `vercel build` invocation below runs the
-      # `vercel-build` package.json script — `drizzle-kit migrate` then
-      # `react-router build` — so a failed migration fails the build and
+      # `vercel-build` package.json script: `drizzle-kit migrate` then
+      # `react-router build`, so a failed migration fails the build and
       # nothing gets deployed. Vercel's automatic Git deployment for the
       # `staging` branch must be disabled in the Vercel project's Git
-      # settings — see DEPLOYMENT.md — or this step and that integration
+      # settings (see DEPLOYMENT.md), or this step and that integration
       # will double-deploy on every push.
       - name: Deploy to Vercel
         env:

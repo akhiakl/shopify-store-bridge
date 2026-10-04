@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 
+import { AppVersion } from "~/components/AppVersion";
 import { authenticate } from "~/shopify.server";
 import { DataRequestCard } from "./components/DataRequestCard";
 import { getDataRequests } from "./dataRequests.server";
@@ -37,6 +38,7 @@ export default function DataRequests() {
           </s-stack>
         )}
       </s-section>
+      <AppVersion />
     </s-page>
   );
 }

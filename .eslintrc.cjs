@@ -22,7 +22,7 @@ module.exports = {
   },
   // ESLint 8 ignores dotfiles by default. That's silent when linting a glob
   // (`pnpm run lint`), but lint-staged passes exact staged paths and ESLint
-  // then *warns* "File ignored by default" for any dotfile among them —
+  // then *warns* "File ignored by default" for any dotfile among them,
   // which --max-warnings=0 in .lintstagedrc.json treats as a failure. Negate
   // the ones we want linted.
   ignorePatterns: ["!**/.server", "!**/.client", "!.graphqlrc.ts"],
@@ -31,7 +31,7 @@ module.exports = {
   extends: ["eslint:recommended", "prettier"],
 
   rules: {
-    // Hard limits — see AGENTS.md §5. Don't disable per-file; split the file instead.
+    // Hard limits: see AGENTS.md §5. Don't disable per-file; split the file instead.
     "max-lines": [
       "error",
       { max: 300, skipBlankLines: true, skipComments: true },
@@ -126,7 +126,7 @@ module.exports = {
       },
     },
 
-    // Tests — Vitest + React Testing Library, not Jest (AGENTS.md §7)
+    // Tests: Vitest + React Testing Library, not Jest (AGENTS.md §7)
     {
       files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
       rules: {
@@ -137,7 +137,7 @@ module.exports = {
       },
     },
 
-    // Playwright e2e — its fixture API's `use(...)` callback parameter
+    // Playwright e2e: its fixture API's `use(...)` callback parameter
     // matches react-hooks/rules-of-hooks' "use"-prefix heuristic even
     // though it has nothing to do with React hooks; that rule doesn't
     // apply here.

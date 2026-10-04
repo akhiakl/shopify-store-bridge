@@ -1,57 +1,66 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 
+import { AppVersion } from "~/components/AppVersion";
 import { getDashboardData, getRecentJobs } from "~/utils/dashboard.server";
 import { JOB_STATUS_TONE } from "~/utils/syncJobStatusTone";
 
 import { authenticate } from "../shopify.server";
 
 /**
- * App Home — a real dashboard now that pairing and definition sync both
- * exist: quick counts, recent sync activity across every group this shop
- * owns, and links into "Connected stores" and each group's definitions
- * page. Replaces the earlier placeholder that just described what would
- * eventually live here.
+ * App Home: quick counts, recent sync activity across this store's
+ * connections (both directions), and links into "Connected stores" and
+ * each connection.
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const dashboard = await getDashboardData(session.shop);
   const recentJobs = await getRecentJobs(
-    dashboard.ownedGroups.map((group) => group.id),
+    [...dashboard.outgoing, ...dashboard.incoming].map((c) => c.id),
   );
   return { ...dashboard, recentJobs };
 };
 
 export default function Index() {
-  const { ownedGroups, incomingRequests, recentJobs } =
+  const { outgoing, incomingRequests, incoming, recentJobs } =
     useLoaderData<typeof loader>();
 
-  if (ownedGroups.length === 0) {
+  const syncsTo = outgoing.filter((c) => c.status === "APPROVED").length;
+  const pullsFrom = incoming.filter((c) => c.status === "APPROVED").length;
+  const pendingInvites = outgoing.filter((c) => c.status === "PENDING").length;
+
+  if (
+    outgoing.length === 0 &&
+    pullsFrom === 0 &&
+    incomingRequests.length === 0
+  ) {
     return (
       <s-page heading="StoreBridge">
         <s-section heading="Welcome to StoreBridge">
           <s-paragraph>
-            You haven&apos;t connected any stores yet — start on Connected
-            stores to invite a target store into a sync group.
+            You haven&apos;t connected any stores yet: start on Connected stores
+            to send a pairing request.
           </s-paragraph>
           <s-link href="/app/stores">Connected stores</s-link>
         </s-section>
+        <AppVersion />
       </s-page>
     );
   }
-
-  const approvedTargetCount = ownedGroups.reduce(
-    (total, group) =>
-      total + group.targets.filter((t) => t.status === "APPROVED").length,
-    0,
-  );
 
   return (
     <s-page heading="StoreBridge">
       <s-section heading="Overview">
         <s-stack direction="inline" gap="base">
-          <s-paragraph>{ownedGroups.length} sync group(s)</s-paragraph>
-          <s-paragraph>{approvedTargetCount} approved target(s)</s-paragraph>
+          <s-paragraph>Syncs to {syncsTo} store(s)</s-paragraph>
+          {pullsFrom > 0 && (
+            <s-paragraph>Pulls from {pullsFrom} store(s)</s-paragraph>
+          )}
+          {pendingInvites > 0 && (
+            <s-paragraph>
+              {pendingInvites} invite(s) awaiting approval
+            </s-paragraph>
+          )}
           {incomingRequests.length > 0 && (
             <s-paragraph>
               {incomingRequests.length} pairing request(s) awaiting your
@@ -77,8 +86,8 @@ export default function Index() {
                 <s-badge tone={JOB_STATUS_TONE[job.status]}>
                   {job.status}
                 </s-badge>
-                <s-link href={`/app/groups/${job.groupId}/definitions`}>
-                  {job.group.name || "Untitled group"}
+                <s-link href={`/app/connections/${job.connectionId}`}>
+                  {job.connection.source.shop} → {job.connection.target.shop}
                 </s-link>
                 <s-paragraph>
                   {new Date(job.startedAt).toLocaleString()}
@@ -88,6 +97,7 @@ export default function Index() {
           </s-stack>
         )}
       </s-section>
+      <AppVersion />
     </s-page>
   );
 }

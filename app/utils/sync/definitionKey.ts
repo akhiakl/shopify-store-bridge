@@ -9,7 +9,7 @@ import type {
  * engine (`syncTarget.server.ts`, `sync.server.ts`'s `parseSelection`), and
  * the sync-status checker (`syncStatus.server.ts`) all need to agree on the
  * same `metaobject:<type>` / `metafield:<ownerType>:<namespace>:<key>`
- * shape to join their results back to one definition — promoted here once
+ * shape to join their results back to one definition: promoted here once
  * a fourth consumer needed it, per AGENTS.md's "used elsewhere → promote"
  * rule.
  */
@@ -82,3 +82,6 @@ export function menuKey(handle: string): string {
 export function menuItemKey(menuHandle: string, path: string): string {
   return `menuItem:${menuHandle}:${path}`;
 }
+
+/** A store has one checkout styling, so its key has no name part. */
+export const CHECKOUT_STYLING_KEY = "checkoutStyling";

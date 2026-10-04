@@ -12,8 +12,7 @@ function chain(result: unknown) {
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
     query: {
-      syncGroups: { findMany: vi.fn() },
-      syncGroupTargets: { findMany: vi.fn() },
+      connections: { findMany: vi.fn() },
       syncJobs: { findMany: vi.fn() },
     },
     insert: vi.fn(),
@@ -43,43 +42,42 @@ describe("getOrCreateStore", () => {
 });
 
 describe("getDashboardData", () => {
-  it("returns owned groups, incoming requests, and memberships", async () => {
+  it("returns outgoing connections, incoming requests, and incoming connections", async () => {
     dbMock.insert.mockReturnValueOnce(chain([{ id: "store-1", shop: SHOP }]));
-    dbMock.query.syncGroups.findMany.mockResolvedValue([{ id: "group-1" }]);
-    dbMock.query.syncGroupTargets.findMany
-      .mockResolvedValueOnce([{ id: "incoming-1" }])
-      .mockResolvedValueOnce([{ id: "membership-1" }]);
+    dbMock.query.connections.findMany
+      .mockResolvedValueOnce([{ id: "out-1" }])
+      .mockResolvedValueOnce([{ id: "request-1" }])
+      .mockResolvedValueOnce([{ id: "in-1" }]);
 
     const result = await getDashboardData(SHOP);
 
     expect(result).toEqual({
-      ownedGroups: [{ id: "group-1" }],
-      incomingRequests: [{ id: "incoming-1" }],
-      memberships: [{ id: "membership-1" }],
+      outgoing: [{ id: "out-1" }],
+      incomingRequests: [{ id: "request-1" }],
+      incoming: [{ id: "in-1" }],
     });
-    expect(dbMock.query.syncGroups.findMany).toHaveBeenCalledTimes(1);
-    expect(dbMock.query.syncGroupTargets.findMany).toHaveBeenCalledTimes(2);
+    expect(dbMock.query.connections.findMany).toHaveBeenCalledTimes(3);
   });
 });
 
 describe("getRecentJobs", () => {
-  it("returns an empty list without querying when there are no owned groups", async () => {
+  it("returns an empty list without querying when there are no connections", async () => {
     const result = await getRecentJobs([]);
 
     expect(result).toEqual([]);
     expect(dbMock.query.syncJobs.findMany).not.toHaveBeenCalled();
   });
 
-  it("queries jobs scoped to the given group ids, newest first", async () => {
+  it("queries jobs scoped to the given connection ids, newest first", async () => {
     dbMock.query.syncJobs.findMany.mockResolvedValue([{ id: "job-1" }]);
 
-    const result = await getRecentJobs(["group-1", "group-2"], 5);
+    const result = await getRecentJobs(["conn-1", "conn-2"], 5);
 
     expect(result).toEqual([{ id: "job-1" }]);
     expect(dbMock.query.syncJobs.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         columns: { plan: false },
-        with: { group: true },
+        with: { connection: { with: { source: true, target: true } } },
         limit: 5,
       }),
     );

@@ -8,7 +8,7 @@ import { addDocumentResponseHeaders } from "./shopify.server";
 export const streamTimeout = 5000;
 
 // React Router's server entry contract invokes this positionally with these
-// 4 args — not ours to refactor into an options object.
+// 4 args, not ours to refactor into an options object.
 // eslint-disable-next-line max-params
 export default async function handleRequest(
   request: Request,

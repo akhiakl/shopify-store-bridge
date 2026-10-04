@@ -1,6 +1,6 @@
 import { defineConfig } from "drizzle-kit";
 
-// Migrations need Supabase's direct (non-pgbouncer) connection — the same
+// Migrations need Supabase's direct (non-pgbouncer) connection: the same
 // split Prisma used (DATABASE_URL for the app, DIRECT_URL for `prisma
 // migrate`). Falls back to DATABASE_URL so this still works against a
 // plain (non-pooled) local/staging Postgres that only sets one var.

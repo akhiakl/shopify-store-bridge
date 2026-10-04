@@ -50,6 +50,20 @@
       "when": 1791033885497,
       "tag": "0006_add_customer_data_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791051603788,
+      "tag": "0007_add_sync_job_target_store",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791054386556,
+      "tag": "0008_connections",
+      "breakpoints": true
     }
   ]
 }

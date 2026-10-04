@@ -7,12 +7,12 @@ database.sqlite
 
 .env
 .env.*
-# ...except the committed template — the pattern above is broad on purpose
+# ...except the committed template: the pattern above is broad on purpose
 # (catches .env, .env.local, .env.production, etc.) so this has to be a
 # separate negation, not folded into it.
 !.env.example
 
-# This project uses pnpm — pnpm-lock.yaml is intentionally committed.
+# This project uses pnpm: pnpm-lock.yaml is intentionally committed.
 # Other package managers' lockfiles stay ignored since we don't use them.
 yarn.lock
 package-lock.json
@@ -34,9 +34,12 @@ blob-report
 # React Router's generated route types
 .react-router/
 
-# GraphQL codegen output (@shopify/api-codegen-preset, .graphqlrc.ts) —
+# GraphQL codegen output (@shopify/api-codegen-preset, .graphqlrc.ts):
 # regenerated from the live Admin API schema, not checked in.
 app/types/
 
 # Vercel CLI / build output
 .vercel
+
+# CI check output for the Quality Gate PR comment (see .github/workflows/ci.yml).
+ci-results/

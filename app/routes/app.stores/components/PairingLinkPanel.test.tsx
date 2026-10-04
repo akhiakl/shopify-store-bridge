@@ -35,7 +35,7 @@ describe("PairingLinkPanel", () => {
 
     fireEvent.click(screen.getByText("Copy link"));
 
-    // No confirmation state, no thrown error — the link itself is still
+    // No confirmation state, no thrown error: the link itself is still
     // usable as a fallback.
     await waitFor(() =>
       expect(document.querySelector("s-button")).toHaveTextContent("Copy link"),

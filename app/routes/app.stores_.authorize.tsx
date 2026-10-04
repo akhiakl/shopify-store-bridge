@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { Form, useActionData, useLoaderData } from "react-router";
 
+import { AppVersion } from "~/components/AppVersion";
 import { authenticate } from "~/shopify.server";
 import {
   approvePairingRequest,
@@ -11,7 +12,7 @@ import {
  * Redeems a pairing-authorization link (see ConnectStoreForm/
  * pairing.server.ts's requestPairing). A trailing-underscore route name
  * (app.stores_.authorize) so it lands at /app/stores/authorize without
- * nesting under app.stores/route.tsx's layout — this is its own page, not
+ * nesting under app.stores/route.tsx's layout: this is its own page, not
  * part of the dashboard.
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -25,8 +26,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return {
     ok: true as const,
     token,
-    sourceShop: pending.group.source.shop,
-    groupName: pending.group.name,
+    sourceShop: pending.source.shop,
   };
 };
 
@@ -46,7 +46,7 @@ export default function AuthorizePairing() {
   // Checked first: a successful approve makes the target no longer
   // PENDING, so the loader's own revalidation after this action returns
   // ok:false too (same "PENDING and unexpired" check the action just
-  // passed) — without this branch a successful approval would render the
+  // passed), without this branch a successful approval would render the
   // generic invalid/expired banner below instead of confirming success.
   if (actionData?.ok) {
     return (
@@ -57,6 +57,7 @@ export default function AuthorizePairing() {
             <s-link href="/app/stores">Connected stores</s-link>.
           </s-paragraph>
         </s-banner>
+        <AppVersion />
       </s-page>
     );
   }
@@ -78,6 +79,7 @@ export default function AuthorizePairing() {
             invites you can decline.
           </s-paragraph>
         </s-banner>
+        <AppVersion />
       </s-page>
     );
   }
@@ -86,11 +88,9 @@ export default function AuthorizePairing() {
     <s-page heading="Confirm pairing">
       <s-section heading={`Pairing request from ${data.sourceShop}`}>
         <s-paragraph>
-          {data.groupName
-            ? `You're being invited to join the "${data.groupName}" sync group.`
-            : "You're being invited to join a sync group."}{" "}
-          Only approve this if you recognize {data.sourceShop} and were given
-          this link by someone who actually runs it.
+          {`${data.sourceShop} wants to sync its data into this store.`} Only
+          approve this if you recognize {data.sourceShop} and were given this
+          link by someone who actually runs it.
         </s-paragraph>
         <Form method="post">
           <input type="hidden" name="token" value={data.token} />
@@ -102,6 +102,7 @@ export default function AuthorizePairing() {
           </s-stack>
         </Form>
       </s-section>
+      <AppVersion />
     </s-page>
   );
 }

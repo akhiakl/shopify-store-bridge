@@ -5,11 +5,14 @@ import type {
   MetaobjectDefinitionRow,
   ShopPolicyRow,
 } from "./definitions.server";
+import type { CheckoutStyling } from "./checkoutBrandingInput";
 import { collectionRulesStep } from "./syncCollectionRules.server";
 import {
+  CHECKOUT_STYLING_KEY,
   collectionKey,
   locationKey,
   metafieldDefinitionKey,
+  metafieldValuesKey,
   metaobjectDefinitionKey,
   metaobjectEntryKey,
   shopPolicyKey,
@@ -18,6 +21,7 @@ import type { MetaobjectEntryRow } from "./metaobjectEntries.server";
 import type { MetafieldValueSet } from "./metafieldValues.server";
 import type { PlannedMenu } from "./menus.server";
 import type { LocationRow } from "./locations.server";
+import { syncCheckoutStyling } from "./syncCheckoutStyling.server";
 import { syncLocation } from "./syncLocation.server";
 import { menuStep } from "./syncMenu.server";
 import { metafieldValueSteps } from "./syncMetafieldValues.server";
@@ -43,10 +47,10 @@ import {
   type CreateResult,
 } from "./runMutation.server";
 
-/** Copies one SHOP metafield's current value from source to target — a
+/** Copies one SHOP metafield's current value from source to target: a
  * no-op (not a failure) if the source has no value set yet for it. A
  * top-level GraphQL error reading the source (missing scope, bad query) is
- * a real failure, not "no value set" — reported the same way `createOne`
+ * a real failure, not "no value set": reported the same way `createOne`
  * reports one on the write side, rather than silently recording SKIPPED. */
 async function syncShopMetafieldValue({
   sourceAdmin,
@@ -91,7 +95,7 @@ export interface SyncTally {
   itemsFailed: number;
 }
 
-/** One definition (or value-sync) attempt's outcome — persisted verbatim
+/** One definition (or value-sync) attempt's outcome: persisted verbatim
  * as a `SyncJobItem` row by the sync worker, so job history can show which
  * item failed, not just how many. `key` reuses the same
  * `metaobject:<type>` / `metafield:<ownerType>:<namespace>:<key>` format
@@ -131,12 +135,18 @@ export function tallyItems(items: SyncItemResult[]): SyncTally {
 /** Everything one sync job pushes, read from the source once. Persisted on
  * the job, so it must stay plain JSON. */
 export interface SyncPlan {
+  /** Absent unless selected, and from plans queued before it existed. */
+  checkoutStyling?: CheckoutStyling;
   metaobjectDefinitions: MetaobjectDefinitionRow[];
   metafieldDefinitions: MetafieldDefinitionRow[];
   shopPolicies: ShopPolicyRow[];
   collections: PlannedCollection[];
   metaobjectEntries: MetaobjectEntryRow[];
   metafieldValues: MetafieldValueSet[];
+  /** SHOP-owned definitions whose one value (the store's own) is
+   * selected on the Values tab. Absent from plans queued before Shop
+   * values were split from their definitions. */
+  shopMetafieldValues?: MetafieldDefinitionRow[];
   menus: PlannedMenu[];
   locations: LocationRow[];
 }
@@ -171,8 +181,7 @@ export function createStepContext(
   };
 }
 
-/** One unit of resumable work: usually one item, two for a SHOP metafield
- * (definition, then its value). */
+/** One unit of resumable work; most steps produce one item. */
 export type SyncStep = (ctx: StepContext) => Promise<SyncItemResult[]>;
 
 function metaobjectDefinitionStep(def: MetaobjectDefinitionRow): SyncStep {
@@ -197,13 +206,11 @@ function metaobjectDefinitionStep(def: MetaobjectDefinitionRow): SyncStep {
   };
 }
 
-/** A SHOP-owned definition also carries its value once the definition is
- * confirmed on the target (created or already there). A missing target
- * Shop id is recorded as a failed VALUE item rather than skipped silently,
- * so the job can't report SUCCEEDED when the value never copied. */
+/** Creates the definition only. Values, the Shop's included, are their
+ * own selection on the Values tab, so picking a definition never copies
+ * data along with it. */
 function metafieldDefinitionStep(def: MetafieldDefinitionRow): SyncStep {
   return async (ctx) => {
-    const key = metafieldDefinitionKey(def);
     const result = await createOne(
       ctx.targetAdmin,
       METAFIELD_DEFINITION_CREATE_MUTATION,
@@ -218,11 +225,17 @@ function metafieldDefinitionStep(def: MetafieldDefinitionRow): SyncStep {
         },
       },
     );
-    const items = [toItem(key, "DEFINITION", result)];
-    if (!result.ok || def.ownerType !== "SHOP") return items;
+    return [toItem(metafieldDefinitionKey(def), "DEFINITION", result)];
+  };
+}
 
+/** Copies the store's own value for a SHOP-owned definition. A missing
+ * target Shop id is recorded as a failed item rather than skipped
+ * silently, so the job can't report SUCCEEDED when nothing copied. */
+function shopMetafieldValueStep(def: MetafieldDefinitionRow): SyncStep {
+  return async (ctx) => {
     const targetShopId = await ctx.targetShopId();
-    const valueResult: CreateResult = targetShopId
+    const result: CreateResult = targetShopId
       ? await syncShopMetafieldValue({
           sourceAdmin: ctx.sourceAdmin,
           targetAdmin: ctx.targetAdmin,
@@ -230,8 +243,18 @@ function metafieldDefinitionStep(def: MetafieldDefinitionRow): SyncStep {
           def,
         })
       : { ok: false, error: "Could not resolve the target store's Shop id." };
-    return [...items, toItem(key, "VALUE", valueResult)];
+    return [toItem(metafieldValuesKey(def), "VALUE", result)];
   };
+}
+
+function checkoutStylingStep(styling: CheckoutStyling): SyncStep {
+  return async (ctx) => [
+    toItem(
+      CHECKOUT_STYLING_KEY,
+      "VALUE",
+      await syncCheckoutStyling(ctx.targetAdmin, styling, ctx.targetIds),
+    ),
+  ];
 }
 
 /**
@@ -257,6 +280,9 @@ export function buildSyncSteps(plan: SyncPlan): SyncStep[] {
         }),
       ),
     ]),
+    ...(plan.checkoutStyling
+      ? [checkoutStylingStep(plan.checkoutStyling)]
+      : []),
     ...plan.collections.map((collection): SyncStep => async (ctx) => [
       toItem(
         collectionKey(collection.handle),
@@ -285,6 +311,7 @@ export function buildSyncSteps(plan: SyncPlan): SyncStep[] {
     ),
     // Last: values can reference entries and collections synced above.
     ...plan.metafieldValues.flatMap(metafieldValueSteps),
+    ...(plan.shopMetafieldValues ?? []).map(shopMetafieldValueStep),
     // Menus link to policies, collections, entries and products. Plans
     // queued before menu sync existed have no `menus`.
     ...(plan.menus ?? []).map(menuStep),

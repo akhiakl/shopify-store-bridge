@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
+const { syncCheckoutStyling } = vi.hoisted(() => ({
+  syncCheckoutStyling: vi.fn(),
+}));
+vi.mock("./syncCheckoutStyling.server", () => ({ syncCheckoutStyling }));
+
 import {
   buildSyncSteps,
   createStepContext,
@@ -118,6 +123,39 @@ describe("buildSyncSteps", () => {
         errorMessage: "Its rules come from another app.",
       },
     ]);
+  });
+});
+
+describe("buildSyncSteps checkout styling", () => {
+  it("adds one step that syncs the planned styling", async () => {
+    const styling = { branding: { a: 1 }, files: [] };
+    syncCheckoutStyling.mockResolvedValue({ ok: false, error: "Not Plus" });
+    const steps = buildSyncSteps({
+      checkoutStyling: styling,
+      metaobjectDefinitions: [],
+      metafieldDefinitions: [],
+      shopPolicies: [],
+      collections: [],
+      metaobjectEntries: [],
+      metafieldValues: [],
+      menus: [],
+      locations: [],
+    });
+
+    expect(steps).toHaveLength(1);
+    expect(await steps[0](ctx)).toEqual([
+      {
+        key: "checkoutStyling",
+        kind: "VALUE",
+        status: "FAILED",
+        errorMessage: "Not Plus",
+      },
+    ]);
+    expect(syncCheckoutStyling).toHaveBeenCalledWith(
+      ctx.targetAdmin,
+      styling,
+      ctx.targetIds,
+    );
   });
 });
 

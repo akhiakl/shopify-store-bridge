@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /**
  * A minimal stand-in for Drizzle's fluent query builders
  * (`db.insert(...).values(...).returning()`,
- * `db.update(...).set(...).where(...).returning()`) — every chain method
+ * `db.update(...).set(...).where(...).returning()`): every chain method
  * returns the same mock object so calls can keep chaining (e.g. `.where()`
  * followed by `.returning()`), and the object is itself thenable so a bare
  * `await db.update(t).set(v).where(...)` with no `.returning()` resolves
@@ -26,8 +26,7 @@ const { dbMock } = vi.hoisted(() => ({
   dbMock: {
     query: {
       sessions: { findFirst: vi.fn() },
-      syncGroups: { findFirst: vi.fn(), findMany: vi.fn() },
-      syncGroupTargets: { findFirst: vi.fn(), findMany: vi.fn() },
+      connections: { findFirst: vi.fn() },
     },
     insert: vi.fn(),
     update: vi.fn(),
@@ -43,7 +42,7 @@ const {
   declinePairingRequest,
   regeneratePairingRequest,
 } = await import("./pairing.server");
-const { syncGroups, syncGroupTargets } = await import("~/db/schema.server");
+const { connections } = await import("~/db/schema.server");
 
 const SOURCE_SHOP = "source-shop.myshopify.com";
 const TARGET_SHOP = "target-shop.myshopify.com";
@@ -108,14 +107,14 @@ describe("requestPairing", () => {
     });
   });
 
-  it("rejects pairing a store with itself", async () => {
+  it("rejects connecting a store to itself", async () => {
     const result = await requestPairing({
       sourceShop: SOURCE_SHOP,
       targetDomain: SOURCE_SHOP,
     });
     expect(result).toEqual({
       ok: false,
-      error: "A store can't be paired with itself.",
+      error: "A store can't be connected to itself.",
     });
   });
 
@@ -134,71 +133,50 @@ describe("requestPairing", () => {
     });
   });
 
-  it("creates a new group and invites the target when installed", async () => {
-    dbMock.query.sessions.findFirst.mockResolvedValue({ id: "session-1" });
-    const sourceChain = chain([{ id: "source-id", shop: SOURCE_SHOP }]);
-    const targetChain = chain([{ id: "target-id", shop: TARGET_SHOP }]);
-    const groupChain = chain([
-      { id: "group-1", sourceId: "source-id", name: "My group" },
-    ]);
-    const targetRowChain = chain(undefined);
-    dbMock.insert
-      .mockReturnValueOnce(sourceChain)
-      .mockReturnValueOnce(targetChain)
-      .mockReturnValueOnce(groupChain)
-      .mockReturnValueOnce(targetRowChain);
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
-
-    const result = await requestPairing({
-      sourceShop: SOURCE_SHOP,
-      targetDomain: TARGET_SHOP,
-      groupName: "My group",
-    });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error("expected ok result");
-    expect(result.targetShop).toBe(TARGET_SHOP);
-    expect(result.authToken).toEqual(expect.any(String));
-    expect(dbMock.insert).toHaveBeenNthCalledWith(3, syncGroups);
-    expect(groupChain.values).toHaveBeenCalledWith({
-      sourceId: "source-id",
-      name: "My group",
-    });
-    expect(dbMock.insert).toHaveBeenNthCalledWith(4, syncGroupTargets);
-    expect(targetRowChain.values).toHaveBeenCalledWith({
-      groupId: "group-1",
-      storeId: "target-id",
-      authTokenHash: expect.any(String),
-      authTokenExpiresAt: expect.any(Date),
-    });
-  });
-
-  it("errors when an explicit groupId isn't owned by the source", async () => {
+  /** Installed target; source and target Store rows upserted. */
+  function installedStores() {
     dbMock.query.sessions.findFirst.mockResolvedValue({ id: "session-1" });
     dbMock.insert
       .mockReturnValueOnce(chain([{ id: "source-id", shop: SOURCE_SHOP }]))
       .mockReturnValueOnce(chain([{ id: "target-id", shop: TARGET_SHOP }]));
-    dbMock.query.syncGroups.findFirst.mockResolvedValue(undefined);
+  }
+
+  it("creates a pending connection with a hashed token", async () => {
+    installedStores();
+    dbMock.query.connections.findFirst.mockResolvedValue(undefined);
+    const connectionChain = chain(undefined);
+    dbMock.insert.mockReturnValueOnce(connectionChain);
 
     const result = await requestPairing({
       sourceShop: SOURCE_SHOP,
-      targetDomain: TARGET_SHOP,
-      groupId: "missing-group",
+      targetDomain: "target-shop",
     });
 
     expect(result).toEqual({
-      ok: false,
-      error: "That sync group no longer exists.",
+      ok: true,
+      authToken: expect.any(String),
+      targetShop: TARGET_SHOP,
     });
+    expect(dbMock.insert).toHaveBeenNthCalledWith(3, connections);
+    expect(connectionChain.values).toHaveBeenCalledWith({
+      sourceStoreId: "source-id",
+      targetStoreId: "target-id",
+      authTokenHash: expect.any(String),
+      authTokenExpiresAt: expect.any(Date),
+    });
+    // Only the hash is stored, never the raw token.
+    const stored = connectionChain.values.mock.calls[0][0] as {
+      authTokenHash: string;
+    };
+    expect(stored.authTokenHash).not.toBe(
+      (result as { authToken: string }).authToken,
+    );
   });
 
-  it("errors when the target already has a status in the group", async () => {
-    dbMock.query.sessions.findFirst.mockResolvedValue({ id: "session-1" });
-    dbMock.insert
-      .mockReturnValueOnce(chain([{ id: "source-id", shop: SOURCE_SHOP }]))
-      .mockReturnValueOnce(chain([{ id: "target-id", shop: TARGET_SHOP }]))
-      .mockReturnValueOnce(chain([{ id: "group-1" }]));
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
+  it("refuses a second connection to an already-connected store", async () => {
+    installedStores();
+    dbMock.query.connections.findFirst.mockResolvedValue({
+      id: "conn-1",
       status: "APPROVED",
     });
 
@@ -209,88 +187,110 @@ describe("requestPairing", () => {
 
     expect(result).toEqual({
       ok: false,
-      error: `${TARGET_SHOP} is already approved in this group.`,
+      error: `You're already connected to ${TARGET_SHOP}.`,
     });
+    expect(dbMock.update).not.toHaveBeenCalled();
+  });
+
+  it("points a still-pending request at Resend link", async () => {
+    installedStores();
+    dbMock.query.connections.findFirst.mockResolvedValue({
+      id: "conn-1",
+      status: "PENDING",
+    });
+
+    const result = await requestPairing({
+      sourceShop: SOURCE_SHOP,
+      targetDomain: TARGET_SHOP,
+    });
+
+    expect(result).toMatchObject({ ok: false });
+    expect((result as { error: string }).error).toMatch(/Resend link/);
+  });
+
+  it("reopens a declined connection with a fresh token", async () => {
+    installedStores();
+    dbMock.query.connections.findFirst.mockResolvedValue({
+      id: "conn-1",
+      status: "DECLINED",
+    });
+    const updateChain = chain(undefined);
+    dbMock.update.mockReturnValueOnce(updateChain);
+
+    const result = await requestPairing({
+      sourceShop: SOURCE_SHOP,
+      targetDomain: TARGET_SHOP,
+    });
+
+    expect(result).toMatchObject({ ok: true, targetShop: TARGET_SHOP });
+    expect(dbMock.update).toHaveBeenCalledWith(connections);
+    expect(updateChain.set).toHaveBeenCalledWith({
+      authTokenHash: expect.any(String),
+      authTokenExpiresAt: expect.any(Date),
+      status: "PENDING",
+      requestedAt: expect.any(Date),
+      respondedAt: null,
+    });
+    expect(updateChain.where).toHaveBeenCalledWith(
+      eq(connections.id, "conn-1"),
+    );
   });
 });
 
+const futureExpiry = new Date(Date.now() + 60_000);
+
+function pendingConnection(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "conn-1",
+    status: "PENDING",
+    authTokenExpiresAt: futureExpiry,
+    source: { shop: SOURCE_SHOP },
+    target: { shop: TARGET_SHOP },
+    ...overrides,
+  };
+}
+
 describe("getPendingRequestByToken", () => {
-  const futureExpiry = new Date(Date.now() + 60_000);
-
-  it("returns null for a token that doesn't match any request", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
-
-    expect(await getPendingRequestByToken("nope", TARGET_SHOP)).toBeNull();
-  });
-
-  it("returns null when the token belongs to a different shop", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
-      id: "target-1",
-      status: "PENDING",
-      authTokenExpiresAt: futureExpiry,
-      store: { shop: "someone-else.myshopify.com" },
-    });
-
-    expect(await getPendingRequestByToken("tok", TARGET_SHOP)).toBeNull();
-  });
-
-  it("returns null once the request was already responded to", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
-      id: "target-1",
-      status: "APPROVED",
-      authTokenExpiresAt: futureExpiry,
-      store: { shop: TARGET_SHOP },
-    });
+  it.each([
+    ["no connection has the token", undefined],
+    [
+      "the token belongs to another shop",
+      pendingConnection({ target: { shop: "other.myshopify.com" } }),
+    ],
+    ["it was already responded to", pendingConnection({ status: "APPROVED" })],
+    [
+      "the token expired",
+      pendingConnection({ authTokenExpiresAt: new Date(0) }),
+    ],
+    ["it has no expiry", pendingConnection({ authTokenExpiresAt: null })],
+  ])("returns null when %s", async (_case, row) => {
+    dbMock.query.connections.findFirst.mockResolvedValue(row);
 
     expect(await getPendingRequestByToken("tok", TARGET_SHOP)).toBeNull();
   });
 
-  it("returns null for an expired token", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
-      id: "target-1",
-      status: "PENDING",
-      authTokenExpiresAt: new Date(Date.now() - 1000),
-      store: { shop: TARGET_SHOP },
-    });
+  it("returns the pending connection for a valid token", async () => {
+    const connection = pendingConnection();
+    dbMock.query.connections.findFirst.mockResolvedValue(connection);
 
-    expect(await getPendingRequestByToken("tok", TARGET_SHOP)).toBeNull();
-  });
-
-  it("returns the matching pending request for a valid token", async () => {
-    const target = {
-      id: "target-1",
-      status: "PENDING",
-      authTokenExpiresAt: futureExpiry,
-      store: { shop: TARGET_SHOP },
-    };
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(target);
-
-    expect(await getPendingRequestByToken("tok", TARGET_SHOP)).toBe(target);
+    expect(await getPendingRequestByToken("tok", TARGET_SHOP)).toBe(connection);
   });
 });
 
 describe("approvePairingRequest", () => {
   it("errors when the token is invalid", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
+    dbMock.query.connections.findFirst.mockResolvedValue(undefined);
 
-    const result = await approvePairingRequest({
-      token: "bad",
-      shop: TARGET_SHOP,
-    });
-
-    expect(result).toEqual({
+    expect(
+      await approvePairingRequest({ token: "bad", shop: TARGET_SHOP }),
+    ).toEqual({
       ok: false,
       error: "This pairing link is invalid, expired, or already used.",
     });
   });
 
   it("approves and clears the token on a valid one", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
-      id: "target-1",
-      status: "PENDING",
-      authTokenExpiresAt: new Date(Date.now() + 60_000),
-      store: { shop: TARGET_SHOP },
-    });
+    dbMock.query.connections.findFirst.mockResolvedValue(pendingConnection());
     const updateChain = chain(undefined);
     dbMock.update.mockReturnValueOnce(updateChain);
 
@@ -300,7 +300,7 @@ describe("approvePairingRequest", () => {
     });
 
     expect(result).toEqual({ ok: true });
-    expect(dbMock.update).toHaveBeenCalledWith(syncGroupTargets);
+    expect(dbMock.update).toHaveBeenCalledWith(connections);
     expect(updateChain.set).toHaveBeenCalledWith({
       status: "APPROVED",
       respondedAt: expect.any(Date),
@@ -312,65 +312,51 @@ describe("approvePairingRequest", () => {
 
 describe("declinePairingRequest", () => {
   it("errors when the request doesn't exist", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
+    dbMock.query.connections.findFirst.mockResolvedValue(undefined);
 
-    const result = await declinePairingRequest({
-      targetId: "missing",
-      shop: TARGET_SHOP,
-    });
-
-    expect(result).toEqual({ ok: false, error: "Pairing request not found." });
+    expect(
+      await declinePairingRequest({
+        connectionId: "missing",
+        shop: TARGET_SHOP,
+      }),
+    ).toEqual({ ok: false, error: "Pairing request not found." });
   });
 
-  it("errors when the caller isn't the target store", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
-      id: "target-1",
-      status: "PENDING",
-      store: { shop: "someone-else.myshopify.com" },
-    });
+  it("won't let another shop decline it", async () => {
+    dbMock.query.connections.findFirst.mockResolvedValue(pendingConnection());
 
-    const result = await declinePairingRequest({
-      targetId: "target-1",
-      shop: TARGET_SHOP,
-    });
-
-    expect(result).toEqual({ ok: false, error: "Pairing request not found." });
+    expect(
+      await declinePairingRequest({
+        connectionId: "conn-1",
+        shop: SOURCE_SHOP,
+      }),
+    ).toEqual({ ok: false, error: "Pairing request not found." });
   });
 
-  it("errors when the request was already responded to", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
-      id: "target-1",
-      status: "APPROVED",
-      store: { shop: TARGET_SHOP },
-    });
+  it("errors when it was already responded to", async () => {
+    dbMock.query.connections.findFirst.mockResolvedValue(
+      pendingConnection({ status: "APPROVED" }),
+    );
 
-    const result = await declinePairingRequest({
-      targetId: "target-1",
-      shop: TARGET_SHOP,
-    });
-
-    expect(result).toEqual({
-      ok: false,
-      error: "This request was already responded to.",
-    });
+    expect(
+      await declinePairingRequest({
+        connectionId: "conn-1",
+        shop: TARGET_SHOP,
+      }),
+    ).toEqual({ ok: false, error: "This request was already responded to." });
   });
 
-  it("declines a pending request from the target store", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
-      id: "target-1",
-      status: "PENDING",
-      store: { shop: TARGET_SHOP },
-    });
+  it("declines and clears the token", async () => {
+    dbMock.query.connections.findFirst.mockResolvedValue(pendingConnection());
     const updateChain = chain(undefined);
     dbMock.update.mockReturnValueOnce(updateChain);
 
-    const result = await declinePairingRequest({
-      targetId: "target-1",
-      shop: TARGET_SHOP,
-    });
-
-    expect(result).toEqual({ ok: true });
-    expect(dbMock.update).toHaveBeenCalledWith(syncGroupTargets);
+    expect(
+      await declinePairingRequest({
+        connectionId: "conn-1",
+        shop: TARGET_SHOP,
+      }),
+    ).toEqual({ ok: true });
     expect(updateChain.set).toHaveBeenCalledWith({
       status: "DECLINED",
       respondedAt: expect.any(Date),
@@ -381,64 +367,37 @@ describe("declinePairingRequest", () => {
 });
 
 describe("regeneratePairingRequest", () => {
-  it("errors when the request doesn't exist", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue(undefined);
+  it("only lets the source resend", async () => {
+    dbMock.query.connections.findFirst.mockResolvedValue(pendingConnection());
 
-    const result = await regeneratePairingRequest({
-      targetId: "missing",
-      shop: SOURCE_SHOP,
-    });
-
-    expect(result).toEqual({ ok: false, error: "Pairing request not found." });
+    expect(
+      await regeneratePairingRequest({
+        connectionId: "conn-1",
+        shop: TARGET_SHOP,
+      }),
+    ).toEqual({ ok: false, error: "Pairing request not found." });
   });
 
-  it("errors when the caller isn't the source store", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
-      id: "target-1",
-      status: "PENDING",
-      store: { shop: TARGET_SHOP },
-      group: { source: { shop: "someone-else.myshopify.com" } },
-    });
+  it("errors when it was already responded to", async () => {
+    dbMock.query.connections.findFirst.mockResolvedValue(
+      pendingConnection({ status: "DECLINED" }),
+    );
 
-    const result = await regeneratePairingRequest({
-      targetId: "target-1",
-      shop: SOURCE_SHOP,
-    });
-
-    expect(result).toEqual({ ok: false, error: "Pairing request not found." });
+    expect(
+      await regeneratePairingRequest({
+        connectionId: "conn-1",
+        shop: SOURCE_SHOP,
+      }),
+    ).toEqual({ ok: false, error: "This request was already responded to." });
   });
 
-  it("errors when the request was already responded to", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
-      id: "target-1",
-      status: "APPROVED",
-      store: { shop: TARGET_SHOP },
-      group: { source: { shop: SOURCE_SHOP } },
-    });
-
-    const result = await regeneratePairingRequest({
-      targetId: "target-1",
-      shop: SOURCE_SHOP,
-    });
-
-    expect(result).toEqual({
-      ok: false,
-      error: "This request was already responded to.",
-    });
-  });
-
-  it("issues a fresh token for a pending request from the source store", async () => {
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
-      id: "target-1",
-      status: "PENDING",
-      store: { shop: TARGET_SHOP },
-      group: { source: { shop: SOURCE_SHOP } },
-    });
-    const updateChain = chain([{ id: "target-1" }]);
+  it("issues a fresh token, guarded on still being pending", async () => {
+    dbMock.query.connections.findFirst.mockResolvedValue(pendingConnection());
+    const updateChain = chain([{ id: "conn-1" }]);
     dbMock.update.mockReturnValueOnce(updateChain);
 
     const result = await regeneratePairingRequest({
-      targetId: "target-1",
+      connectionId: "conn-1",
       shop: SOURCE_SHOP,
     });
 
@@ -447,41 +406,20 @@ describe("regeneratePairingRequest", () => {
       authToken: expect.any(String),
       targetShop: TARGET_SHOP,
     });
-    expect(dbMock.update).toHaveBeenCalledWith(syncGroupTargets);
-    expect(updateChain.set).toHaveBeenCalledWith({
-      authTokenHash: expect.any(String),
-      authTokenExpiresAt: expect.any(Date),
-    });
     expect(updateChain.where).toHaveBeenCalledWith(
-      and(
-        eq(syncGroupTargets.id, "target-1"),
-        eq(syncGroupTargets.status, "PENDING"),
-      ),
+      and(eq(connections.id, "conn-1"), eq(connections.status, "PENDING")),
     );
   });
 
-  it("errors instead of reintroducing a token when the request was responded to between the read and the write", async () => {
-    // The read sees PENDING, but the guarded update matches nothing —
-    // e.g. a concurrent approve/decline landed in between. Regressing
-    // this to an unguarded `.where(eq(id, targetId))` would silently
-    // reintroduce a token on a request that's no longer PENDING instead
-    // of erroring here.
-    dbMock.query.syncGroupTargets.findFirst.mockResolvedValue({
-      id: "target-1",
-      status: "PENDING",
-      store: { shop: TARGET_SHOP },
-      group: { source: { shop: SOURCE_SHOP } },
-    });
+  it("reports a response that landed between the read and the write", async () => {
+    dbMock.query.connections.findFirst.mockResolvedValue(pendingConnection());
     dbMock.update.mockReturnValueOnce(chain([]));
 
-    const result = await regeneratePairingRequest({
-      targetId: "target-1",
-      shop: SOURCE_SHOP,
-    });
-
-    expect(result).toEqual({
-      ok: false,
-      error: "This request was already responded to.",
-    });
+    expect(
+      await regeneratePairingRequest({
+        connectionId: "conn-1",
+        shop: SOURCE_SHOP,
+      }),
+    ).toEqual({ ok: false, error: "This request was already responded to." });
   });
 });

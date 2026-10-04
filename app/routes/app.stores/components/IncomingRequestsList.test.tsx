@@ -7,31 +7,25 @@ import { IncomingRequestsList } from "./IncomingRequestsList";
 
 const requests: DashboardData["incomingRequests"] = [
   {
-    id: "target-1",
-    groupId: "group-1",
-    storeId: "store-1",
+    id: "conn-1",
+    sourceStoreId: "source-1",
+    targetStoreId: "store-1",
     status: "PENDING",
     requestedAt: new Date(),
     respondedAt: null,
     authTokenHash: "hash",
     authTokenExpiresAt: new Date(),
-    group: {
-      id: "group-1",
-      name: "EU stores",
-      sourceId: "source-1",
+    source: {
+      id: "source-1",
+      shop: "source.myshopify.com",
+      name: null,
       createdAt: new Date(),
-      source: {
-        id: "source-1",
-        shop: "source.myshopify.com",
-        name: null,
-        createdAt: new Date(),
-      },
     },
   },
 ];
 
 describe("IncomingRequestsList", () => {
-  it("renders the requesting store and group name, with no approve control", () => {
+  it("renders the requesting store, with no approve control", () => {
     const Stub = createRoutesStub([
       {
         path: "/",
@@ -41,12 +35,12 @@ describe("IncomingRequestsList", () => {
     render(<Stub initialEntries={["/"]} />);
 
     expect(
-      screen.getByText(/source\.myshopify\.com — EU stores/),
+      screen.getByText(/source\.myshopify\.com wants to sync into this store/),
     ).toBeInTheDocument();
     expect(document.querySelectorAll("form")).toHaveLength(1);
   });
 
-  it("posts a decline intent with the target id when declined", async () => {
+  it("posts a decline intent with the connection id when declined", async () => {
     const action = vi.fn().mockResolvedValue({ ok: true });
     const Stub = createRoutesStub([
       {
@@ -63,7 +57,7 @@ describe("IncomingRequestsList", () => {
     const formData =
       (await action.mock.calls[0][0].request.formData()) as FormData;
     expect(formData.get("intent")).toBe("decline");
-    expect(formData.get("targetId")).toBe("target-1");
+    expect(formData.get("connectionId")).toBe("conn-1");
   });
 
   it("shows a loading state on the decline button while submitting", async () => {

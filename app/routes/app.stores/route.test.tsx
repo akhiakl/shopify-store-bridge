@@ -44,9 +44,9 @@ describe("app.stores loader", () => {
   it("authenticates the admin request and returns the dashboard data", async () => {
     authenticateAdmin.mockResolvedValue({ session: { shop: SHOP } });
     getDashboardData.mockResolvedValue({
-      ownedGroups: [],
+      outgoing: [],
       incomingRequests: [],
-      memberships: [],
+      incoming: [],
     });
 
     const request = new Request("https://example.myshopify.com/app/stores");
@@ -59,9 +59,9 @@ describe("app.stores loader", () => {
     expect(authenticateAdmin).toHaveBeenCalledWith(request);
     expect(getDashboardData).toHaveBeenCalledWith(SHOP);
     expect(result).toEqual({
-      ownedGroups: [],
+      outgoing: [],
       incomingRequests: [],
-      memberships: [],
+      incoming: [],
     });
   });
 });
@@ -79,7 +79,6 @@ describe("app.stores action", () => {
       request: actionRequest({
         intent: "connect",
         targetDomain: "target.myshopify.com",
-        groupName: "EU stores",
       }),
       params: {},
       context: {},
@@ -88,8 +87,6 @@ describe("app.stores action", () => {
     expect(requestPairing).toHaveBeenCalledWith({
       sourceShop: SHOP,
       targetDomain: "target.myshopify.com",
-      groupId: undefined,
-      groupName: "EU stores",
     });
     if (
       typeof (result as { authorizeUrl?: unknown }).authorizeUrl !== "string"
@@ -106,7 +103,7 @@ describe("app.stores action", () => {
     authenticateAdmin.mockResolvedValue({ session: { shop: SHOP } });
     requestPairing.mockResolvedValue({
       ok: false,
-      error: "A store can't be paired with itself.",
+      error: "A store can't be connected to itself.",
     });
 
     const result = await action({
@@ -120,7 +117,7 @@ describe("app.stores action", () => {
 
     expect(result).toEqual({
       ok: false,
-      error: "A store can't be paired with itself.",
+      error: "A store can't be connected to itself.",
     });
   });
 
@@ -129,13 +126,13 @@ describe("app.stores action", () => {
     declinePairingRequest.mockResolvedValue({ ok: true });
 
     await action({
-      request: actionRequest({ intent: "decline", targetId: "target-1" }),
+      request: actionRequest({ intent: "decline", connectionId: "conn-1" }),
       params: {},
       context: {},
     } as never);
 
     expect(declinePairingRequest).toHaveBeenCalledWith({
-      targetId: "target-1",
+      connectionId: "conn-1",
       shop: SHOP,
     });
   });
@@ -149,13 +146,13 @@ describe("app.stores action", () => {
     });
 
     const result = await action({
-      request: actionRequest({ intent: "regenerate", targetId: "target-1" }),
+      request: actionRequest({ intent: "regenerate", connectionId: "conn-1" }),
       params: {},
       context: {},
     } as never);
 
     expect(regeneratePairingRequest).toHaveBeenCalledWith({
-      targetId: "target-1",
+      connectionId: "conn-1",
       shop: SHOP,
     });
     if (
@@ -175,7 +172,7 @@ describe("app.stores action", () => {
     });
 
     const result = await action({
-      request: actionRequest({ intent: "regenerate", targetId: "target-1" }),
+      request: actionRequest({ intent: "regenerate", connectionId: "conn-1" }),
       params: {},
       context: {},
     } as never);

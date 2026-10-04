@@ -2,7 +2,7 @@ packages:
   - "extensions/*"
 # Packages whose install-time build scripts pnpm runs. The first three are
 # well-known, necessary native-binary build steps from their packages'
-# actual maintainers (not arbitrary transitive postinstalls) — esbuild and
+# actual maintainers (not arbitrary transitive postinstalls): esbuild and
 # @parcel/watcher (used by Vite's dev server) ship native binaries,
 # unrs-resolver backs eslint-import-resolver-typescript's TS-aware module
 # resolution.
@@ -11,7 +11,7 @@ allowBuilds:
   esbuild: true
   unrs-resolver: true
   # drizzle-orm declares @prisma/client/prisma as an optional peer (its
-  # Prisma adapter) — pulled in by pnpm's peer resolution even though
+  # Prisma adapter): pulled in by pnpm's peer resolution even though
   # nothing here uses it (session storage is Drizzle-only, see
   # app/db.server.ts). No build step of theirs needs to run.
   "@prisma/client": false
@@ -21,7 +21,7 @@ allowBuilds:
 # Security patches for transitive deps flagged by Snyk, scoped to the
 # vulnerable versions only. qs, lodash and ajv go one minor past their
 # parent's declared range (express ~6.15, plugin-helpers ~4.17,
-# @vercel/static-config pins 8.6.3) — semver-compatible, and the fresh
+# @vercel/static-config pins 8.6.3): semver-compatible, and the fresh
 # Shopify CLI scaffold overrides qs the same way. Drop each entry once its
 # parent ships a range that includes the fix.
 overrides:

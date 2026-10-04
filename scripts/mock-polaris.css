@@ -2,7 +2,7 @@
  * Mocked Polaris styling for documentation screenshots ONLY.
  *
  * Real Polaris Web Components load their definitions + styling from
- * https://cdn.shopify.com/shopifycloud/polaris.js at runtime — unreachable
+ * https://cdn.shopify.com/shopifycloud/polaris.js at runtime: unreachable
  * from this environment's network policy (403, not a live-store problem).
  * This is a rough visual approximation via plain CSS (tag + attribute
  * selectors, `content: attr(...)` for props like `heading`/`label` that

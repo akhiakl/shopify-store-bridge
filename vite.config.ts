@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type UserConfig } from "vite";
@@ -15,6 +17,12 @@ if (
   process.env.SHOPIFY_APP_URL = process.env.HOST;
   delete process.env.HOST;
 }
+
+// Shown in the app (AppVersion). VITE_-prefixed so Vite exposes it as
+// import.meta.env.VITE_APP_VERSION on both server and client.
+process.env.VITE_APP_VERSION = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf8"),
+).version;
 
 const host = new URL(process.env.SHOPIFY_APP_URL || "http://localhost")
   .hostname;

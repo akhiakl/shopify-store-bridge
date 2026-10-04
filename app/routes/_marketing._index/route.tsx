@@ -6,14 +6,23 @@ import { buttonVariants } from "~/components/ui/Button";
 import { cn } from "~/utils/cn";
 import { login } from "~/shopify.server";
 
+import { FaqSection } from "./components/FaqSection";
 import { FeatureGrid } from "./components/FeatureGrid";
 import { HeroPreviewCard } from "./components/HeroPreviewCard";
 import { StepsSection } from "./components/StepsSection";
+import { WhatSyncsSection } from "./components/WhatSyncsSection";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
 
-  if (url.searchParams.get("shop")) {
+  // Any embedded load belongs in the app, not on the landing page: the
+  // admin always sends one of these when it opens the app in its iframe.
+  const { searchParams } = url;
+  if (
+    searchParams.get("shop") ||
+    searchParams.get("host") ||
+    searchParams.get("embedded") === "1"
+  ) {
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
@@ -29,11 +38,12 @@ export default function MarketingHome() {
         <div>
           <Badge variant="outline">Embedded Shopify app</Badge>
           <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
-            Store definitions, in sync — not by accident.
+            Keep your Shopify stores in sync.
           </h1>
           <p className="mt-4 text-lg text-neutral-600">
-            Pair Shopify stores and keep their metaobject and metafield
-            definitions in sync.
+            Connect stores you run and copy metafields, metaobjects, policies,
+            collections, menus, locations and checkout styling from one to
+            another. You choose what goes, and job history shows what happened.
           </p>
 
           {showForm && (
@@ -76,6 +86,8 @@ export default function MarketingHome() {
 
       <StepsSection />
       <FeatureGrid />
+      <WhatSyncsSection />
+      <FaqSection />
     </>
   );
 }

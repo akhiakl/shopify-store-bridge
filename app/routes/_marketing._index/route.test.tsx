@@ -4,7 +4,7 @@ import { createRoutesStub } from "react-router";
 
 import MarketingHome, { loader } from "./route";
 
-// shopify.server pulls in the Drizzle/pg-backed session storage — stub the
+// shopify.server pulls in the Drizzle/pg-backed session storage: stub the
 // one export this route actually reads so the test doesn't need a database.
 vi.mock("~/shopify.server", () => ({ login: vi.fn() }));
 
@@ -28,6 +28,15 @@ describe("marketing home loader", () => {
     ).rejects.toMatchObject({ status: 302 });
   });
 
+  it.each(["host=abc", "embedded=1"])(
+    "redirects any embedded load (%s) to /app",
+    async (query) => {
+      await expect(
+        loader(loaderArgs(`https://storebridge.example/?${query}`)),
+      ).rejects.toMatchObject({ status: 302 });
+    },
+  );
+
   it("returns showForm without a shop param", async () => {
     const result = await loader(loaderArgs("https://storebridge.example/"));
     expect(result).toEqual({ showForm: true });
@@ -43,14 +52,21 @@ describe("marketing home page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: /store definitions, in sync/i,
+        name: /keep your shopify stores in sync/i,
       }),
     ).toBeInTheDocument();
     // Required so an empty submit never leaves this page for the plain
-    // Polaris /auth/login error screen — see AGENTS.md UX conventions.
+    // Polaris /auth/login error screen: see AGENTS.md UX conventions.
     expect(screen.getByLabelText(/shop domain/i)).toBeRequired();
-    expect(screen.getByText("Store pairing")).toBeInTheDocument();
-    expect(screen.getByText("Definition sync")).toBeInTheDocument();
-    expect(screen.getByText("Job history")).toBeInTheDocument();
+    expect(screen.getByText("One connection per store")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "What syncs" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Checkout styling", { selector: "dt" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Why does checkout styling need Shopify Plus?"),
+    ).toBeInTheDocument();
   });
 });

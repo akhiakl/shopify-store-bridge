@@ -1,6 +1,6 @@
 # `push` and `pull_request` both fire for a same-repo PR branch (push
 # because you pushed a commit, pull_request:synchronize because that branch
-# has an open PR) — scoping `push` to just the trunk branches means a PR
+# has an open PR): scoping `push` to just the trunk branches means a PR
 # branch only triggers once, via `pull_request`, instead of running every
 # job twice for the identical commit.
 on:
@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       # Installs pnpm (version read from package.json's "packageManager"
-      # field — keep that in sync rather than pinning a version here too)
+      # field: keep that in sync rather than pinning a version here too)
       # and this leg's Node version in one step, plus caches the pnpm
       # store. `pnpm install` (below) auto-detects the CI env var GitHub
       # Actions sets and runs in frozen-lockfile mode, npm ci's equivalent.
@@ -31,27 +31,79 @@ jobs:
           runtime: node@${{ matrix.version }}
           cache: true
           install: false
+      # Every check below runs even when an earlier one fails, saving its
+      # output to ci-results/ so the Quality Gate comment can list what
+      # failed in all of them (scripts/ci/quality-summary.mjs). The job
+      # still fails at the end if any of them did. `set -o pipefail` keeps
+      # each command's exit code through `tee`.
       - name: Install
-        run: pnpm install --frozen-lockfile
+        id: install
+        run: |
+          set -o pipefail
+          mkdir -p ci-results
+          pnpm install --frozen-lockfile 2>&1 | tee ci-results/install.log
       - name: Lint
-        run: pnpm run lint
+        id: lint
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pnpm run lint 2>&1 | tee ci-results/lint.log
       # Regenerates app/types/* from the live Admin API schema (AGENTS.md
-      # §7 — every GraphQL operation should pass codegen). Not checked in
+      # §7: every GraphQL operation should pass codegen). Not checked in
       # (see .gitignore) since it fetches from shopify.dev each run,
       # keeping it current with whatever API version .graphqlrc.ts pins.
       - name: GraphQL codegen
-        run: pnpm run graphql-codegen
+        id: codegen
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pnpm run graphql-codegen 2>&1 | tee ci-results/codegen.log
       - name: Typecheck
-        run: pnpm run typecheck
+        id: typecheck
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pnpm run typecheck 2>&1 | tee ci-results/typecheck.log
       - name: Test
-        run: pnpm run test:coverage
+        id: test
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pnpm run test:coverage --reporter=default --reporter=json \
+            --outputFile.json=ci-results/test-results.json 2>&1 | tee ci-results/test.log
       - name: Build
-        run: pnpm run build
+        id: build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pnpm run build 2>&1 | tee ci-results/build.log
         env:
           SHOPIFY_API_KEY: ci-placeholder
           SHOPIFY_APP_URL: https://ci-placeholder.example.com
+      - name: Record results
+        if: always()
+        run: |
+          mkdir -p ci-results
+          cat > ci-results/outcomes.json <<'EOF'
+          {
+            "install": "${{ steps.install.outcome }}",
+            "lint": "${{ steps.lint.outcome }}",
+            "codegen": "${{ steps.codegen.outcome }}",
+            "typecheck": "${{ steps.typecheck.outcome }}",
+            "test": "${{ steps.test.outcome }}",
+            "build": "${{ steps.build.outcome }}"
+          }
+          EOF
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-results-node-${{ matrix.version }}
+          path: ci-results/
+          retention-days: 7
+          if-no-files-found: warn
       # One leg's coverage is enough for the Quality Gate job's PR summary
-      # — always() so it still uploads (or harmlessly warns "no files
+      # always() so it still uploads (or harmlessly warns "no files
       # found") if a later step like Build fails after Test succeeded.
       - name: Upload coverage summary
         if: matrix.version == 24 && always()
@@ -61,18 +113,24 @@ jobs:
           path: coverage/coverage-summary.json
           retention-days: 7
           if-no-files-found: warn
+      - name: Fail if any check failed
+        if: >-
+          steps.lint.outcome == 'failure' || steps.codegen.outcome == 'failure' ||
+          steps.typecheck.outcome == 'failure' || steps.test.outcome == 'failure' ||
+          steps.build.outcome == 'failure'
+        run: exit 1
 
   e2e:
     name: End-to-End Tests
     runs-on: ubuntu-latest
     # A cold Playwright install + the suite itself normally finishes well
-    # under 10 minutes — cap it so a hung install/download (observed once:
+    # under 10 minutes: cap it so a hung install/download (observed once:
     # a run sat "in progress" for 40+ minutes) fails fast instead of tying
     # up the runner and blocking the Quality Gate indefinitely.
     timeout-minutes: 15
     services:
       # Session storage in production is Supabase Postgres (see
-      # app/db/schema.server.ts) — e2e runs against a real
+      # app/db/schema.server.ts): e2e runs against a real
       # Postgres for the same reason, not sqlite, so a schema mismatch like
       # the one this migration once had (DATETIME instead of TIMESTAMP)
       # can't slip through unnoticed again.
@@ -91,7 +149,7 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/storebridge_e2e
-      # Any values work — nothing in the e2e suite calls the real Shopify
+      # Any values work: nothing in the e2e suite calls the real Shopify
       # API, it forges its own session token locally. See
       # e2e/support/embedded-fixture.ts.
       SHOPIFY_API_KEY: ci-e2e-api-key
@@ -106,10 +164,16 @@ jobs:
           runtime: node@24
           cache: true
           install: false
+      # Output goes to ci-results/ for the Quality Gate comment, as in the
+      # verify job.
       - name: Install
-        run: pnpm install --frozen-lockfile
+        id: install
+        run: |
+          set -o pipefail
+          mkdir -p ci-results
+          pnpm install --frozen-lockfile 2>&1 | tee ci-results/install.log
       # The Chromium binary download (~100MB) is what makes "install
-      # Playwright" slow, not the OS package install — cache it keyed on
+      # Playwright" slow, not the OS package install: cache it keyed on
       # the actually-installed @playwright/test version so a version bump
       # invalidates the cache automatically. OS-level deps still have to
       # install every run regardless of cache-hit: GitHub-hosted runners
@@ -131,7 +195,7 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium
       # Production Postgres is Supabase, which ships a built-in
-      # `service_role` role — the RLS policies in schema.server.ts
+      # `service_role` role: the RLS policies in schema.server.ts
       # (`serviceRoleOnly`, via drizzle-orm/supabase's `serviceRole`) all
       # grant access `TO "service_role"`. This plain postgres:16 service
       # container has no such role, so `drizzle-kit migrate` fails on the
@@ -141,9 +205,36 @@ jobs:
           PGPASSWORD=postgres psql -h localhost -U postgres -d storebridge_e2e \
             -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role; END IF; END \$\$;"
       - name: Run database migrations
-        run: pnpm exec drizzle-kit migrate
+        id: migrate
+        run: |
+          set -o pipefail
+          pnpm exec drizzle-kit migrate 2>&1 | tee ci-results/migrate.log
+      # Playwright also writes ci-results/playwright-results.json on CI
+      # (see playwright.config.ts).
       - name: E2E
-        run: pnpm run test:e2e
+        id: e2e
+        run: |
+          set -o pipefail
+          pnpm run test:e2e 2>&1 | tee ci-results/e2e.log
+      - name: Record results
+        if: always()
+        run: |
+          mkdir -p ci-results
+          cat > ci-results/outcomes.json <<'EOF'
+          {
+            "install": "${{ steps.install.outcome }}",
+            "migrate": "${{ steps.migrate.outcome }}",
+            "e2e": "${{ steps.e2e.outcome }}"
+          }
+          EOF
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-results-e2e
+          path: ci-results/
+          retention-days: 7
+          if-no-files-found: warn
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -152,8 +243,8 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # Single aggregate status — the one check to require in branch protection
-  # instead of naming every verify/e2e matrix leg individually — plus the
+  # Single aggregate status: the one check to require in branch protection
+  # instead of naming every verify/e2e matrix leg individually, plus the
   # PR summary comment. `always()` so it runs (and reports) even when
   # verify/e2e failed; it fails itself at the end based on their results.
   quality-gate:
@@ -165,6 +256,15 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      # Only for scripts/ci/quality-summary.mjs, which builds the failure
+      # list.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Download check results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        continue-on-error: true # absent when a job failed before it could upload
+        with:
+          pattern: ci-results-*
+          path: ci-results
       - name: Download coverage summary
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         continue-on-error: true # absent when CI failed before the Test step ever ran
@@ -177,6 +277,12 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const { buildFailureSection } = await import(
+              `${process.env.GITHUB_WORKSPACE}/scripts/ci/quality-summary.mjs`
+            );
+            // "" when nothing failed; otherwise one short line per failing
+            // check, with long failure lists collapsed.
+            const failureSection = buildFailureSection('ci-results');
 
             const verifyResult = '${{ needs.verify.result }}';
             const e2eResult = '${{ needs.e2e.result }}';
@@ -207,6 +313,7 @@ jobs:
               `| Lint, Typecheck & Test (Node 22 & 24) | ${icon(verifyResult)} |`,
               `| End-to-End Tests | ${icon(e2eResult)} |`,
               '',
+              ...(failureSection ? [failureSection, ''] : []),
               '### Unit test coverage (Node 24)',
               '',
               coverageSection,

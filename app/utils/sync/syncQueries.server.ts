@@ -1,5 +1,5 @@
 /**
- * GraphQL documents for the sync steps — split out of syncTarget.server.ts
+ * GraphQL documents for the sync steps: split out of syncTarget.server.ts
  * once that file started pushing past the 300-line limit (AGENTS.md §5).
  * Purely data (tagged template strings); no logic lives here.
  *
@@ -8,7 +8,7 @@
  * `MetafieldDefinitionInput`) and `search_docs_chunks` for required scopes:
  * `write_metaobject_definitions` for the metaobject mutation (confirmed);
  * metafield definitions need the write scope matching their owner type
- * (e.g. `write_products`) — same "confirm per owner type as it's actually
+ * (e.g. `write_products`), same "confirm per owner type as it's actually
  * used" stance `definitions.server.ts` already takes for the read side.
  */
 export const METAOBJECT_DEFINITION_CREATE_MUTATION = `#graphql
@@ -31,11 +31,11 @@ export const METAFIELD_DEFINITION_CREATE_MUTATION = `#graphql
 
 /**
  * Shop metafield value sync: once a SHOP-owned metafield definition exists
- * on a target (created or already there), also copy its current value —
+ * on a target (created or already there), also copy its current value:
  * there's exactly one Shop per store, so unlike Product/Customer/Order
  * metafields there's no cross-store record to match up first. Confirmed
  * via schema: `Shop.metafield(namespace, key)`, `MetafieldsSetInput`/
- * `MetafieldsSetPayload`. `metafieldsSet` is itself an upsert — no
+ * `MetafieldsSetPayload`. `metafieldsSet` is itself an upsert: no
  * `TAKEN`-style duplicate error exists for it, so it needs no idempotency
  * handling of its own.
  */
@@ -68,7 +68,7 @@ export const METAFIELDS_SET_MUTATION = `#graphql
 /**
  * Shop policy sync: pure text content (no cross-store record reference,
  * unlike Product/Customer/Order-owned data), so unlike menus it needs no
- * record-matching story — `shopPolicyUpdate` is itself an upsert keyed by
+ * record-matching story: `shopPolicyUpdate` is itself an upsert keyed by
  * `type`. Confirmed via `validate_graphql_codeblocks` against Shopify's
  * live schema: `ShopPolicyInput`/`ShopPolicyUpdatePayload`, required scopes
  * write_legal_policies + read_legal_policies (see shopify.app.toml).
@@ -77,9 +77,9 @@ export const METAFIELDS_SET_MUTATION = `#graphql
  * Collection sync is an upsert keyed by `handle` (the only identifier the
  * two stores share): look the handle up on the target, then update the
  * match or create a new one. `collectionCreate` has no `TAKEN`-style error
- * for a duplicate handle — Shopify silently suffixes it — so create-only
+ * for a duplicate handle (Shopify silently suffixes it), so create-only
  * would duplicate collections on every re-run. Uses the 2026-07
- * `collection:` argument — the older `input: CollectionInput` is deprecated
+ * `collection:` argument: the older `input: CollectionInput` is deprecated
  * there and codegen rejects it; the new inputs carry no `ruleSet` (rules
  * moved to `sources`, synced by syncCollectionRules.server.ts). Scopes: read_products /
  * write_products.

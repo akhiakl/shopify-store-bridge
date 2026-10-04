@@ -4,7 +4,7 @@ import { test, expect, TEST_SHOP } from "./support/embedded-fixture";
 // "/app" shell: a valid session token + an active stored session succeeds
 // with no Shopify network call (verified locally against this exact
 // package version by seeding a Postgres session and hitting the running
-// app directly — see support/shopify-session.ts's doc comment), and a
+// app directly: see support/shopify-session.ts's doc comment), and a
 // missing/invalid one is rejected rather than silently rendering the app.
 
 test.describe("embedded admin shell", () => {
@@ -19,7 +19,7 @@ test.describe("embedded admin shell", () => {
     expect(response.status()).toBe(200);
     // Embedded-app CSP (app/entry.server.tsx's addDocumentResponseHeaders)
     // is only set on Shopify-context routes like this one, not the plain
-    // public "/" route — see smoke.spec.ts's header comment.
+    // public "/" route: see smoke.spec.ts's header comment.
     expect(response.headers()["content-security-policy"]).toContain(
       `https://${TEST_SHOP}`,
     );
@@ -36,7 +36,7 @@ test.describe("embedded admin shell", () => {
     // No Authorization header -> treated as a bare document request ->
     // authenticate.admin() responds 200 with Shopify's "bounce page" (an
     // App Bridge bootstrap script that fetches a session token client-side
-    // and reloads) rather than a redirect status — confirmed empirically,
+    // and reloads) rather than a redirect status: confirmed empirically,
     // it is not a 3xx here. Either way, the actual app shell must not render.
     expect(response.status()).toBe(200);
     const body = await response.text();
