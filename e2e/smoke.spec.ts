@@ -13,12 +13,10 @@ test.describe("public landing route", () => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("heading", { name: /store definitions, in sync/i }),
+      page.getByRole("heading", { name: /keep your shopify stores in sync/i }),
     ).toBeVisible();
     await expect(
-      page.getByText(
-        /pair shopify stores and keep their metaobject and metafield definitions in sync\./i,
-      ),
+      page.getByText(/connect stores you run and copy metafields/i),
     ).toBeVisible();
     await expect(page.getByLabel(/shop domain/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /log in/i })).toBeVisible();
