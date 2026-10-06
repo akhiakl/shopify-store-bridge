@@ -36,12 +36,12 @@ jobs:
       # and records its outcome into ci-results/outcomes.json), so the
       # Quality Gate comment can list what failed in all of them. The job
       # still fails at the end if any of them did.
-      - uses: akhiakl/ci-workflows@e0badeea75937a3fe62095d27fc697d71570d216 # v1
+      - uses: akhiakl/ci-workflows@v1
         id: install
         with:
           name: install
           run: pnpm install --frozen-lockfile
-      - uses: akhiakl/ci-workflows@e0badeea75937a3fe62095d27fc697d71570d216 # v1
+      - uses: akhiakl/ci-workflows@v1
         id: lint
         continue-on-error: true
         with:
@@ -51,19 +51,19 @@ jobs:
       # §7: every GraphQL operation should pass codegen). Not checked in
       # (see .gitignore) since it fetches from shopify.dev each run,
       # keeping it current with whatever API version .graphqlrc.ts pins.
-      - uses: akhiakl/ci-workflows@e0badeea75937a3fe62095d27fc697d71570d216 # v1
+      - uses: akhiakl/ci-workflows@v1
         id: codegen
         continue-on-error: true
         with:
           name: codegen
           run: pnpm run graphql-codegen
-      - uses: akhiakl/ci-workflows@e0badeea75937a3fe62095d27fc697d71570d216 # v1
+      - uses: akhiakl/ci-workflows@v1
         id: typecheck
         continue-on-error: true
         with:
           name: typecheck
           run: pnpm run typecheck
-      - uses: akhiakl/ci-workflows@e0badeea75937a3fe62095d27fc697d71570d216 # v1
+      - uses: akhiakl/ci-workflows@v1
         id: test
         continue-on-error: true
         with:
@@ -71,7 +71,7 @@ jobs:
           run: >-
             pnpm run test:coverage --reporter=default --reporter=json
             --outputFile.json=ci-results/test-results.json
-      - uses: akhiakl/ci-workflows@e0badeea75937a3fe62095d27fc697d71570d216 # v1
+      - uses: akhiakl/ci-workflows@v1
         id: build
         continue-on-error: true
         env:
@@ -152,7 +152,7 @@ jobs:
           install: false
       # Output goes to ci-results/ for the Quality Gate comment, as in the
       # verify job.
-      - uses: akhiakl/ci-workflows@e0badeea75937a3fe62095d27fc697d71570d216 # v1
+      - uses: akhiakl/ci-workflows@v1
         id: install
         with:
           name: install
@@ -189,14 +189,14 @@ jobs:
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -d storebridge_e2e \
             -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role; END IF; END \$\$;"
-      - uses: akhiakl/ci-workflows@e0badeea75937a3fe62095d27fc697d71570d216 # v1
+      - uses: akhiakl/ci-workflows@v1
         id: migrate
         with:
           name: migrate
           run: pnpm exec drizzle-kit migrate
       # Playwright also writes ci-results/playwright-results.json on CI
       # (see playwright.config.ts).
-      - uses: akhiakl/ci-workflows@e0badeea75937a3fe62095d27fc697d71570d216 # v1
+      - uses: akhiakl/ci-workflows@v1
         id: e2e
         with:
           name: e2e
@@ -237,7 +237,7 @@ jobs:
           name: coverage-summary
           path: coverage
 
-      - uses: akhiakl/ci-workflows/gate@e0badeea75937a3fe62095d27fc697d71570d216 # v1
+      - uses: akhiakl/ci-workflows/gate@v1
         with:
           marker: '<!-- storebridge-quality-gate -->'
           title: Quality Gate
