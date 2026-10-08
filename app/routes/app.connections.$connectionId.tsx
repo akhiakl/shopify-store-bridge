@@ -17,6 +17,7 @@ const PAGES = [
   { label: "Collections", path: "/collections" },
   { label: "Menus", path: "/menus" },
   { label: "Locations", path: "/locations" },
+  { label: "Shipping", path: "/shipping" },
   { label: "Checkout styling", path: "/checkout" },
 ] as const;
 
