@@ -1,0 +1,1 @@
+ALTER TABLE "Connection" ADD COLUMN "autoSync" boolean DEFAULT false NOT NULL;

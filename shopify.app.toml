@@ -105,6 +105,22 @@ api_version = "2026-10"
   topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
 
+  # Handled by: /app/routes/webhooks.source-changed.tsx. Auto-sync (#65):
+  # re-runs a connection's last sync when the source changes something
+  # StoreBridge syncs. Deletes aren't synced, so they aren't subscribed.
+  [[webhooks.subscriptions]]
+  topics = [
+    "metafield_definitions/create",
+    "metafield_definitions/update",
+    "metaobjects/create",
+    "metaobjects/update",
+    "collections/create",
+    "collections/update",
+    "locations/create",
+    "locations/update",
+  ]
+  uri = "/webhooks/source-changed"
+
   # Mandatory for public apps: see:
   # https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance
   # StoreBridge holds no customer records, emails or values; the only

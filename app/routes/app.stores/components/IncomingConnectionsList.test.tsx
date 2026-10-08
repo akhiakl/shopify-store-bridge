@@ -16,6 +16,7 @@ function connection(id: string, status: Connection["status"]): Connection {
     respondedAt: new Date(),
     authTokenHash: null,
     authTokenExpiresAt: null,
+    autoSync: false,
     source: {
       id: `store-${id}`,
       shop: `${id}.myshopify.com`,

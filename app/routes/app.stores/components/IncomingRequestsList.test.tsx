@@ -15,6 +15,7 @@ const requests: DashboardData["incomingRequests"] = [
     respondedAt: null,
     authTokenHash: "hash",
     authTokenExpiresAt: new Date(),
+    autoSync: false,
     source: {
       id: "source-1",
       shop: "source.myshopify.com",

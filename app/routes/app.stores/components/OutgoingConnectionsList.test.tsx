@@ -21,6 +21,7 @@ function connection(
     respondedAt: null,
     authTokenHash: null,
     authTokenExpiresAt: null,
+    autoSync: false,
     target: { id: `store-${id}`, shop, name: null, createdAt: new Date() },
   };
 }
