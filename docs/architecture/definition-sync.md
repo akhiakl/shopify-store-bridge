@@ -7,7 +7,7 @@ obvious from the code. The engine lives in `app/utils/sync/`: selection parsing 
 plan resolution in `sync.server.ts`, per-target steps in `syncTarget.server.ts`, and
 background execution in `syncQueue.server.ts` / `syncWorker.server.ts`.
 
-## Scope: definitions (+ shop metafield values), manual trigger only
+## Scope: definitions (+ shop metafield values), manual trigger or opt-in auto-sync
 
 The first sync-execution feature syncs **definitions** (the schema: a metaobject's
 `type`/`fieldDefinitions`, a metafield's `namespace`/`key`/`type`): the natural next step
@@ -23,9 +23,9 @@ stores have separate catalogs with no shared IDs. Product, collection and custom
 values now sync by natural key (see "Metafield value sync" below); other owner types
 still don't.
 
-Every job is manually triggered: the merchant selects definitions on the checkbox UI and
-clicks "Sync now." There's no webhook or scheduler: see "Things intentionally not
-built" below.
+A job starts when the merchant selects items on a type page and clicks "Sync now", or,
+for a connection with auto-sync on, when the source changes something (see "Auto-sync"
+below).
 
 ## One page per type
 
@@ -291,10 +291,30 @@ imports `connections` from `schema.server.ts`, never the reverse; the shared
 schema files can import it without importing each other. `db.server.ts` combines both via
 object spread into one `schema` object for Drizzle's relational query API.
 
+## Auto-sync (#65)
+
+Opt-in per connection: the "Auto-sync" switch on a connection's Job history page, which
+only the source can change, and only once the target has approved (`Connection.autoSync`).
+
+- **Trigger.** `webhooks.source-changed.tsx` receives `metafield_definitions`,
+  `metaobjects`, `collections` and `locations` create/update webhooks (subscribed in
+  `shopify.app.toml`; deletes aren't synced, so aren't subscribed). For each of the shop's
+  approved auto-sync connections it queues the connection's **last selection** again
+  (`triggerAutoSync`), then starts the jobs after responding.
+- **Debounce: one job at a time.** A connection with a job already queued or running
+  gets nothing new; that job re-reads the source anyway. A connection never synced has
+  nothing to repeat, so the switch refuses to turn on until a first sync has run.
+- **No loops.** A sync writes to the target, which fires the target's own webhooks. If a
+  chain of auto-syncing connections led from the target back to the source, the stores
+  would re-sync each other forever, so turning auto-sync on is refused when it would close
+  such a loop (`wouldLoop`).
+- Not covered: metaobject definitions, menus and shop policies have no plain webhook
+  topic in 2026-10 (metaobject definitions are only on the newer `[events]` system).
+  Shipping profiles do (`profiles/*`), but need the shipping scopes from #146. Changes to
+  any of these sync on the next manual sync, or with the next covered change.
+
 ## Things intentionally _not_ built (YAGNI)
 
-- **Webhooks/automatic sync on source change.** Manual-trigger only, per the product
-  decision this feature shipped with. Revisit once merchants actually ask for it.
 - **Value sync for owners without a shared key** (variants, orders, pages,
   blogs, articles). Would need a mapping table or custom IDs; see #63.
 - **Page, blog and article menu links.** Dropped for the same reason; menus sync
