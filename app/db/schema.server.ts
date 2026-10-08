@@ -108,6 +108,9 @@ export const connections = pgTable(
     respondedAt: timestamp("respondedAt", { mode: "date" }),
     authTokenHash: text("authTokenHash").unique(),
     authTokenExpiresAt: timestamp("authTokenExpiresAt", { mode: "date" }),
+    /** Re-run the last sync when the source's synced data changes (#65).
+     * Off by default; only the source turns it on. */
+    autoSync: boolean("autoSync").notNull().default(false),
   },
   (table) => [
     uniqueIndex("Connection_sourceStoreId_targetStoreId_key").on(
