@@ -79,6 +79,14 @@ embedded = true
 # need write_locations. The extra scopes validate_graphql_codeblocks lists
 # for these are alternatives, not requirements.
 #
+# read_shipping / write_shipping: shipping profile sync
+# (deliveryProfiles.server.ts / syncDeliveryProfile.server.ts). shopify.dev
+# files DeliveryProfile under the `shipping` scopes (its profiles/*
+# webhooks require them); validate_graphql_codeblocks doesn't report a
+# scope for deliveryProfiles/deliveryProfileCreate/deliveryProfileUpdate,
+# so confirm on a dev store before release. Variant association also uses
+# write_products, already declared.
+#
 # read_checkout_and_accounts_configurations /
 # write_checkout_and_accounts_configurations: checkout styling sync
 # (checkoutStyling.server.ts / syncCheckoutStyling.server.ts). Confirmed via
@@ -88,7 +96,7 @@ embedded = true
 # read_files / write_files: copying the logos and custom fonts that
 # checkout styling points at (stylingFiles.server.ts): file IDs are
 # per-store. Confirmed via validate_graphql_codeblocks.
-scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content,read_legal_policies,write_legal_policies,read_metaobjects,write_metaobjects,read_online_store_navigation,write_online_store_navigation,read_locations,write_locations,read_checkout_and_accounts_configurations,write_checkout_and_accounts_configurations,read_files,write_files"
+scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content,read_legal_policies,write_legal_policies,read_metaobjects,write_metaobjects,read_online_store_navigation,write_online_store_navigation,read_locations,write_locations,read_checkout_and_accounts_configurations,write_checkout_and_accounts_configurations,read_files,write_files,read_shipping,write_shipping"
 use_legacy_install_flow = false
 
 [webhooks]

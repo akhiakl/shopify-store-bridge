@@ -68,6 +68,23 @@ export function metafieldValueKey(
   return `metafieldValue:${def.ownerType}:${def.namespace}:${def.key}:${record}`;
 }
 
+/** Selection key for a shipping profile: its numeric ID on the source,
+ * since profile names needn't be unique. */
+export function deliveryProfileSelectionKey(id: string): string {
+  return `deliveryProfile:${id.split("/").pop()}`;
+}
+
+/** Job-history key for a shipping profile, by name: it's matched on the
+ * target by name (or as the default profile). */
+export function deliveryProfileKey(name: string): string {
+  return `deliveryProfileSync:${name}`;
+}
+
+/** Job-history key for a part of a shipping profile that couldn't sync. */
+export function deliveryProfileItemKey(name: string, item: string): string {
+  return `deliveryProfileItem:${name}:${item}`;
+}
+
 /** Locations match by name, which is unique per store. */
 export function locationKey(name: string): string {
   return `location:${name}`;

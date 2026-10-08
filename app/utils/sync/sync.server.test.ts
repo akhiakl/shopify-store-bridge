@@ -169,6 +169,9 @@ describe("parseSelection", () => {
         "metafieldValues:CUSTOMER:custom:tier",
         "menu:main-menu",
         "location:Main: Warehouse",
+        "deliveryProfile:42",
+        // A non-numeric profile ID is ignored, never queried.
+        "deliveryProfile:abc",
         "checkoutStyling",
       ]),
     ).toEqual({
@@ -184,6 +187,7 @@ describe("parseSelection", () => {
       ],
       menuHandles: ["main-menu"],
       locationNames: ["Main: Warehouse"],
+      deliveryProfileIds: ["42"],
       checkoutStyling: true,
     });
   });
