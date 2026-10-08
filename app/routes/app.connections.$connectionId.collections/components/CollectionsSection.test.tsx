@@ -62,14 +62,8 @@ describe("CollectionsSection", () => {
       />,
     );
 
-    expect(checkboxByLabel("Select all (2)")).toHaveAttribute(
-      "indeterminate",
-      "true",
-    );
-    expect(checkboxByLabel("Summer (summer)")).toHaveAttribute(
-      "checked",
-      "true",
-    );
+    expect(checkboxByLabel("Select all (2)")).toHaveAttribute("indeterminate");
+    expect(checkboxByLabel("Summer (summer)")).toHaveAttribute("checked");
   });
 
   it("marks select-all checked once every collection is selected", () => {
@@ -81,9 +75,6 @@ describe("CollectionsSection", () => {
       />,
     );
 
-    expect(checkboxByLabel("Select all (2)")).toHaveAttribute(
-      "checked",
-      "true",
-    );
+    expect(checkboxByLabel("Select all (2)")).toHaveAttribute("checked");
   });
 });

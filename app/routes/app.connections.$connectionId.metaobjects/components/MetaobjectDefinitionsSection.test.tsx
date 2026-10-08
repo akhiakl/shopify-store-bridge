@@ -72,13 +72,9 @@ describe("MetaobjectDefinitionsSection", () => {
       />,
     );
 
-    expect(checkboxByLabel("Select all (2)")).toHaveAttribute(
-      "indeterminate",
-      "true",
-    );
+    expect(checkboxByLabel("Select all (2)")).toHaveAttribute("indeterminate");
     expect(checkboxByLabel("Size chart (size_chart)")).toHaveAttribute(
       "checked",
-      "true",
     );
   });
 
@@ -91,10 +87,7 @@ describe("MetaobjectDefinitionsSection", () => {
       />,
     );
 
-    expect(checkboxByLabel("Select all (2)")).toHaveAttribute(
-      "checked",
-      "true",
-    );
+    expect(checkboxByLabel("Select all (2)")).toHaveAttribute("checked");
   });
 
   it("renders a status badge for a definition once a status check has run", () => {

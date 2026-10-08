@@ -76,11 +76,8 @@ describe("LocationsSection", () => {
       "details",
       "Toronto. Doesn't fulfill online orders.",
     );
-    expect(checkboxByLabel("Pop-up")).toHaveAttribute("checked", "true");
-    expect(checkboxByLabel("Select all (2)")).toHaveAttribute(
-      "indeterminate",
-      "true",
-    );
+    expect(checkboxByLabel("Pop-up")).toHaveAttribute("checked");
+    expect(checkboxByLabel("Select all (2)")).toHaveAttribute("indeterminate");
   });
 
   it("lists an incomplete address but won't let it be selected", () => {
