@@ -5,6 +5,7 @@ import { connections, sessions } from "~/db/schema.server";
 import { getOrCreateStore } from "~/utils/dashboard.server";
 
 import { generateAuthToken, hashAuthToken } from "./authToken.server";
+import { INVITES_PER_HOUR, inviteLimitReached } from "./inviteRateLimit.server";
 
 /**
  * Shop-domain format check for the "connect a store" input. Accepts either
@@ -88,6 +89,12 @@ export async function requestPairing({
   }
 
   const source = await getOrCreateStore(sourceShop);
+  if (await inviteLimitReached(source.id)) {
+    return {
+      ok: false,
+      error: `You've sent ${INVITES_PER_HOUR} connection requests in the last hour. Try again later.`,
+    };
+  }
   const target = await getOrCreateStore(targetShop);
   const existing = await db.query.connections.findFirst({
     where: and(
