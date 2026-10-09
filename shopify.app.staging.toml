@@ -52,6 +52,8 @@ topics = [
   "collections/update",
   "locations/create",
   "locations/update",
+  "profiles/create",
+  "profiles/update",
 ]
 uri = "/webhooks/source-changed"
 
