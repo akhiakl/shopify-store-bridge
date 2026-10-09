@@ -50,11 +50,8 @@ describe("ShopPoliciesSection", () => {
       />,
     );
 
-    expect(checkboxByLabel("Select all (2)")).toHaveAttribute(
-      "indeterminate",
-      "true",
-    );
-    expect(checkboxByLabel("Refund policy")).toHaveAttribute("checked", "true");
+    expect(checkboxByLabel("Select all (2)")).toHaveAttribute("indeterminate");
+    expect(checkboxByLabel("Refund policy")).toHaveAttribute("checked");
   });
 
   it("marks select-all checked once every policy is selected", () => {
@@ -66,9 +63,6 @@ describe("ShopPoliciesSection", () => {
       />,
     );
 
-    expect(checkboxByLabel("Select all (2)")).toHaveAttribute(
-      "checked",
-      "true",
-    );
+    expect(checkboxByLabel("Select all (2)")).toHaveAttribute("checked");
   });
 });

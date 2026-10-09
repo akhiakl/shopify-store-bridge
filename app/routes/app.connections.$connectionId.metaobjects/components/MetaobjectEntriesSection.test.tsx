@@ -69,11 +69,8 @@ describe("MetaobjectEntriesSection", () => {
       />,
     );
 
-    expect(checkboxByLabel("Select all (2)")).toHaveAttribute(
-      "indeterminate",
-      "true",
-    );
-    expect(checkboxByLabel("FAQ (faq)")).toHaveAttribute("checked", "true");
+    expect(checkboxByLabel("Select all (2)")).toHaveAttribute("indeterminate");
+    expect(checkboxByLabel("FAQ (faq)")).toHaveAttribute("checked");
   });
 
   it("marks select-all checked once every type is selected", () => {
@@ -85,9 +82,6 @@ describe("MetaobjectEntriesSection", () => {
       />,
     );
 
-    expect(checkboxByLabel("Select all (1)")).toHaveAttribute(
-      "checked",
-      "true",
-    );
+    expect(checkboxByLabel("Select all (1)")).toHaveAttribute("checked");
   });
 });

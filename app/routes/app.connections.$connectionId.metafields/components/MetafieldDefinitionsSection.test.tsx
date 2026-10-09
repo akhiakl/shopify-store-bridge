@@ -82,11 +82,8 @@ describe("MetafieldDefinitionsSection", () => {
       />,
     );
 
-    expect(checkboxByLabel("custom (2)")).toHaveAttribute("checked", "true");
-    expect(checkboxByLabel("custom (2)")).not.toHaveAttribute(
-      "indeterminate",
-      "true",
-    );
+    expect(checkboxByLabel("custom (2)")).toHaveAttribute("checked");
+    expect(checkboxByLabel("custom (2)")).not.toHaveAttribute("indeterminate");
   });
 
   it("marks the namespace group indeterminate when only some definitions are selected", () => {
@@ -98,18 +95,11 @@ describe("MetafieldDefinitionsSection", () => {
       />,
     );
 
-    expect(checkboxByLabel("custom (2)")).toHaveAttribute(
-      "indeterminate",
-      "true",
-    );
+    expect(checkboxByLabel("custom (2)")).toHaveAttribute("indeterminate");
     expect(checkboxByLabel("Care instructions (care)")).toHaveAttribute(
       "checked",
-      "true",
     );
-    expect(checkboxByLabel("Fit notes (fit)")).not.toHaveAttribute(
-      "checked",
-      "true",
-    );
+    expect(checkboxByLabel("Fit notes (fit)")).not.toHaveAttribute("checked");
   });
 
   it("renders a status badge for a definition once a status check has run", () => {

@@ -79,10 +79,7 @@ describe("IncomingRequestsList", () => {
     fireEvent.submit(declineForm);
     await waitFor(() => expect(action).toHaveBeenCalled());
 
-    expect(declineForm.querySelector("s-button")).toHaveAttribute(
-      "loading",
-      "true",
-    );
+    expect(declineForm.querySelector("s-button")).toHaveAttribute("loading");
 
     resolveAction({ ok: true });
   });

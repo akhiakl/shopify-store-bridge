@@ -98,10 +98,7 @@ describe("MetafieldValuesSection", () => {
         onToggle={vi.fn()}
       />,
     );
-    expect(checkboxByLabel("Select all (2)")).toHaveAttribute(
-      "indeterminate",
-      "true",
-    );
+    expect(checkboxByLabel("Select all (2)")).toHaveAttribute("indeterminate");
     unmount();
 
     render(
@@ -116,9 +113,6 @@ describe("MetafieldValuesSection", () => {
         onToggle={vi.fn()}
       />,
     );
-    expect(checkboxByLabel("Select all (2)")).toHaveAttribute(
-      "checked",
-      "true",
-    );
+    expect(checkboxByLabel("Select all (2)")).toHaveAttribute("checked");
   });
 });
