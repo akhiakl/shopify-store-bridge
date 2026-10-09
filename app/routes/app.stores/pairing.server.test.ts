@@ -34,6 +34,14 @@ const { dbMock } = vi.hoisted(() => ({
 }));
 vi.mock("~/db.server", () => ({ default: dbMock }));
 
+const { inviteLimitReached } = vi.hoisted(() => ({
+  inviteLimitReached: vi.fn(),
+}));
+vi.mock("./inviteRateLimit.server", () => ({
+  INVITES_PER_HOUR: 20,
+  inviteLimitReached,
+}));
+
 const {
   normalizeShopDomain,
   requestPairing,
@@ -49,6 +57,7 @@ const TARGET_SHOP = "target-shop.myshopify.com";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  inviteLimitReached.mockResolvedValue(false);
 });
 
 describe("normalizeShopDomain", () => {
@@ -140,6 +149,29 @@ describe("requestPairing", () => {
       .mockReturnValueOnce(chain([{ id: "source-id", shop: SOURCE_SHOP }]))
       .mockReturnValueOnce(chain([{ id: "target-id", shop: TARGET_SHOP }]));
   }
+
+  it("refuses a new invite once the source hit its hourly limit", async () => {
+    // Only the source Store row is upserted before the limit check.
+    dbMock.query.sessions.findFirst.mockResolvedValue({ id: "session-1" });
+    dbMock.insert.mockReturnValueOnce(
+      chain([{ id: "source-id", shop: SOURCE_SHOP }]),
+    );
+    inviteLimitReached.mockResolvedValue(true);
+
+    const result = await requestPairing({
+      sourceShop: SOURCE_SHOP,
+      targetDomain: TARGET_SHOP,
+    });
+
+    expect(inviteLimitReached).toHaveBeenCalledWith("source-id");
+    expect(result).toEqual({
+      ok: false,
+      error:
+        "You've sent 20 connection requests in the last hour. Try again later.",
+    });
+    expect(dbMock.query.connections.findFirst).not.toHaveBeenCalled();
+    expect(dbMock.insert).toHaveBeenCalledTimes(1);
+  });
 
   it("creates a pending connection with a hashed token", async () => {
     installedStores();
