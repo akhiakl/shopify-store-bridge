@@ -266,6 +266,34 @@ Scopes: read/write_locations.
   by one fails that location: those belong to the fulfillment app.
 - Inventory, local pickup and shipping settings aren't synced.
 
+## Shipping profile sync (#120)
+
+The Shipping page (`deliveryProfile:<numeric id>`) syncs a source shipping profile onto
+each target: the general (default) profile onto the target's general profile, a custom one
+onto the target's custom profile with the same name, created if missing. Scopes:
+read/write_shipping (plus write_products for products).
+
+- **Planning** reads the profile and keeps nothing store-specific: location groups by
+  location name (as #123 matches them), products by handle (as #63 does), zones as
+  country and province codes (global), and flat or conditional rates as their input.
+  Carrier-calculated rates (`DeliveryParticipant`) depend on carrier accounts set up per
+  store, so they're left out and listed as SKIPPED rows. Only a profile's first 250
+  products sync, with a SKIPPED row when there are more.
+- **Replace, in one `deliveryProfileUpdate`.** Every zone on the target profile is
+  deleted (`zonesToDelete`), a target location group with exactly the source group's
+  locations gets the source zones (`locationGroupsToUpdate`), any other source group is
+  created, and on a custom profile target groups the source doesn't have are removed.
+  The general profile's groups are kept, since they hold every location the store
+  ships from. A custom profile's products are replaced too: matched products' variants
+  are associated, others dissociated (they fall back to the general profile).
+- **Missing on the target**: a location or product with no match is left out and
+  reported; a location group left with no locations is dropped. Sync locations first.
+- **Runs after locations** in the job, so locations synced in the same job resolve. A
+  lookup or write error fails the profile; since the write is one mutation, the target
+  profile is left as it was.
+- Shopify recommends at most 5 location groups per update; profiles normally have one
+  or two, so larger ones aren't batched.
+
 ## Job/job-item schema
 
 One `SyncJob` row per "Sync now" click: its connection, the requested selection, status,

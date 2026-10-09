@@ -103,6 +103,7 @@ const planWith = (defs: unknown[]) => ({
   shopMetafieldValues: [],
   menus: [],
   locations: [],
+  deliveryProfiles: [],
 });
 
 /** A claimed job row, fresh (no plan yet) unless overridden. */
