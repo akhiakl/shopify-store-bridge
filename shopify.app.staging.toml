@@ -13,8 +13,9 @@
 
 client_id = "4e756fbacff648a4dcf28ed39cd7075e"
 name = "StoreBridge (staging)"
-# TODO(unverified): replace with the real staging deployment URL once it
-# exists: this is scaffold-standard, not a verified value.
+# The Vercel branch URL for `staging`: every push there deploys to it
+# (DEPLOYMENT.md). Confirmed live by Vercel's deployment of the staging
+# branch for PR #136.
 application_url = "https://storebridge-git-staging-akhiakls-projects.vercel.app"
 embedded = true
 
@@ -73,6 +74,9 @@ uri = "/webhooks/shop/redact"
 compliance_topics = ["shop/redact"]
 
 [auth]
+# Empty on purpose: managed installation with token exchange
+# (use_legacy_install_flow = false) never redirects through an OAuth
+# callback.
 redirect_urls = []
 
 [build]
