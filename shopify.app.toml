@@ -126,6 +126,8 @@ api_version = "2026-10"
     "collections/update",
     "locations/create",
     "locations/update",
+    "profiles/create",
+    "profiles/update",
   ]
   uri = "/webhooks/source-changed"
 
