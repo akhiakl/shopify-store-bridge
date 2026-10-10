@@ -42,12 +42,12 @@ uri = "/webhooks/app/scopes_update"
 # Handled by: /app/routes/webhooks.source-changed.tsx. Auto-sync (#65):
 # re-runs a connection's last sync when the source changes something
 # StoreBridge syncs. Deletes aren't synced, so they aren't subscribed.
+# metaobjects/* need a `type:` filter per metaobject type (no wildcard),
+# and types are per store, so they can't be listed here.
 [[webhooks.subscriptions]]
 topics = [
   "metafield_definitions/create",
   "metafield_definitions/update",
-  "metaobjects/create",
-  "metaobjects/update",
   "collections/create",
   "collections/update",
   "locations/create",

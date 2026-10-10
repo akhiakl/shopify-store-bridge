@@ -325,8 +325,8 @@ Opt-in per connection: the "Auto-sync" switch on a connection's Job history page
 only the source can change, and only once the target has approved (`Connection.autoSync`).
 
 - **Trigger.** `webhooks.source-changed.tsx` receives `metafield_definitions`,
-  `metaobjects`, `collections`, `locations` and `profiles` (shipping profiles) create/update webhooks (subscribed in
-  `shopify.app.toml`; deletes aren't synced, so aren't subscribed). For each of the shop's
+  `collections`, `locations` and `profiles` (shipping profiles) create/update webhooks
+  (subscribed in `shopify.app.toml`; deletes aren't synced, so aren't subscribed). For each of the shop's
   approved auto-sync connections it queues the connection's **last selection** again
   (`triggerAutoSync`), then starts the jobs after responding.
 - **Debounce: one job at a time.** A connection with a job already queued or running
@@ -338,6 +338,9 @@ only the source can change, and only once the target has approved (`Connection.a
   such a loop (`wouldLoop`).
 - Not covered: metaobject definitions, menus and shop policies have no plain webhook
   topic in 2026-10 (metaobject definitions are only on the newer `[events]` system).
+  Metaobject entries have `metaobjects/*` topics, but Shopify requires a `type:` filter
+  naming each metaobject type (no wildcard), and types differ per store, so the app-wide
+  subscription can't cover them.
   Changes to any of these sync on the next manual sync, or with the next covered change.
 
 ## Things intentionally _not_ built (YAGNI)
