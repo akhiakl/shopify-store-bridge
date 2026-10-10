@@ -5,7 +5,7 @@
 # job twice for the identical commit.
 on:
   push:
-    branches: [main, staging]
+    branches: [main]
   pull_request:
 
 name: Quality Checks

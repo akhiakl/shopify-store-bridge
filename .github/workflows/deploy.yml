@@ -1,95 +1,40 @@
 name: Deploy Shopify app config
 
-# Staging deploys continuously (push to `staging`: that's the point of
-# having a staging branch: every merge there ships to the staging Shopify
-# app + Vercel Preview immediately, no extra gate).
-#
-# Production is release-gated, deliberately not "push to main": pushing a
-# `v*` tag is what ships shopify.app.toml + the Vercel production build.
-# Merging a PR to main only runs CI (see ci.yml): it does not deploy
-# anything by itself. Cut a release by tagging the commit on main you want
-# live:
-#   git tag v1.2.0 && git push origin v1.2.0
-# (or use GitHub's "Draft a new release" UI, which pushes the tag for you).
-#
-# Manual workflow_dispatch runs can still target either environment
-# on-demand, independent of the above.
-#
-# Database migrations run inside the Vercel build itself, not as a step
-# here: package.json's `vercel-build` script runs
-# `drizzle-kit migrate` before `react-router build`, and Vercel's build
-# convention (both the hosted platform build and the `vercel build` CLI
-# invocation below) uses that script instead of the plain `build` one
-# whenever it's present. A failed migration fails the build, and a failed
-# build means the "Deploy to Vercel" step below has nothing prebuilt to
-# ship: no separate gate needed. This exists because Vercel's build never
-# ran migrations on its own before, so a schema change could ship code that
-# reads a table/column that was never actually created (see DEPLOYMENT.md).
-#
-# The Shopify app config deploy is intentionally decoupled from this: it
-# never touches the database, so it runs unconditionally rather than
-# waiting on a migration/build step it has no dependency on.
+# Every push to `main` ships. Vercel's own Git integration builds and
+# deploys the app itself (production = `main`); its build runs
+# package.json's `vercel-build` script, `drizzle-kit migrate` then
+# `react-router build`, so a failed migration fails the deploy. This
+# workflow only deploys the Shopify app config (shopify.app.toml: scopes,
+# webhooks, URLs), which never touches the database, so it runs on its own
+# rather than waiting on the Vercel build. See DEPLOYMENT.md.
 #
 # Requires:
-#   SHOPIFY_APP_AUTOMATION_TOKEN: Partner/Dev Dashboard app -> Automation
-#     tokens. The older SHOPIFY_CLI_PARTNERS_TOKEN is deprecated as of the
-#     CLI 4.x / May 2026 rollout: don't use it here.
-#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID: needed on both
-#     environments now that this workflow deploys staging's Vercel Preview
-#     too, not just production. Vercel's own Git integration must have
-#     auto-deploy disabled for both `main` and `staging` (Project Settings
-#     -> Git) or it'll keep shipping deployments on every push there,
-#     independent of this workflow. The migration-bearing `DATABASE_URL`/
-#     `DIRECT_URL` are Vercel project environment variables (Production vs
-#     Preview: see DEPLOYMENT.md), not GitHub secrets, since the build
-#     that needs them runs inside `vercel build` below.
+#   SHOPIFY_APP_AUTOMATION_TOKEN on the `production` GitHub Environment:
+#     Dev Dashboard app -> Automation tokens. The older
+#     SHOPIFY_CLI_PARTNERS_TOKEN is deprecated as of the CLI 4.x / May 2026
+#     rollout: don't use it here.
 
 on:
   push:
-    branches: [staging]
-    tags: ["v*"]
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: "Environment to deploy"
-        required: true
-        type: choice
-        options: [staging, production]
-        default: staging
 
 permissions:
   contents: read
 
-jobs:
-  resolve-environment:
-    name: Resolve target environment
-    runs-on: ubuntu-latest
-    outputs:
-      environment: ${{ steps.resolve.outputs.environment }}
-    steps:
-      - name: Resolve
-        id: resolve
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            ENV="${{ inputs.environment }}"
-          elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" = "true" ]; then
-            ENV="production"
-          else
-            ENV="staging"
-          fi
-          echo "environment=$ENV" >> "$GITHUB_OUTPUT"
+concurrency:
+  group: deploy-shopify-config
+  cancel-in-progress: false
 
+jobs:
   deploy:
-    name: Deploy (${{ needs.resolve-environment.outputs.environment }})
-    needs: resolve-environment
+    name: Deploy Shopify app config
     runs-on: ubuntu-latest
-    environment: ${{ needs.resolve-environment.outputs.environment }}
+    environment: production
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          # Tags aren't fetched by default; the version-resolution step below
-          # needs `git describe` to see them, for both the production tag
-          # itself and the latest tag staging prereleases are based on.
+          # `git describe` below needs the tags.
           fetch-depth: 0
 
       # Keep in sync with .github/workflows/ci.yml's pin.
@@ -111,31 +56,14 @@ jobs:
       - name: Install Shopify CLI
         run: pnpm add -g @shopify/cli@^4.0.0
 
-      # Semantic version for this app deploy, so Shopify's version list
-      # reads like a changelog instead of the CLI's auto-generated
-      # "app-name-<random>" names:
-      #   - production runs are triggered by a `v*` tag, so the tag itself
-      #     is the version (v1.2.0 -> 1.2.0): this is the existing manual
-      #     release gate, unchanged.
-      #   - staging deploys continuously with no tag of its own, so it gets
-      #     a prerelease built from the latest reachable tag plus this run's
-      #     number, e.g. 1.2.0-staging.42: monotonically increasing without
-      #     needing its own tags.
+      # Names each app version so Shopify's version list reads like a
+      # changelog instead of the CLI's "app-name-<random>": the latest
+      # reachable tag (0.0.0 if none) plus this run's number, e.g. 1.2.0-42.
       - name: Resolve version
         id: version
         run: |
-          ENV="${{ needs.resolve-environment.outputs.environment }}"
-          if [ "$ENV" = "production" ]; then
-            if [ "${{ github.ref_type }}" != "tag" ]; then
-              echo "Production deploys must be triggered by a v* tag push (or workflow_dispatch on a tagged commit) so the version is unambiguous." >&2
-              exit 1
-            fi
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            BASE="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')"
-            BASE="${BASE:-0.0.0}"
-            VERSION="${BASE}-staging.${{ github.run_number }}"
-          fi
+          BASE="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')"
+          VERSION="${BASE:-0.0.0}-${{ github.run_number }}"
           echo "Resolved version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -143,41 +71,8 @@ jobs:
         env:
           SHOPIFY_APP_AUTOMATION_TOKEN: ${{ secrets.SHOPIFY_APP_AUTOMATION_TOKEN }}
         run: |
-          ENV="${{ needs.resolve-environment.outputs.environment }}"
-          VERSION="${{ steps.version.outputs.version }}"
-          echo "Deploying shopify.app.$ENV.toml as version $VERSION"
           shopify app deploy \
-            --config "$ENV" \
-            --version "$VERSION" \
+            --version "${{ steps.version.outputs.version }}" \
             --message "Deployed from ${{ github.ref_name }} by run #${{ github.run_number }}" \
             --source-control-url "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}" \
             --allow-updates
-
-      # Both environments now deploy to Vercel from here: staging no
-      # longer relies on Vercel's own Git integration to auto-deploy on
-      # push (that path deployed independently of whether migrations had
-      # run, which is exactly how the `SyncJob`-missing-table incident on
-      # staging happened). The `vercel build` invocation below runs the
-      # `vercel-build` package.json script: `drizzle-kit migrate` then
-      # `react-router build`, so a failed migration fails the build and
-      # nothing gets deployed. Vercel's automatic Git deployment for the
-      # `staging` branch must be disabled in the Vercel project's Git
-      # settings (see DEPLOYMENT.md), or this step and that integration
-      # will double-deploy on every push.
-      - name: Deploy to Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: |
-          ENV="${{ needs.resolve-environment.outputs.environment }}"
-          if [ "$ENV" = "production" ]; then
-            VERCEL_ENV=production
-            PROD_FLAG=--prod
-          else
-            VERCEL_ENV=preview
-            PROD_FLAG=
-          fi
-          npx --yes vercel@latest pull --yes --environment="$VERCEL_ENV" --token="$VERCEL_TOKEN"
-          npx --yes vercel@latest build $PROD_FLAG --token="$VERCEL_TOKEN"
-          npx --yes vercel@latest deploy --prebuilt $PROD_FLAG --token="$VERCEL_TOKEN"

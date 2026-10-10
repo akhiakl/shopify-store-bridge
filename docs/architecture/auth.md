@@ -39,4 +39,4 @@ In rough order of how likely each one actually is, from having chased this exact
 
 ## Config gotcha: `shopify app dev` live-syncs the config file
 
-While `shopify app dev` is running, it periodically rewrites `shopify.app.toml`/`shopify.app.staging.toml` with the live app registration's actual `application_url`, scopes, etc., including stripping comments and reformatting. If you're hand-editing those files while a dev session is also running, expect your edits to get silently overwritten; this is the CLI doing its job, not corruption. Stop the dev process (or accept the churn) before making config edits you want to stick.
+While `shopify app dev` is running, it periodically rewrites `shopify.app.toml` with the live app registration's actual `application_url`, scopes, etc., including stripping comments and reformatting. If you're hand-editing those files while a dev session is also running, expect your edits to get silently overwritten; this is the CLI doing its job, not corruption. Stop the dev process (or accept the churn) before making config edits you want to stick.
