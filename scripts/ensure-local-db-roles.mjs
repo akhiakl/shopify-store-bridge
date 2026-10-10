@@ -4,7 +4,7 @@
 // fails on `role "service_role" does not exist`, and drizzle-kit swallows
 // the error, so `pnpm dev` just looks like it hangs on "applying migrations".
 //
-// Only ever touches a database on this machine: Supabase (staging/prod)
+// Only ever touches a database on this machine: Supabase (production)
 // already has these roles, and a dev command shouldn't be issuing DDL
 // against a shared database anyway.
 import pg from "pg";

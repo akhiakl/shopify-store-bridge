@@ -22,7 +22,7 @@ Either way: **delete the reference scaffold once the comparison is done.** It's 
 
 ## What to actually compare
 
-- `shopify.app.toml`/`shopify.app.staging.toml` structure: does ours have every section a fresh one does (`[access_scopes]`, `[auth]`, `[build]`, etc.), even if the _values_ differ because ours is customized? A missing section is drift; a customized value with a comment explaining why is not.
+- `shopify.app.toml` structure: does ours have every section a fresh one does (`[access_scopes]`, `[auth]`, `[build]`, etc.), even if the _values_ differ because ours is customized? A missing section is drift; a customized value with a comment explaining why is not.
 - `shopify.web.toml`: this file is templated with Liquid in the CLI's source (`{{ dependency_manager }}` etc.): make sure what's actually committed is the _rendered_ output for this repo's package manager, not a leftover `.liquid` template file that never got processed.
 - `package.json` dependency versions, package by package. For each mismatch, classify it before acting:
   - **Behind the scaffold** → likely safe to bump to match, unless there's a reason not to (check for an existing comment explaining a deliberate pin).
