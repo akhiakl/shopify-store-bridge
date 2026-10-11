@@ -30,9 +30,13 @@ const STYLING_SCOPES = [
   "write_checkout_and_accounts_configurations",
 ];
 
+/** Shopify stores scopes compressed: a granted write_x implies read_x,
+ * so the session lists only the write scope when both were requested. */
 function hasStylingScopes(scope: string | undefined): boolean {
-  const granted = new Set(scope?.split(",") ?? []);
-  return STYLING_SCOPES.every((s) => granted.has(s));
+  const granted = new Set(scope?.split(",").map((s) => s.trim()) ?? []);
+  return STYLING_SCOPES.every(
+    (s) => granted.has(s) || granted.has(s.replace(/^read_/, "write_")),
+  );
 }
 
 /** Names the store an error came from: both are read at once. An access

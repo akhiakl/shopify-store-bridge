@@ -177,6 +177,21 @@ describe("getCheckoutOverview", () => {
     ).toBe("Couldn't read checkout styling. a.myshopify.com: timeout");
   });
 
+  it("treats a granted write scope as covering its read scope", async () => {
+    unauthenticatedAdmin.mockImplementation(async (shop: string) => ({
+      admin: shop === "b.myshopify.com" ? targetAdmin : sourceAdmin,
+      session: {
+        scope: "write_checkout_and_accounts_configurations,write_products",
+      },
+    }));
+    const overview = await getCheckoutOverview({
+      connection: connection(),
+      sourceAdmin: sourceAdmin as never,
+    });
+    expect(overview.blocked).toBeNull();
+    expect(canStyleCheckout).toHaveBeenCalledTimes(2);
+  });
+
   it("asks stores missing the new scopes to approve them first", async () => {
     unauthenticatedAdmin.mockImplementation(async (shop: string) => ({
       admin: targetAdmin,
