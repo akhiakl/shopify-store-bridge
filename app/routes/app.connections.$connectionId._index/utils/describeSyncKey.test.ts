@@ -6,6 +6,12 @@ describe("describeSyncKey", () => {
   it.each([
     ["metaobject:faq", "Metaobject definition", "faq"],
     ["checkoutStyling", "Checkout styling", "Checkout & accounts"],
+    [
+      "checkoutStyling:surfaces.checkout.components.orderSummary",
+      "Checkout styling",
+      "Checkout › Order summary",
+    ],
+    ["checkoutStyling:override:EU: B2B", "Checkout market override", "EU: B2B"],
     ["metaobjectEntries:faq", "Metaobject entries", "faq"],
     ["metaobjectEntry:faq:shipping", "Metaobject entry", "faq › shipping"],
     [

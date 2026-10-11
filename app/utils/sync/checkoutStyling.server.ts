@@ -53,50 +53,24 @@ export async function canStyleCheckout(
   return Boolean(plan?.shopifyPlus || plan?.partnerDevelopment);
 }
 
-/** What the page shows of a store's checkout look at a glance. */
-export interface StylingSummary {
-  colors: string[];
-  fonts: { role: string; name: string }[];
-  baseSize: number | null;
-}
-
-interface RawBranding {
-  designTokens?: {
-    colors?: { palette?: Record<string, string | null> | null } | null;
-    typography?: {
-      primary?: { name?: string } | null;
-      secondary?: { name?: string } | null;
-      size?: { base?: number | null } | null;
-    } | null;
-  } | null;
-}
-
-function summarize(branding: RawBranding | null): StylingSummary {
-  const tokens = branding?.designTokens;
-  const palette = tokens?.colors?.palette ?? {};
-  const fonts = [
-    { role: "Primary", name: tokens?.typography?.primary?.name },
-    { role: "Secondary", name: tokens?.typography?.secondary?.name },
-  ].filter((font): font is { role: string; name: string } =>
-    Boolean(font.name),
-  );
-  return {
-    colors: Object.values(palette).filter((c): c is string => Boolean(c)),
-    fonts,
-    baseSize: tokens?.typography?.size?.base ?? null,
-  };
+/** A market override's styling. Overrides are matched across stores by
+ * name: the API gives no other identity and can't create them. */
+export interface OverrideStyling {
+  id: string;
+  name: string;
+  styling: CheckoutStyling;
 }
 
 export interface PublishedStyling {
   configurationId: string;
   styling: CheckoutStyling;
-  summary: StylingSummary;
+  overrides: OverrideStyling[];
 }
 
 /**
- * The published checkout and accounts configuration's branding, or null
- * when the store has none published. Callers check `canStyleCheckout`
- * first. Market overrides aren't read: only the base styling syncs.
+ * The published checkout and accounts configuration's branding and its
+ * market overrides', or null when the store has none published. Callers
+ * check `canStyleCheckout` first.
  */
 export async function readCheckoutStyling(
   admin: AdminApiContext,
@@ -112,12 +86,18 @@ export async function readCheckoutStyling(
   if (!published) return null;
 
   const { checkoutAndAccountsConfiguration: configuration } = await query<{
-    checkoutAndAccountsConfiguration?: { branding: unknown } | null;
+    checkoutAndAccountsConfiguration?: {
+      branding: unknown;
+      overrides?: { id: string; name: string; branding: unknown }[];
+    } | null;
   }>(admin, CHECKOUT_STYLING_QUERY, { id: published.id });
-  const branding = configuration?.branding ?? null;
   return {
     configurationId: published.id,
-    styling: toCheckoutStyling(branding),
-    summary: summarize(branding as RawBranding | null),
+    styling: toCheckoutStyling(configuration?.branding ?? null),
+    overrides: (configuration?.overrides ?? []).map((override) => ({
+      id: override.id,
+      name: override.name,
+      styling: toCheckoutStyling(override.branding),
+    })),
   };
 }

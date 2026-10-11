@@ -2,14 +2,16 @@
 // Admin API 2026-10 schema. Don't edit by hand.
 
 /** Scope read_checkout_and_accounts_configurations. One configuration's
- * branding: every field checkoutAndAccountsConfigurationUpdate also
- * accepts. */
+ * branding and its market overrides' branding: every field
+ * checkoutAndAccountsConfigurationUpdate also accepts. */
 export const CHECKOUT_STYLING_QUERY = `#graphql
   query CheckoutStyling($id: ID!) { checkoutAndAccountsConfiguration(id: $id) {
-  branding { components { checkbox { cornerRadius } choiceList { group { spacing
-  } } control { border cornerRadius labelPosition } divider { borderStyle
-  borderWidth } favicon { __typename ... on
-  CheckoutAndAccountsConfigurationBrandingImage { image { url } } } footer {
+  branding { ...StylingBranding } overrides { id name branding {
+  ...StylingBranding } } } } fragment StylingBranding on
+  CheckoutAndAccountsConfigurationBranding { components { checkbox {
+  cornerRadius } choiceList { group { spacing } } control { border cornerRadius
+  labelPosition } divider { borderStyle borderWidth } favicon { __typename ...
+  on CheckoutAndAccountsConfigurationBrandingImage { image { url } } } footer {
   alignment background colors { base { accent background border decorative icon
   text } control { accent background border decorative icon selected { accent
   background border decorative icon text } text } primaryButton { accent
@@ -151,5 +153,5 @@ export const CHECKOUT_STYLING_QUERY = `#graphql
   primaryButton { accent background border decorative hover { accent background
   border decorative icon text } icon text } secondaryButton { accent background
   border decorative hover { accent background border decorative icon text } icon
-  text } } cornerRadius padding shadow } } } } } } } }
+  text } } cornerRadius padding shadow } } } } } }
 `;

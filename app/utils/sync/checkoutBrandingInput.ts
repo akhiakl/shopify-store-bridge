@@ -134,17 +134,6 @@ export function toCheckoutStyling(branding: unknown): CheckoutStyling {
   };
 }
 
-/** True when every setting the source customized has the same value on
- * the target. Files compare by filename (see CheckoutStyling). Settings
- * only the target customized don't count: a sync never clears them. */
-export function isStylingInSync(source: unknown, target: unknown): boolean {
-  if (source === null || typeof source !== "object") return source === target;
-  if (target === null || typeof target !== "object") return false;
-  return Object.entries(source).every(([key, value]) =>
-    isStylingInSync(value, (target as Node)[key]),
-  );
-}
-
 /** A copy of `branding` with each file slot set to the target's ID. */
 export function withFileIds(
   branding: Record<string, unknown>,

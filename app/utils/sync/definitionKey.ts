@@ -100,5 +100,19 @@ export function menuItemKey(menuHandle: string, path: string): string {
   return `menuItem:${menuHandle}:${path}`;
 }
 
-/** A store has one checkout styling, so its key has no name part. */
+/** A store has one checkout styling, so its key has no name part. As a
+ * selection, it means every area; also the job-history key when nothing
+ * needed changing. */
 export const CHECKOUT_STYLING_KEY = "checkoutStyling";
+
+/** One area of the checkout styling (see checkoutStylingAreas.ts), e.g.
+ * `checkoutStyling:designTokens.colors`. */
+export function checkoutStylingAreaKey(area: string): string {
+  return `${CHECKOUT_STYLING_KEY}:${area}`;
+}
+
+/** A market override's styling, by its name: the last segment, so it's
+ * rejoined rather than assumed colon-free. */
+export function checkoutOverrideKey(name: string): string {
+  return `${CHECKOUT_STYLING_KEY}:override:${name}`;
+}

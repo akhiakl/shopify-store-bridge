@@ -188,8 +188,26 @@ describe("parseSelection", () => {
       menuHandles: ["main-menu"],
       locationNames: ["Main: Warehouse"],
       deliveryProfileIds: ["42"],
-      checkoutStyling: true,
+      checkoutStyling: { areas: null, overrides: [] },
     });
+  });
+
+  it("collects checkout styling areas and overrides", () => {
+    expect(
+      parseSelection([
+        "checkoutStyling:designTokens.colors",
+        "checkoutStyling:override:EU: B2B",
+        "checkoutStyling:components.header",
+      ]).checkoutStyling,
+    ).toEqual({
+      areas: ["designTokens.colors", "components.header"],
+      overrides: ["EU: B2B"],
+    });
+    expect(
+      parseSelection(["checkoutStyling", "checkoutStyling:components.header"])
+        .checkoutStyling,
+    ).toEqual({ areas: null, overrides: [] });
+    expect(parseSelection([]).checkoutStyling).toBeNull();
   });
 });
 
@@ -293,10 +311,35 @@ describe("resolvePlan checkout styling", () => {
   it("plans the source's published styling", async () => {
     const styling = { branding: { a: 1 }, files: [] };
     canStyleCheckout.mockResolvedValue(true);
-    readCheckoutStyling.mockResolvedValue({ styling });
+    readCheckoutStyling.mockResolvedValue({ styling, overrides: [] });
 
     const plan = await resolvePlan(sourceAdmin() as never, selection);
-    expect(plan.checkoutStyling).toBe(styling);
+    expect(plan.checkoutStyling).toEqual({ ...styling, overrides: [] });
+  });
+
+  it("plans only the picked areas and overrides", async () => {
+    const styling = { branding: { a: 1 }, files: [] };
+    canStyleCheckout.mockResolvedValue(true);
+    readCheckoutStyling.mockResolvedValue({
+      styling,
+      overrides: [
+        { id: "gid://O/1", name: "EU", styling },
+        { id: "gid://O/2", name: "US", styling },
+      ],
+    });
+
+    const plan = await resolvePlan(
+      sourceAdmin() as never,
+      parseSelection([
+        "checkoutStyling:designTokens.colors",
+        "checkoutStyling:override:EU",
+      ]),
+    );
+    expect(plan.checkoutStyling).toEqual({
+      ...styling,
+      areas: ["designTokens.colors"],
+      overrides: [{ name: "EU", styling }],
+    });
   });
 
   it("fails the plan when the source can't share it", async () => {

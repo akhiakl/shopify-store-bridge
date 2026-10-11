@@ -88,45 +88,35 @@ describe("checkout styling page", () => {
     );
   });
 
-  it("shows the styling with a confirmation before syncing", async () => {
+  it("shows each area with a confirmation before syncing", async () => {
     renderWith({
       blocked: null,
-      summary: {
-        colors: ["#111111"],
-        fonts: [{ role: "Primary", name: "Assistant" }],
-        baseSize: 14,
-      },
-      status: "OUT_OF_SYNC",
+      compared: true,
+      areas: [
+        {
+          area: "designTokens.colors",
+          rows: [
+            {
+              setting: "palette.color1",
+              source: "#111111",
+              target: "#222222",
+              same: false,
+            },
+          ],
+          inSync: false,
+        },
+      ],
+      overrides: [],
     });
 
     await waitFor(() =>
       expect(screen.getByText("Out of sync")).toBeInTheDocument(),
     );
-    expect(screen.getByText("Primary: Assistant")).toBeInTheDocument();
-    expect(screen.getByText("Base size: 14px")).toBeInTheDocument();
-    expect(screen.getByLabelText("#111111")).toBeInTheDocument();
-
-    expect(document.querySelector("s-checkbox")).toHaveAttribute(
-      "label",
-      "Checkout & accounts styling",
-    );
+    expect(
+      document.querySelector('s-checkbox[label="Colors"]'),
+    ).toBeInTheDocument();
     expect(
       document.querySelector('s-modal[heading="Change the live checkout?"]'),
     ).not.toBeNull();
-  });
-
-  it("leaves out empty parts of the summary", async () => {
-    renderWith({
-      blocked: null,
-      summary: { colors: [], fonts: [], baseSize: null },
-      status: null,
-    });
-
-    await waitFor(() =>
-      expect(document.querySelector("s-checkbox")).not.toBeNull(),
-    );
-    expect(screen.queryByText("Colors")).toBeNull();
-    expect(screen.queryByText("Typography")).toBeNull();
-    expect(document.querySelector("s-badge")).toBeNull();
   });
 });

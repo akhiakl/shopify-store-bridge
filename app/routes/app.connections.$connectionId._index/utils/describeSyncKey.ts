@@ -1,3 +1,5 @@
+import { describeStylingArea } from "~/utils/describeStylingArea";
+
 /** "PRIVACY_POLICY" → "Privacy policy"; "PRODUCT" → "Product". */
 function humanize(constant: string): string {
   const words = constant.toLowerCase().replace(/_/g, " ");
@@ -61,7 +63,16 @@ export function describeSyncKey(key: string): { type: string; name: string } {
         name: `${parts[0]} › ${tail(parts, 1).replace(/ > /g, " › ")}`,
       };
     case "checkoutStyling":
-      return { type: "Checkout styling", name: "Checkout & accounts" };
+      if (parts.length === 0) {
+        return { type: "Checkout styling", name: "Checkout & accounts" };
+      }
+      if (parts[0] === "override") {
+        return { type: "Checkout market override", name: tail(parts, 1) };
+      }
+      return {
+        type: "Checkout styling",
+        name: Object.values(describeStylingArea(tail(parts, 0))).join(" › "),
+      };
     default:
       return { type: "Item", name: key };
   }

@@ -127,9 +127,12 @@ describe("buildSyncSteps", () => {
 });
 
 describe("buildSyncSteps checkout styling", () => {
-  it("adds one step that syncs the planned styling", async () => {
+  it("adds one step with an item per synced area", async () => {
     const styling = { branding: { a: 1 }, files: [] };
-    syncCheckoutStyling.mockResolvedValue({ ok: false, error: "Not Plus" });
+    syncCheckoutStyling.mockResolvedValue([
+      { key: "checkoutStyling:components.header", result: { ok: true } },
+      { key: "checkoutStyling", result: { ok: false, error: "Not Plus" } },
+    ]);
     const steps = buildSyncSteps({
       checkoutStyling: styling,
       metaobjectDefinitions: [],
@@ -144,6 +147,12 @@ describe("buildSyncSteps checkout styling", () => {
 
     expect(steps).toHaveLength(1);
     expect(await steps[0](ctx)).toEqual([
+      {
+        key: "checkoutStyling:components.header",
+        kind: "VALUE",
+        status: "SUCCEEDED",
+        errorMessage: null,
+      },
       {
         key: "checkoutStyling",
         kind: "VALUE",

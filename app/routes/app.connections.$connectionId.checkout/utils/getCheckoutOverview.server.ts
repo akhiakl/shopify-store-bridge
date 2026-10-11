@@ -1,14 +1,16 @@
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 
 import { unauthenticated } from "~/shopify.server";
-import { isStylingInSync } from "~/utils/sync/checkoutBrandingInput";
 import {
   canStyleCheckout,
   readCheckoutStyling,
-  type StylingSummary,
+  type PublishedStyling,
 } from "~/utils/sync/checkoutStyling.server";
+import {
+  compareStyling,
+  type StylingAreaDiff,
+} from "~/utils/sync/checkoutStylingAreas";
 import type { ConnectionAccess } from "~/utils/sync/connectionAccess.server";
-import type { DefinitionSyncStatus } from "~/utils/sync/syncStatus.server";
 
 export type CheckoutOverview =
   | {
@@ -18,10 +20,24 @@ export type CheckoutOverview =
     }
   | {
       blocked: null;
-      summary: StylingSummary;
-      /** Null until the target approves: its styling isn't read before. */
-      status: DefinitionSyncStatus | null;
+      /** False until the target approves: its styling isn't read before,
+       * so each area lists only the source's values. */
+      compared: boolean;
+      areas: StylingAreaDiff[];
+      overrides: OverrideStatus[];
     };
+
+/** A source market override and its same-named one on the target. */
+export interface OverrideStatus {
+  name: string;
+  /** Null until compared; "MISSING" when the target has no override by
+   * this name, which the API can't create. */
+  status: "IN_SYNC" | "OUT_OF_SYNC" | "MISSING" | null;
+  /** Areas the override customizes on either store. */
+  areaCount: number;
+  /** Of those, how many differ. */
+  outOfSyncCount: number;
+}
 
 /** Granted with the checkout styling feature; a store that installed
  * before it keeps its old token until someone opens the app there. */
@@ -60,11 +76,49 @@ function listShops(shops: string[]): string {
   return shops.join(" and ");
 }
 
+/** A target with no published configuration compares as customizing
+ * nothing, so every area the source sets shows as out of sync. */
+const UNSTYLED: PublishedStyling = {
+  configurationId: "",
+  styling: { branding: {}, files: [] },
+  overrides: [],
+};
+
+/** Each area and override of the source next to the target's; with no
+ * target read yet, against nothing, so only the source's values show. */
+function compare(source: PublishedStyling, target: PublishedStyling | null) {
+  const overrides = source.overrides.map((override): OverrideStatus => {
+    const match = target?.overrides.find((o) => o.name === override.name);
+    const areas = compareStyling(
+      override.styling.branding,
+      match?.styling.branding,
+    );
+    const outOfSyncCount = areas.filter((area) => !area.inSync).length;
+    return {
+      name: override.name,
+      status: !target
+        ? null
+        : !match
+          ? "MISSING"
+          : outOfSyncCount
+            ? "OUT_OF_SYNC"
+            : "IN_SYNC",
+      areaCount: areas.length,
+      outOfSyncCount: match ? outOfSyncCount : 0,
+    };
+  });
+  return {
+    compared: target !== null,
+    areas: compareStyling(source.styling.branding, target?.styling.branding),
+    overrides,
+  };
+}
+
 /**
  * Whether checkout styling can sync on this connection, checked on both
  * stores before anything is offered: Shopify only allows it on Plus (and
- * development) stores. When it can, the source's styling at a glance and,
- * once approved, whether the target's matches.
+ * development) stores. When it can, every area of the source's styling
+ * and, once approved, the target's value for each setting beside it.
  */
 export async function getCheckoutOverview({
   connection,
@@ -115,18 +169,13 @@ export async function getCheckoutOverview({
         blocked: `${sourceShop} has no published checkout configuration to copy.`,
       };
     }
-    let status: DefinitionSyncStatus | null = null;
-    if (isApproved) {
-      status = !targetStyling
-        ? "NOT_SYNCED"
-        : isStylingInSync(
-              sourceStyling.styling.branding,
-              targetStyling.styling.branding,
-            )
-          ? "IN_SYNC"
-          : "OUT_OF_SYNC";
-    }
-    return { blocked: null, summary: sourceStyling.summary, status };
+    return {
+      blocked: null,
+      ...compare(
+        sourceStyling,
+        isApproved ? (targetStyling ?? UNSTYLED) : null,
+      ),
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { blocked: `Couldn't read checkout styling. ${message}` };

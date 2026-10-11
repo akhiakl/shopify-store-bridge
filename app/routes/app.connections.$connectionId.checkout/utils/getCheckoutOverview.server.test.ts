@@ -20,8 +20,6 @@ const sourceAdmin = { name: "source" };
 const targetAdmin = { name: "target" };
 const SCOPES =
   "read_checkout_and_accounts_configurations,write_checkout_and_accounts_configurations";
-const summary = { colors: ["#111111"], fonts: [], baseSize: null };
-
 function connection(status = "APPROVED") {
   return {
     id: "conn-1",
@@ -31,14 +29,30 @@ function connection(status = "APPROVED") {
   } as never;
 }
 
-function styling(color: string) {
+function branding(color: string) {
+  return { designTokens: { colors: { palette: { color1: color } } } };
+}
+
+function styling(color: string, overrides: unknown[] = []) {
   return {
     configurationId: "gid://C/1",
-    summary,
-    styling: {
-      branding: { designTokens: { colors: { palette: { color1: color } } } },
-      files: [],
-    },
+    styling: { branding: branding(color), files: [] },
+    overrides,
+  };
+}
+
+function colorsArea(target: string | null) {
+  return {
+    area: "designTokens.colors",
+    rows: [
+      {
+        setting: "palette.color1",
+        source: "#111111",
+        target,
+        same: target === "#111111",
+      },
+    ],
+    inSync: target === "#111111",
   };
 }
 
@@ -78,13 +92,18 @@ describe("getCheckoutOverview", () => {
     expect(readCheckoutStyling).not.toHaveBeenCalled();
   });
 
-  it("compares with the target once approved", async () => {
+  it("compares each area with the target once approved", async () => {
     expect(
       await getCheckoutOverview({
         connection: connection(),
         sourceAdmin: sourceAdmin as never,
       }),
-    ).toEqual({ blocked: null, summary, status: "IN_SYNC" });
+    ).toEqual({
+      blocked: null,
+      compared: true,
+      areas: [colorsArea("#111111")],
+      overrides: [],
+    });
 
     readCheckoutStyling.mockImplementation(async (admin) =>
       admin === sourceAdmin ? styling("#111111") : styling("#222222"),
@@ -94,7 +113,7 @@ describe("getCheckoutOverview", () => {
         connection: connection(),
         sourceAdmin: sourceAdmin as never,
       }),
-    ).toMatchObject({ status: "OUT_OF_SYNC" });
+    ).toMatchObject({ areas: [colorsArea("#222222")] });
 
     readCheckoutStyling.mockImplementation(async (admin) =>
       admin === sourceAdmin ? styling("#111111") : null,
@@ -104,16 +123,61 @@ describe("getCheckoutOverview", () => {
         connection: connection(),
         sourceAdmin: sourceAdmin as never,
       }),
-    ).toMatchObject({ status: "NOT_SYNCED" });
+    ).toMatchObject({ compared: true, areas: [colorsArea(null)] });
+  });
+
+  it("matches market overrides by name", async () => {
+    const override = (name: string, color: string) => ({
+      id: `gid://O/${name}`,
+      name,
+      styling: { branding: branding(color), files: [] },
+    });
+    readCheckoutStyling.mockImplementation(async (admin) =>
+      admin === sourceAdmin
+        ? styling("#111111", [
+            override("EU", "#000000"),
+            override("US", "#000000"),
+            override("UK", "#000000"),
+          ])
+        : styling("#111111", [
+            override("EU", "#000000"),
+            override("US", "#ffffff"),
+          ]),
+    );
+    const overview = await getCheckoutOverview({
+      connection: connection(),
+      sourceAdmin: sourceAdmin as never,
+    });
+    expect(overview.blocked === null && overview.overrides).toEqual([
+      { name: "EU", status: "IN_SYNC", areaCount: 1, outOfSyncCount: 0 },
+      { name: "US", status: "OUT_OF_SYNC", areaCount: 1, outOfSyncCount: 1 },
+      { name: "UK", status: "MISSING", areaCount: 1, outOfSyncCount: 0 },
+    ]);
   });
 
   it("skips the target's styling before approval", async () => {
+    readCheckoutStyling.mockResolvedValue(
+      styling("#111111", [
+        {
+          id: "gid://O/1",
+          name: "EU",
+          styling: { branding: {}, files: [] },
+        },
+      ]),
+    );
     expect(
       await getCheckoutOverview({
         connection: connection("PENDING"),
         sourceAdmin: sourceAdmin as never,
       }),
-    ).toEqual({ blocked: null, summary, status: null });
+    ).toEqual({
+      blocked: null,
+      compared: false,
+      areas: [colorsArea(null)],
+      overrides: [
+        { name: "EU", status: null, areaCount: 0, outOfSyncCount: 0 },
+      ],
+    });
     expect(readCheckoutStyling).toHaveBeenCalledTimes(1);
   });
 

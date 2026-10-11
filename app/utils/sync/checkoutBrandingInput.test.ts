@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   fileNameFromUrl,
-  isStylingInSync,
   shopifyFontHandle,
   toCheckoutStyling,
   withFileIds,
@@ -165,22 +164,6 @@ describe("shopifyFontHandle", () => {
 describe("fileNameFromUrl", () => {
   it("returns the decoded last path segment", () => {
     expect(fileNameFromUrl("https://x.test/a/b/c%20d.png?v=2")).toBe("c d.png");
-  });
-});
-
-describe("isStylingInSync", () => {
-  const source = { a: { b: "#fff", c: 2 } };
-
-  it("is true when the target has every source value", () => {
-    expect(isStylingInSync(source, { a: { b: "#fff", c: 2, d: 1 } })).toBe(
-      true,
-    );
-  });
-
-  it("is false on a different or missing value", () => {
-    expect(isStylingInSync(source, { a: { b: "#000", c: 2 } })).toBe(false);
-    expect(isStylingInSync(source, { a: null })).toBe(false);
-    expect(isStylingInSync(source, {})).toBe(false);
   });
 });
 

@@ -17,6 +17,7 @@ function admin(data: unknown, errors?: { message: string }[]) {
 function configured(
   nodes: { id: string; isPublished: boolean }[],
   branding: unknown,
+  overrides?: unknown[],
 ) {
   return {
     graphql: vi.fn((query: string) =>
@@ -25,7 +26,7 @@ function configured(
           Promise.resolve({
             data: query.includes("CheckoutConfigurations")
               ? { checkoutAndAccountsConfigurations: { nodes } }
-              : { checkoutAndAccountsConfiguration: { branding } },
+              : { checkoutAndAccountsConfiguration: { branding, overrides } },
           }),
       }),
     ),
@@ -51,7 +52,7 @@ describe("canStyleCheckout", () => {
 });
 
 describe("readCheckoutStyling", () => {
-  it("reads the published configuration with a summary", async () => {
+  it("reads the published configuration's branding", async () => {
     const branding = {
       designTokens: {
         colors: { palette: { color1: "#111111", color2: null } },
@@ -83,21 +84,33 @@ describe("readCheckoutStyling", () => {
       { variables: { id: "gid://C/2" } },
     );
     expect(result?.configurationId).toBe("gid://C/2");
-    expect(result?.summary).toEqual({
-      colors: ["#111111"],
-      fonts: [{ role: "Primary", name: "Assistant" }],
-      baseSize: 14,
-    });
+    expect(result?.overrides).toEqual([]);
     expect(result?.styling.branding).toMatchObject({
       designTokens: { colors: { palette: { color1: "#111111" } } },
     });
   });
 
-  it("summarizes unset branding as empty", async () => {
+  it("reads unset branding as empty, and each override's branding", async () => {
     const result = await readCheckoutStyling(
-      configured([{ id: "gid://C/1", isPublished: true }], null) as never,
+      configured([{ id: "gid://C/1", isPublished: true }], null, [
+        {
+          id: "gid://O/1",
+          name: "Europe",
+          branding: { components: { header: { alignment: "START" } } },
+        },
+      ]) as never,
     );
-    expect(result?.summary).toEqual({ colors: [], fonts: [], baseSize: null });
+    expect(result?.styling).toEqual({ branding: {}, files: [] });
+    expect(result?.overrides).toEqual([
+      {
+        id: "gid://O/1",
+        name: "Europe",
+        styling: {
+          branding: { components: { header: { alignment: "START" } } },
+          files: [],
+        },
+      },
+    ]);
   });
 
   it("returns null with nothing published and throws on errors", async () => {

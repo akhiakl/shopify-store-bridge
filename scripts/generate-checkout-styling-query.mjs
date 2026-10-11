@@ -64,11 +64,15 @@ function selection(outputName, inputName) {
 
 // One configuration by ID: the branding tree alone costs ~50 points, so
 // reading it across a list of configurations exceeds the 1,000-point
-// single-query limit.
+// single-query limit. A fragment, so the configuration and each of its
+// market overrides share one copy of the ~1,000-field selection.
 const query =
   `query CheckoutStyling($id: ID!) { ` +
   `checkoutAndAccountsConfiguration(id: $id) { ` +
-  `branding { ${selection(PREFIX, `${PREFIX}Input`)} } } }`;
+  `branding { ...StylingBranding } ` +
+  `overrides { id name branding { ...StylingBranding } } } } ` +
+  `fragment StylingBranding on ${PREFIX} { ` +
+  `${selection(PREFIX, `${PREFIX}Input`)} }`;
 
 // Wrapped at word boundaries: the file stays under the 300-line limit and
 // Prettier leaves template literals alone.
@@ -90,8 +94,8 @@ fs.writeFileSync(
 // Admin API ${API_VERSION} schema. Don't edit by hand.
 
 /** Scope read_checkout_and_accounts_configurations. One configuration's
- * branding: every field checkoutAndAccountsConfigurationUpdate also
- * accepts. */
+ * branding and its market overrides' branding: every field
+ * checkoutAndAccountsConfigurationUpdate also accepts. */
 export const CHECKOUT_STYLING_QUERY = \`#graphql
 ${lines.map((l) => `  ${l}`).join("\n")}
 \`;

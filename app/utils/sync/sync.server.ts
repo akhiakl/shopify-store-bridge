@@ -16,6 +16,7 @@ import { getMetaobjectEntries } from "./metaobjectEntries.server";
 import { getMenus, planMenus } from "./menus.server";
 import { getLocations } from "./locations.server";
 import { planDeliveryProfile } from "./deliveryProfiles.server";
+import type { CheckoutStylingPlan } from "./syncCheckoutStyling.server";
 import type { SyncPlan } from "./syncTarget.server";
 
 type MetafieldSelector = { ownerType: string; namespace: string; key: string };
@@ -30,13 +31,35 @@ export interface ParsedSelection {
   menuHandles: string[];
   locationNames: string[];
   deliveryProfileIds: string[];
-  checkoutStyling: boolean;
+  /** Null unless some of the checkout styling is selected. */
+  checkoutStyling: StylingSelection | null;
+}
+
+export interface StylingSelection {
+  /** Null for every area (the bare `checkoutStyling` key). */
+  areas: string[] | null;
+  overrides: string[];
+}
+
+function addStyling(
+  current: StylingSelection | null,
+  rest: string[],
+): StylingSelection {
+  const next = current ?? { areas: [], overrides: [] };
+  if (rest.length === 0) return { ...next, areas: null };
+  if (rest[0] === "override") {
+    return { ...next, overrides: [...next.overrides, rest.slice(1).join(":")] };
+  }
+  return {
+    ...next,
+    areas: next.areas === null ? null : [...next.areas, rest.join(":")],
+  };
 }
 
 /** Inverse of the `definitionKey` helpers in the checkbox components
  * (`metaobject:<type>`, `metafield:<ownerType>:<namespace>:<key>`,
  * `policy:<type>`, `collection:<handle>`, `metaobjectEntries:<type>`,
- * `metafieldValues:<ownerType>:<namespace>:<key>`, `menu:<handle>`, `location:<name>`, `deliveryProfile:<numeric id>`, `checkoutStyling`): safe to split on ":" since
+ * `metafieldValues:<ownerType>:<namespace>:<key>`, `menu:<handle>`, `location:<name>`, `deliveryProfile:<numeric id>`, `checkoutStyling[:<area> | :override:<name>]`): safe to split on ":" since
  * Shopify's own validation rules for type/namespace/key (alphanumeric,
  * hyphen, underscore only) rule out embedded colons, and `ShopPolicyType`
  * is itself an enum of bare uppercase names. Collection and menu handles
@@ -53,12 +76,12 @@ export function parseSelection(keys: string[]): ParsedSelection {
     menuHandles: [],
     locationNames: [],
     deliveryProfileIds: [],
-    checkoutStyling: false,
+    checkoutStyling: null,
   };
   for (const key of keys) {
     const [kind, ...rest] = key.split(":");
     if (kind === "checkoutStyling") {
-      parsed.checkoutStyling = true;
+      parsed.checkoutStyling = addStyling(parsed.checkoutStyling, rest);
     } else if (kind === "metaobject") {
       parsed.metaobjectTypes.push(rest[0]);
     } else if (kind === "metafield") {
@@ -90,7 +113,10 @@ export function parseSelection(keys: string[]): ParsedSelection {
 
 /** Throws (failing the job with this message) when the source can't
  * share its checkout styling, rather than planning nothing. */
-async function planCheckoutStyling(sourceAdmin: AdminApiContext) {
+async function planCheckoutStyling(
+  sourceAdmin: AdminApiContext,
+  selection: StylingSelection,
+): Promise<CheckoutStylingPlan> {
   if (!(await canStyleCheckout(sourceAdmin))) {
     throw new Error(
       "The source store isn't on Shopify Plus, so its checkout styling can't be read.",
@@ -102,7 +128,14 @@ async function planCheckoutStyling(sourceAdmin: AdminApiContext) {
       "The source store has no published checkout configuration.",
     );
   }
-  return published.styling;
+  return {
+    ...published.styling,
+    ...(selection.areas ? { areas: selection.areas } : {}),
+    // An override gone from the source since the page loaded is dropped.
+    overrides: published.overrides
+      .filter((override) => selection.overrides.includes(override.name))
+      .map(({ name, styling }) => ({ name, styling })),
+  };
 }
 
 /** Never trusts the browser for the actual definition shape, only the
@@ -181,7 +214,7 @@ export async function resolvePlan(
   );
   return {
     checkoutStyling: selection.checkoutStyling
-      ? await planCheckoutStyling(sourceAdmin)
+      ? await planCheckoutStyling(sourceAdmin, selection.checkoutStyling)
       : undefined,
     metaobjectDefinitions,
     metafieldDefinitions,

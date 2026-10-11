@@ -5,10 +5,8 @@ import type {
   MetaobjectDefinitionRow,
   ShopPolicyRow,
 } from "./definitions.server";
-import type { CheckoutStyling } from "./checkoutBrandingInput";
 import { collectionRulesStep } from "./syncCollectionRules.server";
 import {
-  CHECKOUT_STYLING_KEY,
   collectionKey,
   locationKey,
   metafieldDefinitionKey,
@@ -23,7 +21,10 @@ import type { PlannedMenu } from "./menus.server";
 import type { LocationRow } from "./locations.server";
 import type { PlannedDeliveryProfile } from "./deliveryProfiles.server";
 import { deliveryProfileStep } from "./syncDeliveryProfile.server";
-import { syncCheckoutStyling } from "./syncCheckoutStyling.server";
+import {
+  syncCheckoutStyling,
+  type CheckoutStylingPlan,
+} from "./syncCheckoutStyling.server";
 import { syncLocation } from "./syncLocation.server";
 import { menuStep } from "./syncMenu.server";
 import { metafieldValueSteps } from "./syncMetafieldValues.server";
@@ -138,7 +139,7 @@ export function tallyItems(items: SyncItemResult[]): SyncTally {
  * the job, so it must stay plain JSON. */
 export interface SyncPlan {
   /** Absent unless selected, and from plans queued before it existed. */
-  checkoutStyling?: CheckoutStyling;
+  checkoutStyling?: CheckoutStylingPlan;
   metaobjectDefinitions: MetaobjectDefinitionRow[];
   metafieldDefinitions: MetafieldDefinitionRow[];
   shopPolicies: ShopPolicyRow[];
@@ -251,14 +252,11 @@ function shopMetafieldValueStep(def: MetafieldDefinitionRow): SyncStep {
   };
 }
 
-function checkoutStylingStep(styling: CheckoutStyling): SyncStep {
-  return async (ctx) => [
-    toItem(
-      CHECKOUT_STYLING_KEY,
-      "VALUE",
-      await syncCheckoutStyling(ctx.targetAdmin, styling, ctx.targetIds),
-    ),
-  ];
+function checkoutStylingStep(plan: CheckoutStylingPlan): SyncStep {
+  return async (ctx) =>
+    (await syncCheckoutStyling(ctx.targetAdmin, plan, ctx.targetIds)).map(
+      ({ key, result }) => toItem(key, "VALUE", result),
+    );
 }
 
 /**

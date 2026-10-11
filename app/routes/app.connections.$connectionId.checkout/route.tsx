@@ -63,8 +63,9 @@ export default function CheckoutStylingPage() {
           </s-banner>
         ) : (
           <CheckoutStylingSection
-            summary={overview.summary}
-            status={overview.status}
+            areas={overview.areas}
+            overrides={overview.overrides}
+            compared={overview.compared}
             targetShop={targetShop}
             selected={selected}
             onToggle={toggleKeys}
