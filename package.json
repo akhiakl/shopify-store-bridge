@@ -62,7 +62,7 @@
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
-    "@graphql-codegen/cli": "^5.0.7",
+    "@graphql-codegen/cli": "^7.4.1",
     "@playwright/test": "^1.62.1",
     "@shopify/api-codegen-preset": "^1.2.0",
     "@shopify/polaris-types": "^1.1.0",
