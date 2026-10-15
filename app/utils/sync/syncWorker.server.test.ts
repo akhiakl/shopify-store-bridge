@@ -104,6 +104,8 @@ const planWith = (defs: unknown[]) => ({
   menus: [],
   locations: [],
   deliveryProfiles: [],
+  pages: [],
+  blogs: [],
 });
 
 /** A claimed job row, fresh (no plan yet) unless overridden. */

@@ -23,6 +23,8 @@ import type { PlannedMenu } from "./menus.server";
 import type { LocationRow } from "./locations.server";
 import type { PlannedDeliveryProfile } from "./deliveryProfiles.server";
 import { deliveryProfileStep } from "./syncDeliveryProfile.server";
+import type { PlannedBlog, PlannedPage } from "./content.server";
+import { blogStep, pageStep } from "./syncContent.server";
 import { syncCheckoutStyling } from "./syncCheckoutStyling.server";
 import { syncLocation } from "./syncLocation.server";
 import { menuStep } from "./syncMenu.server";
@@ -153,6 +155,9 @@ export interface SyncPlan {
   locations: LocationRow[];
   /** Absent from plans queued before shipping profile sync existed. */
   deliveryProfiles?: PlannedDeliveryProfile[];
+  /** Absent from plans queued before page and blog sync existed. */
+  pages?: PlannedPage[];
+  blogs?: PlannedBlog[];
 }
 
 /** Per-target state shared by that target's steps within one run. */
@@ -318,6 +323,8 @@ export function buildSyncSteps(plan: SyncPlan): SyncStep[] {
     // Last: values can reference entries and collections synced above.
     ...plan.metafieldValues.flatMap(metafieldValueSteps),
     ...(plan.shopMetafieldValues ?? []).map(shopMetafieldValueStep),
+    ...(plan.pages ?? []).map(pageStep),
+    ...(plan.blogs ?? []).map(blogStep),
     // Menus link to policies, collections, entries and products. Plans
     // queued before menu sync existed have no `menus`.
     ...(plan.menus ?? []).map(menuStep),
