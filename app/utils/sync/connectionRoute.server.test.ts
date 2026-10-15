@@ -27,6 +27,13 @@ vi.mock("@vercel/functions", () => ({ waitUntil }));
 const { runStatusCheck } = vi.hoisted(() => ({ runStatusCheck: vi.fn() }));
 vi.mock("./syncStatus.server", () => ({ runStatusCheck }));
 
+const { refreshMetaobjectSubscriptions } = vi.hoisted(() => ({
+  refreshMetaobjectSubscriptions: vi.fn(),
+}));
+vi.mock("./metaobjectSubscriptions.server", () => ({
+  refreshMetaobjectSubscriptions,
+}));
+
 const { requireConnectionPage, connectionPageAction } =
   await import("./connectionRoute.server");
 
@@ -102,7 +109,31 @@ describe("connectionPageAction", () => {
     // The first run starts in the background, after the response.
     expect(driveSyncJob).toHaveBeenCalledWith("job-1");
     expect(waitUntil).toHaveBeenCalledTimes(1);
+    expect(refreshMetaobjectSubscriptions).not.toHaveBeenCalled();
     expect(result).toEqual({ ok: true, jobId: "job-1" });
+  });
+
+  it("refreshes the source's metaobject webhooks for an auto-sync connection", async () => {
+    getConnectionAccess.mockResolvedValue(
+      asSource({
+        ...approved,
+        autoSync: true,
+        source: { shop: "source.myshopify.com" },
+      }),
+    );
+    enqueueSyncJob.mockResolvedValue({ id: "job-1" });
+
+    await connectionPageAction(
+      args([
+        ["intent", "sync"],
+        ["selection", "metaobjectEntries:faq"],
+      ]),
+    );
+
+    expect(refreshMetaobjectSubscriptions).toHaveBeenCalledWith(
+      "source.myshopify.com",
+    );
+    expect(waitUntil).toHaveBeenCalledTimes(2);
   });
 
   it("rejects an empty selection without touching the sync engine", async () => {

@@ -6,6 +6,7 @@ import { data } from "react-router";
 import { authenticate } from "~/shopify.server";
 
 import { getConnectionAccess, sourceAdminFor } from "./connectionAccess.server";
+import { refreshMetaobjectSubscriptions } from "./metaobjectSubscriptions.server";
 import { driveSyncJob, enqueueSyncJob } from "./syncQueue.server";
 import {
   runStatusCheck,
@@ -77,5 +78,9 @@ export async function connectionPageAction(args: ActionFunctionArgs) {
   // is sent, and hands off to further runs until the job is done.
   const job = await enqueueSyncJob(connection.id, selection);
   waitUntil(driveSyncJob(job.id));
+  // A new selection can add metaobject types for auto-sync to watch.
+  if (connection.autoSync) {
+    waitUntil(refreshMetaobjectSubscriptions(connection.source.shop));
+  }
   return { ok: true, jobId: job.id } as const;
 }
