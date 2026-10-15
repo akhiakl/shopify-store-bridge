@@ -33,7 +33,8 @@ below).
 breadcrumb, status, page nav). Its index route
 is the Job history page, and each type has its own child route: `metafields`
 (Definitions | Values tabs), `metaobjects` (Definitions | Entries tabs), `policies`,
-`collections`, `menus`, `locations`. Each page loads only its own data from the
+`collections`, `content` (pages and blogs), `menus`, `locations`, `shipping`, `checkout`.
+Each page loads only its own data from the
 source, keeps its own selection, and posts its own "Sync now", so a job usually
 covers one type. Tabs use `?tab=` on the same route, so one selection spans both tabs
 (a definition and its values can go in one job).
@@ -293,6 +294,24 @@ read/write_shipping (plus write_products for products).
   profile is left as it was.
 - Shopify recommends at most 5 location groups per update; profiles normally have one
   or two, so larger ones aren't batched.
+
+## Page, blog and article sync
+
+The "Pages & blogs" page (`content`) syncs pages (`page:<handle>`) and blogs
+(`blog:<handle>`); a blog brings its articles (up to 250) with it. Scope: write_content.
+
+- **Matched by handle, overwritten.** A target page or blog with the same handle is
+  updated to match the source, otherwise it's created. Articles match by handle within
+  the target blog. Page and article fields: title, body, template and published state;
+  articles also summary, tags, author name ("Staff" when the source has none) and image
+  (by its source URL, which Shopify copies).
+- **One step per blog**, since its articles need the target blog's id. Each article is
+  still its own job-history row (`article:<blog>:<handle>`); if the blog fails, its
+  articles are reported failed rather than written into nothing.
+- **Lookups** filter by `handle:` and then match exactly, so they still work if the
+  filter isn't applied. Up to 250 pages, 250 blogs and 250 articles per blog are read.
+- Not covered: page and blog SEO (stored as `global` metafields), metafield values on
+  pages, blogs and articles, and menu links to them (see below).
 
 ## Job/job-item schema
 
