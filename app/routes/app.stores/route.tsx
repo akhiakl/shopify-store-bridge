@@ -4,6 +4,7 @@ import { useLoaderData } from "react-router";
 import { AppVersion } from "~/components/AppVersion";
 import { authenticate } from "~/shopify.server";
 import { getDashboardData } from "~/utils/dashboard.server";
+import { staffName } from "~/utils/staffName.server";
 import { ConnectStoreForm } from "./components/ConnectStoreForm";
 import { IncomingConnectionsList } from "./components/IncomingConnectionsList";
 import { IncomingRequestsList } from "./components/IncomingRequestsList";
@@ -54,6 +55,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const result = await requestPairing({
       sourceShop: session.shop,
       targetDomain: String(formData.get("targetDomain") ?? ""),
+      staff: staffName(session),
     });
     if (!result.ok) return result;
 
@@ -71,6 +73,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return declinePairingRequest({
       connectionId: String(formData.get("connectionId") ?? ""),
       shop: session.shop,
+      staff: staffName(session),
     });
   }
 

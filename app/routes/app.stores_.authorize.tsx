@@ -3,6 +3,7 @@ import { Form, useActionData, useLoaderData } from "react-router";
 
 import { AppVersion } from "~/components/AppVersion";
 import { authenticate } from "~/shopify.server";
+import { staffName } from "~/utils/staffName.server";
 import {
   approvePairingRequest,
   getPendingRequestByToken,
@@ -36,6 +37,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return approvePairingRequest({
     token: String(formData.get("token") ?? ""),
     shop: session.shop,
+    staff: staffName(session),
   });
 };
 

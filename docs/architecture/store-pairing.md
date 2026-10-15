@@ -45,6 +45,10 @@ requestPairing ──► Connection{status: PENDING, authTokenHash: set}
 
 Once a token is used (or the request is declined), it's cleared: a stale/leaked link can't be replayed.
 
-## Things intentionally _not_ built (YAGNI)
+## Who requested and who responded (#69)
 
-- **Online-token/staff-identity tracking.** The app is 100% offline-token based (see `auth.md`); there's no record of _which staff member_ at a shop approved a pairing, only that some authenticated session at that shop did. Switching to online tokens to capture that was considered and explicitly deferred: a real architecture change, not a small addition, and nothing today needs per-staff-member granularity.
+`Connection.requestedBy` and `Connection.respondedBy` hold the staff member's name (or
+email) from the online session (see `auth.md`) of whoever sent the request and whoever
+approved or declined it. The Connected stores page shows them on each connection. They're
+for display only: approving isn't limited to particular staff, and both are null for
+connections made before this was recorded.

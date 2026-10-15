@@ -182,6 +182,7 @@ describe("requestPairing", () => {
     const result = await requestPairing({
       sourceShop: SOURCE_SHOP,
       targetDomain: "target-shop",
+      staff: "Ana Li",
     });
 
     expect(result).toEqual({
@@ -193,6 +194,7 @@ describe("requestPairing", () => {
     expect(connectionChain.values).toHaveBeenCalledWith({
       sourceStoreId: "source-id",
       targetStoreId: "target-id",
+      requestedBy: "Ana Li",
       authTokenHash: expect.any(String),
       authTokenExpiresAt: expect.any(Date),
     });
@@ -261,7 +263,9 @@ describe("requestPairing", () => {
       authTokenExpiresAt: expect.any(Date),
       status: "PENDING",
       requestedAt: expect.any(Date),
+      requestedBy: null,
       respondedAt: null,
+      respondedBy: null,
     });
     expect(updateChain.where).toHaveBeenCalledWith(
       eq(connections.id, "conn-1"),
@@ -336,6 +340,7 @@ describe("approvePairingRequest", () => {
     expect(updateChain.set).toHaveBeenCalledWith({
       status: "APPROVED",
       respondedAt: expect.any(Date),
+      respondedBy: null,
       authTokenHash: null,
       authTokenExpiresAt: null,
     });
@@ -392,6 +397,7 @@ describe("declinePairingRequest", () => {
     expect(updateChain.set).toHaveBeenCalledWith({
       status: "DECLINED",
       respondedAt: expect.any(Date),
+      respondedBy: null,
       authTokenHash: null,
       authTokenExpiresAt: null,
     });

@@ -3,6 +3,7 @@ import { useFetcher } from "react-router";
 import { CONNECTION_STATUS } from "~/utils/connectionStatus";
 import type { DashboardData } from "~/utils/dashboard.server";
 
+import { staffNote } from "../utils/staffNote";
 import { PairingLinkPanel } from "./PairingLinkPanel";
 
 type Connection = DashboardData["outgoing"][number];
@@ -17,6 +18,7 @@ function ConnectionRow({ connection }: { connection: Connection }) {
   const fetcher = useFetcher<RegenerateActionData>();
   const data = fetcher.data;
   const status = CONNECTION_STATUS[connection.status];
+  const note = staffNote(connection);
 
   return (
     <s-box padding="base" border="base" borderRadius="base">
@@ -43,6 +45,7 @@ function ConnectionRow({ connection }: { connection: Connection }) {
             <s-button href={`/app/connections/${connection.id}`}>Open</s-button>
           </s-stack>
         </s-grid>
+        {note && <s-text color="subdued">{note}</s-text>}
         {data && !data.ok && (
           <s-banner tone="critical" heading={data.error}></s-banner>
         )}

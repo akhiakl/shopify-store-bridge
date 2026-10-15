@@ -6,7 +6,7 @@ How StoreBridge authenticates embedded requests, where sessions get persisted, a
 
 - `app/shopify.server.ts`: the single `shopifyApp(...)` instance (`@shopify/shopify-app-react-router`). Every route imports `authenticate`/`sessionStorage`/etc. from here, never constructs its own: see AGENTS.md's Dependency Inversion note.
 - `app/db.server.ts`: the Drizzle client `DrizzleSessionStoragePostgres` writes to. Outside production it logs every query (`logger: true`): deliberately left on, see "Debugging a stuck auth flow" below.
-- Session persistence: **offline tokens only** (`useOnlineTokens` isn't set). One row per installed shop in the `Session` table, keyed by shop, not by user: the app doesn't currently track which staff member is doing what.
+- Session persistence: **offline and online tokens** (`useOnlineTokens: true`, #69). The offline session (one `Session` row per shop) is what background work uses through `unauthenticated.admin`. Each staff member who opens the app also gets an online session (keyed by shop and user), so `authenticate.admin` knows who made a request; `utils/staffName.server.ts` reads their name from it. An online token is limited to that staff member's own permissions, so an in-app Admin API call can fail for a staff member who lacks a scope the app has.
 - Distribution: `AppDistribution.AppStore`, `embedded = true`. Every `/app/*` route's loader calls `authenticate.admin(request)`, not just the parent `app.tsx` layout; every route independently, because a deep link into any of them (e.g. a pairing-authorization link: see `store-pairing.md`) needs to trigger the install/reauth flow on its own, not rely on a parent having already run.
 
 ## Request flow for an authenticated embedded request
