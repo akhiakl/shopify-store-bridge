@@ -2,6 +2,7 @@ import { test as base, expect } from "@playwright/test";
 import { signSessionToken } from "./session-token";
 import {
   seedOfflineSession,
+  seedOnlineSession,
   deleteSession,
   disconnectSessionStore,
 } from "./shopify-session";
@@ -36,10 +37,12 @@ export const test = base.extend<EmbeddedFixtures>({
       );
     }
 
-    const sessionId = await seedOfflineSession(TEST_SHOP);
+    const offlineId = await seedOfflineSession(TEST_SHOP);
+    const onlineId = await seedOnlineSession(TEST_SHOP);
     const token = signSessionToken({ shop: TEST_SHOP, apiKey, apiSecretKey });
     await use(token);
-    await deleteSession(sessionId);
+    await deleteSession(onlineId);
+    await deleteSession(offlineId);
   },
 
   authHeaders: async ({ sessionToken }, use) => {

@@ -20,6 +20,10 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: storage,
   distribution: AppDistribution.AppStore,
+  // Online tokens alongside the offline ones (the template manages both),
+  // so a request knows which staff member made it (#69). Background work
+  // still uses the offline token via `unauthenticated.admin`.
+  useOnlineTokens: true,
   future: {
     expiringOfflineAccessTokens: true,
   },

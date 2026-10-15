@@ -38,6 +38,40 @@ export async function seedOfflineSession(
   return id;
 }
 
+/**
+ * Seeds the staff member's online session too: with `useOnlineTokens`
+ * (#69), authenticate.admin() looks up `<shop>_<sub>` (shopify-api's
+ * getJwtSessionId) instead of the offline row, and would otherwise try a
+ * real token exchange. `userId` must match the session token's `sub`.
+ */
+export async function seedOnlineSession(
+  shop: string,
+  userId = 1,
+  accessToken = "e2e-test-online-token",
+): Promise<string> {
+  const id = `${shop}_${userId}`;
+  const expires = new Date(Date.now() + 60 * 60 * 1000);
+  await db
+    .insert(sessions)
+    .values({
+      id,
+      shop,
+      state: "",
+      isOnline: true,
+      scope: process.env.SCOPES ?? "",
+      accessToken,
+      expires,
+      userId,
+      firstName: "E2E",
+      lastName: "Staff",
+    })
+    .onConflictDoUpdate({
+      target: sessions.id,
+      set: { accessToken, expires },
+    });
+  return id;
+}
+
 export async function deleteSession(id: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.id, id));
 }
