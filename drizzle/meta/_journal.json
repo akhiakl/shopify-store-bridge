@@ -71,6 +71,13 @@
       "when": 1791491585145,
       "tag": "0009_add_connection_auto_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792090533211,
+      "tag": "0010_add_connection_staff",
+      "breakpoints": true
     }
   ]
 }

@@ -111,6 +111,11 @@ export const connections = pgTable(
     /** Re-run the last sync when the source's synced data changes (#65).
      * Off by default; only the source turns it on. */
     autoSync: boolean("autoSync").notNull().default(false),
+    /** Staff member who sent the request, and who approved or declined
+     * it (#69), as shown in the admin. Null before this was recorded, or
+     * when Shopify gave no name. */
+    requestedBy: text("requestedBy"),
+    respondedBy: text("respondedBy"),
   },
   (table) => [
     uniqueIndex("Connection_sourceStoreId_targetStoreId_key").on(
