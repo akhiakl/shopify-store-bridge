@@ -5,7 +5,8 @@ import { AppVersion } from "~/components/AppVersion";
 import { authenticate } from "~/shopify.server";
 import { billingIsTest } from "~/utils/billing/paidPlan.server";
 import {
-  FREE_CONNECTION_LIMIT,
+  FREE_FEATURES,
+  PRO_FEATURES,
   PRO_PLAN,
   PRO_PRICE_USD,
 } from "~/utils/billing/plans";
@@ -49,17 +50,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
   throw data("Unknown intent.", { status: 400 });
 };
-
-const FREE_FEATURES = [
-  `${FREE_CONNECTION_LIMIT} connected store`,
-  "Metafields, metaobjects and collections",
-  "Manual sync",
-];
-const PRO_FEATURES = [
-  "Unlimited connected stores",
-  "Everything: policies, menus, locations, shipping, checkout styling, pages and blogs",
-  "Auto-sync",
-];
 
 function FeatureList({ items }: { items: string[] }) {
   return (

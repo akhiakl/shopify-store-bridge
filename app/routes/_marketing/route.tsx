@@ -20,6 +20,7 @@ export const links: LinksFunction = () => [
 const SECTION_LINKS = [
   { href: "#how-it-works", label: "How it works" },
   { href: "#what-syncs", label: "What syncs" },
+  { href: "#pricing", label: "Pricing" },
   { href: "#faq", label: "FAQ" },
 ];
 

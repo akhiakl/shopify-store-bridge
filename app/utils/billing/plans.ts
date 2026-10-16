@@ -11,6 +11,19 @@ export const PRO_TRIAL_DAYS = 0;
  * approved; declined ones don't count). */
 export const FREE_CONNECTION_LIMIT = 1;
 
+/** What each plan includes, as shown on the Plan page and the landing
+ * page's pricing section. */
+export const FREE_FEATURES = [
+  `${FREE_CONNECTION_LIMIT} connected store`,
+  "Metafields, metaobjects and collections",
+  "Manual sync",
+];
+export const PRO_FEATURES = [
+  "Unlimited connected stores",
+  "Everything: policies, menus, locations, shipping, checkout styling, pages and blogs",
+  "Auto-sync",
+];
+
 /** Selection-key kinds a free source can sync: metafields, metaobjects and
  * collections, definitions and data. Everything else (policies, menus,
  * locations, shipping, checkout styling, pages and blogs) needs Pro. */
