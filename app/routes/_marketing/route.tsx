@@ -5,7 +5,9 @@ import { buttonVariants } from "~/components/ui/Button";
 import { cn } from "~/utils/cn";
 
 import { MobileMenu } from "./components/MobileMenu";
+import { ThemeToggle } from "./components/ThemeToggle";
 import tailwindHref from "./tailwind.css?url";
+import { THEME_SCRIPT } from "./utils/theme";
 
 /**
  * Marketing-site shell: nav header + footer, wrapping every public page
@@ -27,6 +29,8 @@ const SECTION_LINKS: { href: string; label: string }[] = [
 export default function MarketingLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-white text-neutral-900">
+      {/* Before anything paints: sets the theme (see utils/theme.ts). */}
+      <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       <header className="border-b border-neutral-200">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <span className="shrink-0 text-lg font-semibold">StoreBridge</span>
@@ -45,6 +49,7 @@ export default function MarketingLayout() {
             <a href="#login" className={cn(buttonVariants({ size: "sm" }))}>
               Log in
             </a>
+            <ThemeToggle />
             <MobileMenu links={SECTION_LINKS} />
           </nav>
         </div>
