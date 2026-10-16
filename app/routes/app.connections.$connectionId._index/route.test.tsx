@@ -22,6 +22,11 @@ vi.mock("@vercel/functions", () => ({ waitUntil }));
 const { setAutoSync } = vi.hoisted(() => ({ setAutoSync: vi.fn() }));
 vi.mock("~/utils/sync/autoSync.server", () => ({ setAutoSync }));
 
+const { isProStore } = vi.hoisted(() => ({
+  isProStore: vi.fn(() => Promise.resolve(true)),
+}));
+vi.mock("~/utils/billing/paidPlan.server", () => ({ isProStore }));
+
 const {
   loader,
   action,
@@ -86,6 +91,21 @@ describe("auto-sync action", () => {
       await action(autoSyncRequest({ intent: "autoSync", enabled: "true" })),
     ).toEqual({ ok: true });
     expect(setAutoSync).toHaveBeenCalledWith(connection, true);
+  });
+
+  it("refuses to turn auto-sync on for a store not on Pro", async () => {
+    setAutoSync.mockClear();
+    requireConnectionPage.mockResolvedValue({
+      connection,
+      role: "source",
+      isApproved: true,
+    });
+    isProStore.mockResolvedValueOnce(false);
+
+    expect(
+      await action(autoSyncRequest({ intent: "autoSync", enabled: "true" })),
+    ).toMatchObject({ ok: false, error: expect.stringMatching(/Pro/) });
+    expect(setAutoSync).not.toHaveBeenCalled();
   });
 
   it("refuses the target, an unapproved connection and unknown intents", async () => {

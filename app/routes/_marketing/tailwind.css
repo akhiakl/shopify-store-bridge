@@ -1,1 +1,44 @@
 @import "tailwindcss";
+
+/*
+ * Dark mode is `data-theme="dark"` on <html>, set before paint by
+ * utils/theme.ts from the visitor's choice or, by default, the device
+ * setting. The marketing pages only use the neutral scale, white and the
+ * green/amber badge colors, so dark mode remaps those tokens here instead
+ * of adding `dark:` to every class: the neutral scale flips (light
+ * surfaces become dark and text becomes light), and the badge colors move
+ * to their dark-surface shades. Unlayered, so it overrides Tailwind's
+ * `@layer theme` values. This stylesheet only loads on the marketing
+ * routes, so the embedded admin is untouched.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-white: oklch(14.5% 0 none);
+  --color-neutral-50: oklch(20.5% 0 none);
+  --color-neutral-100: oklch(26.9% 0 none);
+  --color-neutral-200: oklch(30% 0 none);
+  --color-neutral-300: oklch(37.1% 0 none);
+  --color-neutral-400: oklch(55.6% 0 none);
+  --color-neutral-500: oklch(70.8% 0 none);
+  --color-neutral-600: oklch(80% 0 none);
+  --color-neutral-700: oklch(87% 0 none);
+  --color-neutral-800: oklch(92.2% 0 none);
+  --color-neutral-900: oklch(97% 0 none);
+
+  --color-green-50: oklch(26.6% 0.065 152.934);
+  --color-green-300: oklch(44.8% 0.119 151.328);
+  --color-green-700: oklch(87.1% 0.15 154.449);
+  --color-amber-50: oklch(27.9% 0.077 45.635);
+  --color-amber-300: oklch(47.3% 0.137 46.201);
+  --color-amber-700: oklch(87.9% 0.169 91.605);
+}
+
+/* Bands that are already dark in light mode (the steps section) keep their
+ * light-mode tokens rather than flipping to light. */
+:root[data-theme="dark"] [data-band="dark"] {
+  --color-white: #fff;
+  --color-neutral-400: oklch(70.8% 0 none);
+  --color-neutral-700: oklch(37.1% 0 none);
+  --color-neutral-900: oklch(20.5% 0 none);
+}
