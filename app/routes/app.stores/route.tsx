@@ -3,6 +3,8 @@ import { useLoaderData } from "react-router";
 
 import { AppVersion } from "~/components/AppVersion";
 import { authenticate } from "~/shopify.server";
+import { isProStore } from "~/utils/billing/paidPlan.server";
+import { FREE_CONNECTION_LIMIT } from "~/utils/billing/plans";
 import { getDashboardData } from "~/utils/dashboard.server";
 import { staffName } from "~/utils/staffName.server";
 import { ConnectStoreForm } from "./components/ConnectStoreForm";
@@ -47,7 +49,7 @@ function buildAuthorizeUrl(
  * own behalf.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
 
@@ -56,6 +58,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       sourceShop: session.shop,
       targetDomain: String(formData.get("targetDomain") ?? ""),
       staff: staffName(session),
+      connectionLimit: (await isProStore(admin))
+        ? undefined
+        : FREE_CONNECTION_LIMIT,
     });
     if (!result.ok) return result;
 

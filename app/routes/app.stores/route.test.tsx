@@ -28,6 +28,11 @@ vi.mock("./pairing.server", () => ({
   regeneratePairingRequest,
 }));
 
+const { isProStore } = vi.hoisted(() => ({
+  isProStore: vi.fn(() => Promise.resolve(false)),
+}));
+vi.mock("~/utils/billing/paidPlan.server", () => ({ isProStore }));
+
 const { loader, action } = await import("./route");
 
 const SHOP = "source-shop.myshopify.com";
@@ -84,10 +89,12 @@ describe("app.stores action", () => {
       context: {},
     } as never);
 
+    // A free store gets the free plan's connection limit.
     expect(requestPairing).toHaveBeenCalledWith({
       sourceShop: SHOP,
       targetDomain: "target.myshopify.com",
       staff: null,
+      connectionLimit: 1,
     });
     if (
       typeof (result as { authorizeUrl?: unknown }).authorizeUrl !== "string"
@@ -120,6 +127,22 @@ describe("app.stores action", () => {
       ok: false,
       error: "A store can't be connected to itself.",
     });
+  });
+
+  it("lifts the connection limit for a Pro store", async () => {
+    authenticateAdmin.mockResolvedValue({ session: { shop: SHOP } });
+    isProStore.mockResolvedValueOnce(true);
+    requestPairing.mockResolvedValue({ ok: false, error: "x" });
+
+    await action({
+      request: actionRequest({ intent: "connect", targetDomain: "t" }),
+      params: {},
+      context: {},
+    } as never);
+
+    expect(requestPairing).toHaveBeenLastCalledWith(
+      expect.objectContaining({ connectionLimit: undefined }),
+    );
   });
 
   it("calls declinePairingRequest on decline", async () => {

@@ -26,7 +26,7 @@ const { dbMock } = vi.hoisted(() => ({
   dbMock: {
     query: {
       sessions: { findFirst: vi.fn() },
-      connections: { findFirst: vi.fn() },
+      connections: { findFirst: vi.fn(), findMany: vi.fn() },
     },
     insert: vi.fn(),
     update: vi.fn(),
@@ -176,6 +176,8 @@ describe("requestPairing", () => {
   it("creates a pending connection with a hashed token", async () => {
     installedStores();
     dbMock.query.connections.findFirst.mockResolvedValue(undefined);
+    // Under the free plan's limit: no other connections yet.
+    dbMock.query.connections.findMany.mockResolvedValue([]);
     const connectionChain = chain(undefined);
     dbMock.insert.mockReturnValueOnce(connectionChain);
 
@@ -183,6 +185,7 @@ describe("requestPairing", () => {
       sourceShop: SOURCE_SHOP,
       targetDomain: "target-shop",
       staff: "Ana Li",
+      connectionLimit: 1,
     });
 
     expect(result).toEqual({
@@ -224,6 +227,39 @@ describe("requestPairing", () => {
       error: `You're already connected to ${TARGET_SHOP}.`,
     });
     expect(dbMock.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a new connection past the free plan's limit", async () => {
+    installedStores();
+    dbMock.query.connections.findFirst.mockResolvedValue(undefined);
+    dbMock.query.connections.findMany.mockResolvedValue([{ id: "other" }]);
+
+    const result = await requestPairing({
+      sourceShop: SOURCE_SHOP,
+      targetDomain: TARGET_SHOP,
+      connectionLimit: 1,
+    });
+
+    expect(result).toMatchObject({ ok: false });
+    expect((result as { error: string }).error).toMatch(/free plan/);
+    expect(dbMock.insert).toHaveBeenCalledTimes(2);
+  });
+
+  it("doesn't count the limit against a pair that's already connected", async () => {
+    installedStores();
+    dbMock.query.connections.findFirst.mockResolvedValue({
+      id: "conn-1",
+      status: "APPROVED",
+    });
+
+    const result = await requestPairing({
+      sourceShop: SOURCE_SHOP,
+      targetDomain: TARGET_SHOP,
+      connectionLimit: 1,
+    });
+
+    expect((result as { error: string }).error).toMatch(/already connected/);
+    expect(dbMock.query.connections.findMany).not.toHaveBeenCalled();
   });
 
   it("points a still-pending request at Resend link", async () => {

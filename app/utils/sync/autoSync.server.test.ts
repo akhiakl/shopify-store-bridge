@@ -22,6 +22,15 @@ const { dbMock, setCalls, enqueueSyncJob } = vi.hoisted(() => {
 vi.mock("~/db.server", () => ({ default: dbMock }));
 vi.mock("./syncQueue.server", () => ({ enqueueSyncJob }));
 
+const { unauthenticatedAdmin, isProStore } = vi.hoisted(() => ({
+  unauthenticatedAdmin: vi.fn(() => Promise.resolve({ admin: {} })),
+  isProStore: vi.fn(() => Promise.resolve(true)),
+}));
+vi.mock("~/shopify.server", () => ({
+  unauthenticated: { admin: unauthenticatedAdmin },
+}));
+vi.mock("~/utils/billing/paidPlan.server", () => ({ isProStore }));
+
 const { setAutoSync, triggerAutoSync, wouldLoop } =
   await import("./autoSync.server");
 
@@ -80,6 +89,25 @@ describe("triggerAutoSync", () => {
     expect(await triggerAutoSync("a.myshopify.com")).toEqual(["job-1"]);
     expect(enqueueSyncJob).toHaveBeenCalledTimes(1);
     expect(enqueueSyncJob).toHaveBeenCalledWith("idle", ["menu:main-menu"]);
+    expect(unauthenticatedAdmin).toHaveBeenCalledWith("a.myshopify.com");
+  });
+
+  it("does nothing for a shop without auto-sync connections", async () => {
+    dbMock.query.connections.findMany.mockResolvedValue([
+      edge("other", ["Z", "B"], "z.myshopify.com"),
+    ]);
+    expect(await triggerAutoSync("a.myshopify.com")).toEqual([]);
+    expect(unauthenticatedAdmin).not.toHaveBeenCalled();
+  });
+
+  it("stops once the source store is no longer on Pro", async () => {
+    dbMock.query.connections.findMany.mockResolvedValue([
+      edge("idle", ["A", "B"], "a.myshopify.com"),
+    ]);
+    isProStore.mockResolvedValueOnce(false);
+
+    expect(await triggerAutoSync("a.myshopify.com")).toEqual([]);
+    expect(enqueueSyncJob).not.toHaveBeenCalled();
   });
 });
 
