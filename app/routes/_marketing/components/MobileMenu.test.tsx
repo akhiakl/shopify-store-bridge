@@ -23,3 +23,33 @@ describe("MobileMenu", () => {
     expect(details).not.toHaveAttribute("open");
   });
 });
+
+describe("MobileMenu dismissal", () => {
+  function openMenu() {
+    const { container } = render(
+      <>
+        <p>outside</p>
+        <MobileMenu links={[{ href: "#faq", label: "FAQ" }]} />
+      </>,
+    );
+    const details = container.querySelector("details")!;
+    details.setAttribute("open", "");
+    return details;
+  }
+
+  it("closes on a tap outside, but not inside", () => {
+    const details = openMenu();
+    fireEvent.pointerDown(screen.getByLabelText("Menu"));
+    expect(details).toHaveAttribute("open");
+    fireEvent.pointerDown(screen.getByText("outside"));
+    expect(details).not.toHaveAttribute("open");
+  });
+
+  it("closes on Escape only", () => {
+    const details = openMenu();
+    fireEvent.keyDown(document, { key: "Enter" });
+    expect(details).toHaveAttribute("open");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(details).not.toHaveAttribute("open");
+  });
+});
