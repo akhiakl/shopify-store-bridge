@@ -48,7 +48,7 @@ env var, so local dev and the Docker/`react-router-serve` path are unaffected.
 3. Environment variables (Vercel project → Settings → Environment Variables):
    - **Production**:
      - `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SCOPES`: from the linked Shopify app (step 1)
-     - `SHOPIFY_APP_URL`: `https://storebridge.vercel.app`
+     - `SHOPIFY_APP_URL`: `https://shopify-storebridge.vercel.app`
      - `SHOPIFY_BILLING_TEST`: optional; `true` makes Pro charges test charges in
        production too (see `docs/architecture/billing.md`)
      - `DATABASE_URL`: Supabase Postgres pooled/pgbouncer connection string (see

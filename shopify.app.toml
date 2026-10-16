@@ -8,7 +8,7 @@
 client_id = "4e756fbacff648a4dcf28ed39cd7075e"
 name = "StoreBridge"
 # Vercel's production domain for `main`.
-application_url = "https://storebridge.vercel.app"
+application_url = "https://shopify-storebridge.vercel.app"
 embedded = true
 
 [access_scopes]
