@@ -49,6 +49,8 @@ env var, so local dev and the Docker/`react-router-serve` path are unaffected.
    - **Production**:
      - `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SCOPES`: from the linked Shopify app (step 1)
      - `SHOPIFY_APP_URL`: `https://storebridge.vercel.app`
+     - `SHOPIFY_BILLING_TEST`: optional; `true` makes Pro charges test charges in
+       production too (see `docs/architecture/billing.md`)
      - `DATABASE_URL`: Supabase Postgres pooled/pgbouncer connection string (see
        `app/db/schema.server.ts`'s comment and `.env.example`)
      - `DIRECT_URL`: the same database's non-pooled connection string. The

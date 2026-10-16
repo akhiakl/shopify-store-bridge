@@ -4,6 +4,8 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { data } from "react-router";
 
 import { authenticate } from "~/shopify.server";
+import { isProStore } from "~/utils/billing/paidPlan.server";
+import { isFreeSelectionKey } from "~/utils/billing/plans";
 
 import { getConnectionAccess, sourceAdminFor } from "./connectionAccess.server";
 import { refreshMetaobjectSubscriptions } from "./metaobjectSubscriptions.server";
@@ -71,6 +73,17 @@ export async function connectionPageAction(args: ActionFunctionArgs) {
     return {
       ok: false,
       error: `${connection.target.shop} hasn't approved this connection yet.`,
+    } as const;
+  }
+
+  // The source's plan decides (#111): it's whose data is being shared.
+  if (
+    !selection.every(isFreeSelectionKey) &&
+    !(await isProStore(sourceAdmin))
+  ) {
+    return {
+      ok: false,
+      error: `Syncing this needs ${connection.source.shop} to be on StoreBridge Pro. The free plan covers metafields, metaobjects and collections.`,
     } as const;
   }
 
