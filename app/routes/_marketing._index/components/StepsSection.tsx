@@ -24,6 +24,7 @@ export function StepsSection() {
   return (
     <section
       id="how-it-works"
+      data-band="dark"
       className="bg-neutral-900 py-16 text-white"
       aria-labelledby="how-it-works-heading"
     >
