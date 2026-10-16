@@ -17,22 +17,30 @@ export const links: LinksFunction = () => [
   { rel: "stylesheet", href: tailwindHref },
 ];
 
+const SECTION_LINKS = [
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#what-syncs", label: "What syncs" },
+  { href: "#faq", label: "FAQ" },
+];
+
 export default function MarketingLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-white text-neutral-900">
       <header className="border-b border-neutral-200">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <span className="text-lg font-semibold">StoreBridge</span>
-          <nav className="flex items-center gap-6 text-sm text-neutral-600">
-            <a href="#how-it-works" className="hover:text-neutral-900">
-              How it works
-            </a>
-            <a href="#what-syncs" className="hover:text-neutral-900">
-              What syncs
-            </a>
-            <a href="#faq" className="hover:text-neutral-900">
-              FAQ
-            </a>
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+          <span className="shrink-0 text-lg font-semibold">StoreBridge</span>
+          <nav className="flex items-center gap-6 whitespace-nowrap text-sm text-neutral-600">
+            {/* Section links don't fit beside the logo on a phone; the page
+                is one scroll there anyway, so only Log in stays. */}
+            {SECTION_LINKS.map(({ href, label }) => (
+              <a
+                key={href}
+                href={href}
+                className="hidden hover:text-neutral-900 md:inline"
+              >
+                {label}
+              </a>
+            ))}
             <a href="#login" className={cn(buttonVariants({ size: "sm" }))}>
               Log in
             </a>
