@@ -13,16 +13,26 @@ const { dbMock, deleteWhere } = vi.hoisted(() => {
 });
 vi.mock("~/db.server", () => ({ default: dbMock }));
 
+const { waitUntil, refreshMetaobjectSubscriptions } = vi.hoisted(() => ({
+  waitUntil: vi.fn(),
+  refreshMetaobjectSubscriptions: vi.fn(() => Promise.resolve()),
+}));
+vi.mock("@vercel/functions", () => ({ waitUntil }));
+vi.mock("~/utils/sync/metaobjectSubscriptions.server", () => ({
+  refreshMetaobjectSubscriptions,
+}));
+
 const { removeConnection } = await import("./removeConnection.server");
 const { connections } = await import("~/db/schema.server");
 
 const SOURCE = "source.myshopify.com";
 const TARGET = "target.myshopify.com";
 
-function stored(status: "PENDING" | "APPROVED" | "DECLINED") {
+function stored(status: "PENDING" | "APPROVED" | "DECLINED", autoSync = false) {
   return {
     id: "conn-1",
     status,
+    autoSync,
     source: { shop: SOURCE },
     target: { shop: TARGET },
   };
@@ -46,6 +56,19 @@ describe("removeConnection", () => {
       expect(deleteWhere).toHaveBeenCalledWith(eq(connections.id, "conn-1"));
     },
   );
+
+  it("refreshes the source's auto-sync webhooks only for an auto-sync connection", async () => {
+    dbMock.query.connections.findFirst.mockResolvedValue(stored("APPROVED"));
+    await removeConnection({ connectionId: "conn-1", shop: SOURCE });
+    expect(refreshMetaobjectSubscriptions).not.toHaveBeenCalled();
+
+    dbMock.query.connections.findFirst.mockResolvedValue(
+      stored("APPROVED", true),
+    );
+    await removeConnection({ connectionId: "conn-1", shop: TARGET });
+    expect(refreshMetaobjectSubscriptions).toHaveBeenCalledWith(SOURCE);
+    expect(waitUntil).toHaveBeenCalledTimes(1);
+  });
 
   it("lets the target disconnect, but not remove a pending request", async () => {
     dbMock.query.connections.findFirst.mockResolvedValue(stored("APPROVED"));
