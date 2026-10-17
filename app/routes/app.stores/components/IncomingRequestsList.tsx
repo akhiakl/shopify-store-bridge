@@ -36,8 +36,9 @@ function RequestRow({
     <s-box padding="base" border="base" borderRadius="base">
       <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="center">
         <s-paragraph>
-          {request.source.shop} wants to sync into this store. Open the pairing
-          link they sent you to approve.
+          {request.source.shop} wants to sync into this store
+          {request.requestedBy ? ` (requested by ${request.requestedBy})` : ""}.
+          Open the pairing link they sent you to approve.
         </s-paragraph>
         <declineFetcher.Form method="post">
           <input type="hidden" name="intent" value="decline" />

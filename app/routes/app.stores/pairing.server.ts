@@ -64,10 +64,13 @@ type RequestPairingResult =
 export async function requestPairing({
   sourceShop,
   targetDomain,
+  staff = null,
   connectionLimit,
 }: {
   sourceShop: string;
   targetDomain: string;
+  /** Who's sending it (staffName.server.ts), recorded as requestedBy. */
+  staff?: string | null;
   /** Most non-declined connections the source may have (the free plan's
    * limit, #111); unlimited when absent. */
   connectionLimit?: number;
@@ -142,13 +145,16 @@ export async function requestPairing({
         ...token,
         status: "PENDING",
         requestedAt: new Date(),
+        requestedBy: staff,
         respondedAt: null,
+        respondedBy: null,
       })
       .where(eq(connections.id, existing.id));
   } else {
     await db.insert(connections).values({
       sourceStoreId: source.id,
       targetStoreId: target.id,
+      requestedBy: staff,
       ...token,
     });
   }
@@ -195,9 +201,11 @@ export async function getPendingRequestByToken(token: string, shop: string) {
 export async function approvePairingRequest({
   token,
   shop,
+  staff = null,
 }: {
   token: string;
   shop: string;
+  staff?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const connection = await getPendingRequestByToken(token, shop);
   if (!connection) {
@@ -212,6 +220,7 @@ export async function approvePairingRequest({
     .set({
       status: "APPROVED",
       respondedAt: new Date(),
+      respondedBy: staff,
       authTokenHash: null,
       authTokenExpiresAt: null,
     })
@@ -228,9 +237,11 @@ export async function approvePairingRequest({
 export async function declinePairingRequest({
   connectionId,
   shop,
+  staff = null,
 }: {
   connectionId: string;
   shop: string;
+  staff?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const connection = await db.query.connections.findFirst({
     where: eq(connections.id, connectionId),
@@ -249,6 +260,7 @@ export async function declinePairingRequest({
     .set({
       status: "DECLINED",
       respondedAt: new Date(),
+      respondedBy: staff,
       authTokenHash: null,
       authTokenExpiresAt: null,
     })

@@ -68,8 +68,15 @@ describe("app.stores.authorize loader", () => {
 });
 
 describe("app.stores.authorize action", () => {
-  it("calls approvePairingRequest with the token and authenticated shop", async () => {
-    authenticateAdmin.mockResolvedValue({ session: { shop: SHOP } });
+  it("calls approvePairingRequest with the token, authenticated shop and staff member", async () => {
+    authenticateAdmin.mockResolvedValue({
+      session: {
+        shop: SHOP,
+        onlineAccessInfo: {
+          associated_user: { first_name: "Bo", last_name: "Ng" },
+        },
+      },
+    });
     approvePairingRequest.mockResolvedValue({ ok: true });
 
     const body = new URLSearchParams({ token: "good" });
@@ -85,6 +92,7 @@ describe("app.stores.authorize action", () => {
     expect(approvePairingRequest).toHaveBeenCalledWith({
       token: "good",
       shop: SHOP,
+      staff: "Bo Ng",
     });
     expect(result).toEqual({ ok: true });
   });

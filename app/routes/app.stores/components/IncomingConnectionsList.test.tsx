@@ -18,6 +18,8 @@ function connection(id: string, status: Connection["status"]): Connection {
     authTokenHash: null,
     authTokenExpiresAt: null,
     autoSync: false,
+    requestedBy: null,
+    respondedBy: null,
     source: {
       id: `store-${id}`,
       shop: `${id}.myshopify.com`,
@@ -49,6 +51,16 @@ describe("IncomingConnectionsList", () => {
       "/app/connections/a",
     );
     expect(screen.getAllByText("Disconnect")[0]).toBeInTheDocument();
+  });
+
+  it("shows who requested and who responded", () => {
+    renderList([
+      { ...connection("a", "DECLINED"), requestedBy: "Ana", respondedBy: "Bo" },
+    ]);
+
+    expect(
+      screen.getByText("Requested by Ana · Declined by Bo"),
+    ).toBeInTheDocument();
   });
 
   it("offers nothing to open for a declined one", () => {

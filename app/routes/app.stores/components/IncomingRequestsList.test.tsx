@@ -16,6 +16,8 @@ const requests: DashboardData["incomingRequests"] = [
     authTokenHash: "hash",
     authTokenExpiresAt: new Date(),
     autoSync: false,
+    requestedBy: null,
+    respondedBy: null,
     source: {
       id: "source-1",
       shop: "source.myshopify.com",
@@ -26,6 +28,22 @@ const requests: DashboardData["incomingRequests"] = [
 ];
 
 describe("IncomingRequestsList", () => {
+  it("names the staff member who sent the request", () => {
+    const Stub = createRoutesStub([
+      {
+        path: "/",
+        Component: () => (
+          <IncomingRequestsList
+            requests={[{ ...requests[0], requestedBy: "Ana Li" }]}
+          />
+        ),
+      },
+    ]);
+    render(<Stub initialEntries={["/"]} />);
+
+    expect(screen.getByText(/requested by Ana Li/)).toBeInTheDocument();
+  });
+
   it("renders the requesting store, with no approve control", () => {
     const Stub = createRoutesStub([
       {

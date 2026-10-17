@@ -98,6 +98,7 @@ describe("app.stores action", () => {
     expect(requestPairing).toHaveBeenCalledWith({
       sourceShop: SHOP,
       targetDomain: "target.myshopify.com",
+      staff: null,
       connectionLimit: 1,
     });
     if (
@@ -162,6 +163,7 @@ describe("app.stores action", () => {
     expect(declinePairingRequest).toHaveBeenCalledWith({
       connectionId: "conn-1",
       shop: SHOP,
+      staff: null,
     });
   });
 

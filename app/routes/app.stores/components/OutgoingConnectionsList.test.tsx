@@ -22,6 +22,8 @@ function connection(
     authTokenHash: null,
     authTokenExpiresAt: null,
     autoSync: false,
+    requestedBy: null,
+    respondedBy: null,
     target: { id: `store-${id}`, shop, name: null, createdAt: new Date() },
   };
 }
@@ -59,6 +61,16 @@ describe("OutgoingConnectionsList", () => {
     expect(screen.getAllByText("Disconnect")[0]).toBeInTheDocument();
     // Only a pending request has a link to resend.
     expect(screen.queryByText("Resend link")).not.toBeInTheDocument();
+  });
+
+  it("shows who requested and who approved", () => {
+    renderList([
+      { ...connection("a", "APPROVED"), requestedBy: "Ana", respondedBy: "Bo" },
+    ]);
+
+    expect(
+      screen.getByText("Requested by Ana · Approved by Bo"),
+    ).toBeInTheDocument();
   });
 
   it("resends a pending request's link and shows the new one", async () => {

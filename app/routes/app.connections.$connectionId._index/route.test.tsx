@@ -162,6 +162,8 @@ describe("ConnectionJobHistory", () => {
         loader: () => ({
           jobs: [],
           autoSync: false,
+          requestedBy: null,
+          respondedBy: null,
           canChangeAutoSync: true,
         }),
       },
