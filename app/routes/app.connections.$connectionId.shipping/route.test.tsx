@@ -18,6 +18,11 @@ vi.mock("~/utils/sync/deliveryProfiles.server", () => ({
   getDeliveryProfiles,
 }));
 
+const { getMarketShipping } = vi.hoisted(() => ({
+  getMarketShipping: vi.fn(),
+}));
+vi.mock("~/utils/sync/marketShipping.server", () => ({ getMarketShipping }));
+
 const { loader, action, default: Page } = await import("./route");
 
 describe("shipping loader", () => {
@@ -28,19 +33,41 @@ describe("shipping loader", () => {
       sourceAdmin,
       isApproved: true,
     });
+    getMarketShipping.mockResolvedValue({
+      marketDrivenShipping: false,
+      markets: [],
+    });
     getDeliveryProfiles.mockResolvedValue([]);
 
     expect(await loader({} as never)).toEqual({
       connectionId: "conn-1",
       isApproved: true,
+      marketDrivenShipping: false,
+      markets: [],
       profiles: [],
     });
+    expect(getMarketShipping).toHaveBeenCalledWith(sourceAdmin);
     expect(getDeliveryProfiles).toHaveBeenCalledWith(sourceAdmin);
     expect(action).toBe(connectionPageAction);
   });
+
+  it("skips delivery profiles for a source on market-driven shipping", async () => {
+    getDeliveryProfiles.mockClear();
+    getMarketShipping.mockResolvedValue({
+      marketDrivenShipping: true,
+      markets: [{ handle: "ca" }],
+    });
+
+    expect(await loader({} as never)).toMatchObject({
+      marketDrivenShipping: true,
+      markets: [{ handle: "ca" }],
+      profiles: [],
+    });
+    expect(getDeliveryProfiles).not.toHaveBeenCalled();
+  });
 });
 
-function renderAt(path: string) {
+function renderAt(path: string, marketDrivenShipping = false) {
   const Stub = createRoutesStub([
     {
       path: "/app/connections/:connectionId/shipping",
@@ -48,6 +75,8 @@ function renderAt(path: string) {
       loader: () => ({
         connectionId: "conn-1",
         isApproved: true,
+        marketDrivenShipping,
+        markets: [],
         profiles: [],
       }),
     },
@@ -65,5 +94,18 @@ describe("shipping page", () => {
       ).not.toBeNull(),
     );
     expect(screen.getByText("Sync now")).toBeInTheDocument();
+  });
+
+  it("shows market shipping for a source on market-driven shipping", async () => {
+    renderAt("/app/connections/conn-1/shipping", true);
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('s-section[heading="Market shipping"]'),
+      ).not.toBeNull(),
+    );
+    expect(
+      document.querySelector('s-section[heading="Shipping profiles"]'),
+    ).toBeNull();
   });
 });
