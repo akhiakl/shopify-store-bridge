@@ -4,6 +4,7 @@ import { data, useLoaderData } from "react-router";
 
 import { isProStore } from "~/utils/billing/paidPlan.server";
 import { setAutoSync } from "~/utils/sync/autoSync.server";
+import { refreshMetaobjectSubscriptions } from "~/utils/sync/metaobjectSubscriptions.server";
 import { requireConnectionPage } from "~/utils/sync/connectionRoute.server";
 import { getJobHistory } from "~/utils/sync/sync.server";
 import { resumeStalledJobs } from "~/utils/sync/syncQueue.server";
@@ -49,7 +50,12 @@ export const action = async (args: ActionFunctionArgs) => {
       error: "Auto-sync is part of StoreBridge Pro. Upgrade on the Plan page.",
     } as const;
   }
-  return setAutoSync(connection, enabled);
+  const result = await setAutoSync(connection, enabled);
+  // Metaobject webhooks are per store (#149), so they follow the switch.
+  if (result.ok) {
+    waitUntil(refreshMetaobjectSubscriptions(connection.source.shop));
+  }
+  return result;
 };
 
 /** Every sync run on this connection (from any of the type pages),

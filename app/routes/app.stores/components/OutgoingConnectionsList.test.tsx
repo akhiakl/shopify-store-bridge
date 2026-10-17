@@ -58,6 +58,7 @@ describe("OutgoingConnectionsList", () => {
       "href",
       "/app/connections/a",
     );
+    expect(screen.getAllByText("Disconnect")[0]).toBeInTheDocument();
     // Only a pending request has a link to resend.
     expect(screen.queryByText("Resend link")).not.toBeInTheDocument();
   });

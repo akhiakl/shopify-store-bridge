@@ -2,9 +2,11 @@ import { CONNECTION_STATUS } from "~/utils/connectionStatus";
 import type { DashboardData } from "~/utils/dashboard.server";
 
 import { staffNote } from "../utils/staffNote";
+import { RemoveConnectionButton } from "./RemoveConnectionButton";
 
 /** Stores the current store has approved or declined pulling from (it's
- * the target). An approved one opens its pages to pull from the source. */
+ * the target). An approved one opens its pages to pull from the source; either can be
+ * removed. */
 export function IncomingConnectionsList({
   connections,
 }: {
@@ -34,11 +36,18 @@ export function IncomingConnectionsList({
                 </s-stack>
                 {note && <s-text color="subdued">{note}</s-text>}
               </s-stack>
-              {connection.status === "APPROVED" && (
-                <s-button href={`/app/connections/${connection.id}`}>
-                  Sync from source
-                </s-button>
-              )}
+              <s-stack direction="inline" gap="small-200">
+                {connection.status === "APPROVED" && (
+                  <s-button href={`/app/connections/${connection.id}`}>
+                    Sync from source
+                  </s-button>
+                )}
+                <RemoveConnectionButton
+                  connectionId={connection.id}
+                  status={connection.status}
+                  shop={connection.source.shop}
+                />
+              </s-stack>
             </s-grid>
           </s-box>
         );

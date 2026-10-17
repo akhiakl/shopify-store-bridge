@@ -5,15 +5,16 @@ import type { DashboardData } from "~/utils/dashboard.server";
 
 import { staffNote } from "../utils/staffNote";
 import { PairingLinkPanel } from "./PairingLinkPanel";
+import { RemoveConnectionButton } from "./RemoveConnectionButton";
 
 type Connection = DashboardData["outgoing"][number];
 
 type RegenerateActionData =
   { ok: true; authorizeUrl: string } | { ok: false; error: string };
 
-/** One store this store syncs to: its status, a way in, and "Resend
- * link" while pending (see pairing.server.ts's regeneratePairingRequest
- * for why that's source-, not target-authorized). */
+/** One store this store syncs to: its status, a way in, "Resend link"
+ * while pending (see pairing.server.ts's regeneratePairingRequest for why
+ * that's source-, not target-authorized), and a way to remove it. */
 function ConnectionRow({ connection }: { connection: Connection }) {
   const fetcher = useFetcher<RegenerateActionData>();
   const data = fetcher.data;
@@ -43,6 +44,11 @@ function ConnectionRow({ connection }: { connection: Connection }) {
               </fetcher.Form>
             )}
             <s-button href={`/app/connections/${connection.id}`}>Open</s-button>
+            <RemoveConnectionButton
+              connectionId={connection.id}
+              status={connection.status}
+              shop={connection.target.shop}
+            />
           </s-stack>
         </s-grid>
         {note && <s-text color="subdued">{note}</s-text>}

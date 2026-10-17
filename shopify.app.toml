@@ -8,7 +8,7 @@
 client_id = "4e756fbacff648a4dcf28ed39cd7075e"
 name = "StoreBridge"
 # Vercel's production domain for `main`.
-application_url = "https://storebridge.vercel.app"
+application_url = "https://shopify-storebridge.vercel.app"
 embedded = true
 
 [access_scopes]
@@ -83,6 +83,12 @@ embedded = true
 # so confirm on a dev store before release. Variant association also uses
 # write_products, already declared.
 #
+# read_markets / write_markets: shipping sync for stores on market-driven
+# shipping (marketShipping.server.ts / syncMarketShipping.server.ts), which
+# set rates per market instead of in delivery profiles. Per Shopify's
+# market-driven shipping upgrade guide, reading Market.delivery needs
+# read_markets and marketUpdate needs write_markets.
+#
 # read_checkout_and_accounts_configurations /
 # write_checkout_and_accounts_configurations: checkout styling sync
 # (checkoutStyling.server.ts / syncCheckoutStyling.server.ts). Confirmed via
@@ -92,7 +98,7 @@ embedded = true
 # read_files / write_files: copying the logos and custom fonts that
 # checkout styling points at (stylingFiles.server.ts): file IDs are
 # per-store. Confirmed via validate_graphql_codeblocks.
-scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content,read_legal_policies,write_legal_policies,read_metaobjects,write_metaobjects,read_online_store_navigation,write_online_store_navigation,read_locations,write_locations,read_checkout_and_accounts_configurations,write_checkout_and_accounts_configurations,read_files,write_files,read_shipping,write_shipping"
+scopes = "read_metaobject_definitions,write_metaobject_definitions,write_products,write_customers,write_orders,write_content,read_legal_policies,write_legal_policies,read_metaobjects,write_metaobjects,read_online_store_navigation,write_online_store_navigation,read_locations,write_locations,read_checkout_and_accounts_configurations,write_checkout_and_accounts_configurations,read_files,write_files,read_shipping,write_shipping,read_markets,write_markets"
 use_legacy_install_flow = false
 
 [webhooks]
@@ -113,7 +119,8 @@ api_version = "2026-10"
   # re-runs a connection's last sync when the source changes something
   # StoreBridge syncs. Deletes aren't synced, so they aren't subscribed.
   # metaobjects/* need a `type:` filter per metaobject type (no wildcard),
-  # and types are per store, so they can't be listed here.
+  # and types are per store, so each source store gets its own
+  # subscriptions instead (app/utils/sync/metaobjectSubscriptions.server.ts).
   [[webhooks.subscriptions]]
   topics = [
     "metafield_definitions/create",

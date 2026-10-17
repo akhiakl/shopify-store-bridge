@@ -294,6 +294,30 @@ read/write_shipping (plus write_products for products).
 - Shopify recommends at most 5 location groups per update; profiles normally have one
   or two, so larger ones aren't batched.
 
+## Market-driven shipping
+
+Shopify is moving stores to market-driven shipping (opt-in from October 2026, every store
+by July 2027): rates are set per market (`Market.delivery.shipping`) instead of in delivery
+profiles, and the merchant delivery profile APIs are deprecated for those stores
+(`ShopFeatures.marketDrivenShipping` says which model a store is on). The Shipping page
+checks the source: on market-driven shipping it lists markets instead of profiles
+(`marketShipping:<handle>`). Scopes: read/write_markets.
+
+- **Planning** reads each selected market's delivery options: flat-rate, value-based and
+  weight-based options as their create input, rate group conditions by origin location
+  name and collection handle. Carrier-calculated options are left out and listed as
+  SKIPPED rows, as in profile sync.
+- **Replace, in one `marketUpdate`.** The target market with the same handle has every
+  delivery option deleted and the source's created, and gets the source's shipping
+  on/off state. A rate group whose locations or collections all miss on the target is
+  dropped (keeping it without the condition would widen the rate), and an option left
+  with no groups is skipped; each miss is a SKIPPED row.
+- **Mixed pairs are skipped, not translated.** A market-shipping job onto a target still
+  on profiles, or a profile job onto a target on market-driven shipping, writes nothing
+  and reports one SKIPPED row: the two models don't map one to one.
+- Markets themselves aren't synced: the target must already have a market with the
+  same handle.
+
 ## Job/job-item schema
 
 One `SyncJob` row per "Sync now" click: its connection, the requested selection, status,
@@ -336,11 +360,17 @@ only the source can change, and only once the target has approved (`Connection.a
   chain of auto-syncing connections led from the target back to the source, the stores
   would re-sync each other forever, so turning auto-sync on is refused when it would close
   such a loop (`wouldLoop`).
+- **Metaobject entries** have `metaobjects/*` topics, but Shopify requires a `type:`
+  filter naming each type (no wildcard), and types differ per store, so they can't be
+  in `shopify.app.toml`. Instead `metaobjectSubscriptions.server.ts` gives each source
+  store its own `metaobjects/create` and `metaobjects/update` subscriptions through the
+  Admin API, filtered to the entry types (`metaobjectEntries:<type>`) its auto-sync
+  connections last synced, pointing at the same `webhooks.source-changed` route. They're
+  refreshed when auto-sync is switched and when a sync is queued on an auto-sync
+  connection; with no such types they're deleted. A refresh failure is logged, not shown:
+  the next change retries.
 - Not covered: metaobject definitions, menus and shop policies have no plain webhook
   topic in 2026-10 (metaobject definitions are only on the newer `[events]` system).
-  Metaobject entries have `metaobjects/*` topics, but Shopify requires a `type:` filter
-  naming each metaobject type (no wildcard), and types differ per store, so the app-wide
-  subscription can't cover them.
   Changes to any of these sync on the next manual sync, or with the next covered change.
 
 ## Things intentionally _not_ built (YAGNI)
