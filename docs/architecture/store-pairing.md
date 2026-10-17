@@ -50,7 +50,8 @@ Once a token is used (or the request is declined), it's cleared: a stale/leaked 
 `removeConnection` deletes the Connection row; its sync jobs cascade. The source can
 remove one in any status (cancel a pending invite, disconnect, clear a declined one). The
 target can disconnect or clear a declined one, but answers a pending request with decline,
-so the source sees the answer instead of the request vanishing. Synced data stays on both
+so the source sees the answer instead of the request vanishing. Removing an auto-sync connection
+refreshes the source's metaobject webhook subscriptions. Synced data stays on both
 stores, and the pair can connect again with a new invite. The UI asks for confirmation
 first.
 

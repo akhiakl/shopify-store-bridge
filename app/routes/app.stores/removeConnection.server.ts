@@ -1,7 +1,9 @@
+import { waitUntil } from "@vercel/functions";
 import { eq } from "drizzle-orm";
 
 import db from "~/db.server";
 import { connections } from "~/db/schema.server";
+import { refreshMetaobjectSubscriptions } from "~/utils/sync/metaobjectSubscriptions.server";
 
 /**
  * Deletes a connection, along with its sync jobs (they cascade). The
@@ -33,5 +35,10 @@ export async function removeConnection({
   }
 
   await db.delete(connections).where(eq(connections.id, connectionId));
+  // Metaobject webhooks are per store (#149): drop the types only this
+  // connection was auto-syncing.
+  if (connection.autoSync) {
+    waitUntil(refreshMetaobjectSubscriptions(connection.source.shop));
+  }
   return { ok: true };
 }
