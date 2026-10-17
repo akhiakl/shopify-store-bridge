@@ -251,4 +251,17 @@ describe("deliveryProfileStep", () => {
       "Zone countries overlap",
     ]);
   });
+
+  it("skips a target on market-driven shipping without writing", async () => {
+    const admin = target({
+      ...lookups,
+      MarketDrivenShipping: () => ({
+        shop: { features: { marketDrivenShipping: true } },
+      }),
+    });
+    const [row] = await run(custom, admin);
+    expect(row.status).toBe("SKIPPED");
+    expect(row.errorMessage).toMatch(/market-driven shipping/);
+    expect(admin.graphql).toHaveBeenCalledTimes(1);
+  });
 });
