@@ -360,11 +360,17 @@ only the source can change, and only once the target has approved (`Connection.a
   chain of auto-syncing connections led from the target back to the source, the stores
   would re-sync each other forever, so turning auto-sync on is refused when it would close
   such a loop (`wouldLoop`).
+- **Metaobject entries** have `metaobjects/*` topics, but Shopify requires a `type:`
+  filter naming each type (no wildcard), and types differ per store, so they can't be
+  in `shopify.app.toml`. Instead `metaobjectSubscriptions.server.ts` gives each source
+  store its own `metaobjects/create` and `metaobjects/update` subscriptions through the
+  Admin API, filtered to the entry types (`metaobjectEntries:<type>`) its auto-sync
+  connections last synced, pointing at the same `webhooks.source-changed` route. They're
+  refreshed when auto-sync is switched and when a sync is queued on an auto-sync
+  connection; with no such types they're deleted. A refresh failure is logged, not shown:
+  the next change retries.
 - Not covered: metaobject definitions, menus and shop policies have no plain webhook
   topic in 2026-10 (metaobject definitions are only on the newer `[events]` system).
-  Metaobject entries have `metaobjects/*` topics, but Shopify requires a `type:` filter
-  naming each metaobject type (no wildcard), and types differ per store, so the app-wide
-  subscription can't cover them.
   Changes to any of these sync on the next manual sync, or with the next covered change.
 
 ## Things intentionally _not_ built (YAGNI)

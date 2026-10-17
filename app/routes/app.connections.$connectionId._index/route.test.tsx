@@ -22,6 +22,13 @@ vi.mock("@vercel/functions", () => ({ waitUntil }));
 const { setAutoSync } = vi.hoisted(() => ({ setAutoSync: vi.fn() }));
 vi.mock("~/utils/sync/autoSync.server", () => ({ setAutoSync }));
 
+const { refreshMetaobjectSubscriptions } = vi.hoisted(() => ({
+  refreshMetaobjectSubscriptions: vi.fn(() => Promise.resolve()),
+}));
+vi.mock("~/utils/sync/metaobjectSubscriptions.server", () => ({
+  refreshMetaobjectSubscriptions,
+}));
+
 const { isProStore } = vi.hoisted(() => ({
   isProStore: vi.fn(() => Promise.resolve(true)),
 }));
@@ -33,7 +40,11 @@ const {
   default: ConnectionJobHistory,
 } = await import("./route");
 
-const connection = { id: "conn-1", autoSync: true };
+const connection = {
+  id: "conn-1",
+  autoSync: true,
+  source: { shop: "source.myshopify.com" },
+};
 
 function autoSyncRequest(fields: Record<string, string>) {
   return {
@@ -91,6 +102,22 @@ describe("auto-sync action", () => {
       await action(autoSyncRequest({ intent: "autoSync", enabled: "true" })),
     ).toEqual({ ok: true });
     expect(setAutoSync).toHaveBeenCalledWith(connection, true);
+    expect(refreshMetaobjectSubscriptions).toHaveBeenCalledWith(
+      "source.myshopify.com",
+    );
+  });
+
+  it("leaves the webhook subscriptions alone when the switch is refused", async () => {
+    refreshMetaobjectSubscriptions.mockClear();
+    requireConnectionPage.mockResolvedValue({
+      connection,
+      role: "source",
+      isApproved: true,
+    });
+    setAutoSync.mockResolvedValue({ ok: false, error: "Run a sync first." });
+
+    await action(autoSyncRequest({ intent: "autoSync", enabled: "true" }));
+    expect(refreshMetaobjectSubscriptions).not.toHaveBeenCalled();
   });
 
   it("refuses to turn auto-sync on for a store not on Pro", async () => {

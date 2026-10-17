@@ -119,7 +119,8 @@ api_version = "2026-10"
   # re-runs a connection's last sync when the source changes something
   # StoreBridge syncs. Deletes aren't synced, so they aren't subscribed.
   # metaobjects/* need a `type:` filter per metaobject type (no wildcard),
-  # and types are per store, so they can't be listed here.
+  # and types are per store, so each source store gets its own
+  # subscriptions instead (app/utils/sync/metaobjectSubscriptions.server.ts).
   [[webhooks.subscriptions]]
   topics = [
     "metafield_definitions/create",
