@@ -28,6 +28,11 @@ vi.mock("./pairing.server", () => ({
   regeneratePairingRequest,
 }));
 
+const { removeConnection } = vi.hoisted(() => ({
+  removeConnection: vi.fn(),
+}));
+vi.mock("./removeConnection.server", () => ({ removeConnection }));
+
 const { isProStore } = vi.hoisted(() => ({
   isProStore: vi.fn(() => Promise.resolve(false)),
 }));
@@ -155,6 +160,23 @@ describe("app.stores action", () => {
     } as never);
 
     expect(declinePairingRequest).toHaveBeenCalledWith({
+      connectionId: "conn-1",
+      shop: SHOP,
+    });
+  });
+
+  it("calls removeConnection on remove, as the session's shop", async () => {
+    authenticateAdmin.mockResolvedValue({ session: { shop: SHOP } });
+    removeConnection.mockResolvedValue({ ok: true });
+
+    const result = await action({
+      request: actionRequest({ intent: "remove", connectionId: "conn-1" }),
+      params: {},
+      context: {},
+    } as never);
+
+    expect(result).toEqual({ ok: true });
+    expect(removeConnection).toHaveBeenCalledWith({
       connectionId: "conn-1",
       shop: SHOP,
     });
