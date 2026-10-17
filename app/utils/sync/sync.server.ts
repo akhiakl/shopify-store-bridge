@@ -16,6 +16,7 @@ import { getMetaobjectEntries } from "./metaobjectEntries.server";
 import { getMenus, planMenus } from "./menus.server";
 import { getLocations } from "./locations.server";
 import { planDeliveryProfile } from "./deliveryProfiles.server";
+import { planContent } from "./content.server";
 import { getMarketShipping, planMarketShipping } from "./marketShipping.server";
 import type { SyncPlan } from "./syncTarget.server";
 
@@ -31,6 +32,8 @@ export interface ParsedSelection {
   menuHandles: string[];
   locationNames: string[];
   deliveryProfileIds: string[];
+  pageHandles: string[];
+  blogHandles: string[];
   marketShippingHandles: string[];
   checkoutStyling: boolean;
 }
@@ -38,12 +41,12 @@ export interface ParsedSelection {
 /** Inverse of the `definitionKey` helpers in the checkbox components
  * (`metaobject:<type>`, `metafield:<ownerType>:<namespace>:<key>`,
  * `policy:<type>`, `collection:<handle>`, `metaobjectEntries:<type>`,
- * `metafieldValues:<ownerType>:<namespace>:<key>`, `menu:<handle>`, `location:<name>`, `deliveryProfile:<numeric id>`, `marketShipping:<handle>`, `checkoutStyling`): safe to split on ":" since
+ * `metafieldValues:<ownerType>:<namespace>:<key>`, `menu:<handle>`, `location:<name>`, `deliveryProfile:<numeric id>`, `page:<handle>`, `blog:<handle>`, `marketShipping:<handle>`, `checkoutStyling`): safe to split on ":" since
  * Shopify's own validation rules for type/namespace/key (alphanumeric,
  * hyphen, underscore only) rule out embedded colons, and `ShopPolicyType`
  * is itself an enum of bare uppercase names. Collection and menu handles
  * and location names are the last segment, so they're rejoined rather
- * than assumed colon-free. */
+ * than assumed colon-free; so are page and blog handles. */
 export function parseSelection(keys: string[]): ParsedSelection {
   const parsed: ParsedSelection = {
     metaobjectTypes: [],
@@ -55,6 +58,8 @@ export function parseSelection(keys: string[]): ParsedSelection {
     menuHandles: [],
     locationNames: [],
     deliveryProfileIds: [],
+    pageHandles: [],
+    blogHandles: [],
     marketShippingHandles: [],
     checkoutStyling: false,
   };
@@ -77,6 +82,10 @@ export function parseSelection(keys: string[]): ParsedSelection {
       parsed.marketShippingHandles.push(rest.join(":"));
     } else if (kind === "location") {
       parsed.locationNames.push(rest.join(":"));
+    } else if (kind === "page") {
+      parsed.pageHandles.push(rest.join(":"));
+    } else if (kind === "blog") {
+      parsed.blogHandles.push(rest.join(":"));
     } else if (kind === "menu") {
       parsed.menuHandles.push(rest.join(":"));
     } else if (kind === "metaobjectEntries") {
@@ -180,6 +189,7 @@ export async function resolvePlan(
       ),
     )
   ).filter((profile) => profile !== null);
+  const content = await planContent(sourceAdmin, selection);
   // Same for a market, or one without shipping set up.
   const marketShipping = selection.marketShippingHandles.length
     ? (
@@ -210,6 +220,8 @@ export async function resolvePlan(
       selection.locationNames.includes(location.name),
     ),
     deliveryProfiles,
+    pages: content.pages,
+    blogs: content.blogs,
     marketShipping,
   };
 }

@@ -15,6 +15,7 @@ const PAGES = [
   { label: "Metaobjects", path: "/metaobjects" },
   { label: "Shop policies", path: "/policies" },
   { label: "Collections", path: "/collections" },
+  { label: "Pages & blogs", path: "/content" },
   { label: "Menus", path: "/menus" },
   { label: "Locations", path: "/locations" },
   { label: "Shipping", path: "/shipping" },

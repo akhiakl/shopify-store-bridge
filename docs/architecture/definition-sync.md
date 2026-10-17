@@ -33,7 +33,8 @@ below).
 breadcrumb, status, page nav). Its index route
 is the Job history page, and each type has its own child route: `metafields`
 (Definitions | Values tabs), `metaobjects` (Definitions | Entries tabs), `policies`,
-`collections`, `menus`, `locations`. Each page loads only its own data from the
+`collections`, `content` (pages and blogs), `menus`, `locations`, `shipping`, `checkout`.
+Each page loads only its own data from the
 source, keeps its own selection, and posts its own "Sync now", so a job usually
 covers one type. Tabs use `?tab=` on the same route, so one selection spans both tabs
 (a definition and its values can go in one job).
@@ -294,29 +295,23 @@ read/write_shipping (plus write_products for products).
 - Shopify recommends at most 5 location groups per update; profiles normally have one
   or two, so larger ones aren't batched.
 
-## Market-driven shipping
+## Page, blog and article sync
 
-Shopify is moving stores to market-driven shipping (opt-in from October 2026, every store
-by July 2027): rates are set per market (`Market.delivery.shipping`) instead of in delivery
-profiles, and the merchant delivery profile APIs are deprecated for those stores
-(`ShopFeatures.marketDrivenShipping` says which model a store is on). The Shipping page
-checks the source: on market-driven shipping it lists markets instead of profiles
-(`marketShipping:<handle>`). Scopes: read/write_markets.
+The "Pages & blogs" page (`content`) syncs pages (`page:<handle>`) and blogs
+(`blog:<handle>`); a blog brings its articles (up to 250) with it. Scope: write_content.
 
-- **Planning** reads each selected market's delivery options: flat-rate, value-based and
-  weight-based options as their create input, rate group conditions by origin location
-  name and collection handle. Carrier-calculated options are left out and listed as
-  SKIPPED rows, as in profile sync.
-- **Replace, in one `marketUpdate`.** The target market with the same handle has every
-  delivery option deleted and the source's created, and gets the source's shipping
-  on/off state. A rate group whose locations or collections all miss on the target is
-  dropped (keeping it without the condition would widen the rate), and an option left
-  with no groups is skipped; each miss is a SKIPPED row.
-- **Mixed pairs are skipped, not translated.** A market-shipping job onto a target still
-  on profiles, or a profile job onto a target on market-driven shipping, writes nothing
-  and reports one SKIPPED row: the two models don't map one to one.
-- Markets themselves aren't synced: the target must already have a market with the
-  same handle.
+- **Matched by handle, overwritten.** A target page or blog with the same handle is
+  updated to match the source, otherwise it's created. Articles match by handle within
+  the target blog. Page and article fields: title, body, template and published state;
+  articles also summary, tags, author name ("Staff" when the source has none) and image
+  (by its source URL, which Shopify copies).
+- **One step per blog**, since its articles need the target blog's id. Each article is
+  still its own job-history row (`article:<blog>:<handle>`); if the blog fails, its
+  articles are reported failed rather than written into nothing.
+- **Lookups** filter by `handle:` and then match exactly, so they still work if the
+  filter isn't applied. Up to 250 pages, 250 blogs and 250 articles per blog are read.
+- Not covered: page and blog SEO (stored as `global` metafields), metafield values on
+  pages, blogs and articles, and menu links to them (see below).
 
 ## Job/job-item schema
 

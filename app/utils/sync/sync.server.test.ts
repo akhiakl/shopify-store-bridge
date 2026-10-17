@@ -181,6 +181,8 @@ describe("parseSelection", () => {
         "deliveryProfile:42",
         // A non-numeric profile ID is ignored, never queried.
         "deliveryProfile:abc",
+        "page:about:us",
+        "blog:news",
         "marketShipping:international",
         "checkoutStyling",
       ]),
@@ -198,6 +200,8 @@ describe("parseSelection", () => {
       menuHandles: ["main-menu"],
       locationNames: ["Main: Warehouse"],
       deliveryProfileIds: ["42"],
+      pageHandles: ["about:us"],
+      blogHandles: ["news"],
       marketShippingHandles: ["international"],
       checkoutStyling: true,
     });

@@ -34,6 +34,20 @@ export function collectionRulesKey(handle: string): string {
   return `collectionRules:${handle}`;
 }
 
+export function pageKey(handle: string): string {
+  return `page:${handle}`;
+}
+
+/** Selection key for a blog; its articles sync with it. */
+export function blogKey(handle: string): string {
+  return `blog:${handle}`;
+}
+
+/** Job-history key for one synced article. */
+export function articleKey(blogHandle: string, handle: string): string {
+  return `article:${blogHandle}:${handle}`;
+}
+
 /** Selection key for "sync this type's entries", distinct from the
  * `metaobject:<type>` key that syncs only the definition. */
 export function metaobjectEntriesKey(type: string): string {
