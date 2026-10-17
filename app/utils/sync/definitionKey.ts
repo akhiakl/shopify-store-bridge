@@ -99,6 +99,17 @@ export function deliveryProfileItemKey(name: string, item: string): string {
   return `deliveryProfileItem:${name}:${item}`;
 }
 
+/** Selection and job-history key for a market's shipping (market-driven
+ * shipping): by handle, which it matches on across stores. */
+export function marketShippingKey(handle: string): string {
+  return `marketShipping:${handle}`;
+}
+
+/** Job-history key for a part of a market's shipping that couldn't sync. */
+export function marketShippingItemKey(handle: string, item: string): string {
+  return `marketShippingItem:${handle}:${item}`;
+}
+
 /** Locations match by name, which is unique per store. */
 export function locationKey(name: string): string {
   return `location:${name}`;

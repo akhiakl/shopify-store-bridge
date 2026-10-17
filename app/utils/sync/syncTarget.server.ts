@@ -25,6 +25,8 @@ import type { PlannedDeliveryProfile } from "./deliveryProfiles.server";
 import { deliveryProfileStep } from "./syncDeliveryProfile.server";
 import type { PlannedBlog, PlannedPage } from "./content.server";
 import { blogStep, pageStep } from "./syncContent.server";
+import type { PlannedMarketShipping } from "./marketShipping.server";
+import { marketShippingStep } from "./syncMarketShipping.server";
 import { syncCheckoutStyling } from "./syncCheckoutStyling.server";
 import { syncLocation } from "./syncLocation.server";
 import { menuStep } from "./syncMenu.server";
@@ -158,6 +160,8 @@ export interface SyncPlan {
   /** Absent from plans queued before page and blog sync existed. */
   pages?: PlannedPage[];
   blogs?: PlannedBlog[];
+  /** Absent from plans queued before market shipping sync existed. */
+  marketShipping?: PlannedMarketShipping[];
 }
 
 /** Per-target state shared by that target's steps within one run. */
@@ -309,6 +313,8 @@ export function buildSyncSteps(plan: SyncPlan): SyncStep[] {
     ]),
     // After locations: a profile's location groups match them by name.
     ...(plan.deliveryProfiles ?? []).map(deliveryProfileStep),
+    // After locations and collections: rate groups match them by key.
+    ...(plan.marketShipping ?? []).map(marketShippingStep),
     ...plan.metaobjectEntries.map((entry): SyncStep => async (ctx) => [
       toItem(
         metaobjectEntryKey(entry),

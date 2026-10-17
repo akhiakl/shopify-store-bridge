@@ -3,6 +3,8 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import db from "~/db.server";
 import { connections } from "~/db/schema.server";
 import { syncJobs } from "~/db/syncJobsSchema.server";
+import { unauthenticated } from "~/shopify.server";
+import { isProStore } from "~/utils/billing/paidPlan.server";
 
 import { enqueueSyncJob } from "./syncQueue.server";
 
@@ -53,8 +55,14 @@ export async function wouldLoop(connection: Edge): Promise<boolean> {
  */
 export async function triggerAutoSync(shop: string): Promise<string[]> {
   const started: string[] = [];
-  for (const connection of await autoSyncConnections()) {
-    if (connection.source.shop !== shop) continue;
+  const mine = (await autoSyncConnections()).filter(
+    (connection) => connection.source.shop === shop,
+  );
+  if (mine.length === 0) return started;
+  // Auto-sync is a Pro feature (#111): a store that downgraded stops here.
+  const { admin } = await unauthenticated.admin(shop);
+  if (!(await isProStore(admin))) return started;
+  for (const connection of mine) {
     const active = await db.query.syncJobs.findFirst({
       where: and(
         eq(syncJobs.connectionId, connection.id),

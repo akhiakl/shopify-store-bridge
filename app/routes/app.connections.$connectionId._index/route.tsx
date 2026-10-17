@@ -2,7 +2,9 @@ import { waitUntil } from "@vercel/functions";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { data, useLoaderData } from "react-router";
 
+import { isProStore } from "~/utils/billing/paidPlan.server";
 import { setAutoSync } from "~/utils/sync/autoSync.server";
+import { refreshMetaobjectSubscriptions } from "~/utils/sync/metaobjectSubscriptions.server";
 import { requireConnectionPage } from "~/utils/sync/connectionRoute.server";
 import { getJobHistory } from "~/utils/sync/sync.server";
 import { resumeStalledJobs } from "~/utils/sync/syncQueue.server";
@@ -30,7 +32,8 @@ export const loader = async (args: LoaderFunctionArgs) => {
 /** The auto-sync switch. Only the source can change it: it's the source's
  * edits that trigger syncs into the target. */
 export const action = async (args: ActionFunctionArgs) => {
-  const { connection, role, isApproved } = await requireConnectionPage(args);
+  const { connection, role, isApproved, sourceAdmin } =
+    await requireConnectionPage(args);
   const formData = await args.request.formData();
   if (formData.get("intent") !== "autoSync") {
     throw data("Unknown intent.", { status: 400 });
@@ -40,7 +43,19 @@ export const action = async (args: ActionFunctionArgs) => {
       status: 403,
     });
   }
-  return setAutoSync(connection, formData.get("enabled") === "true");
+  const enabled = formData.get("enabled") === "true";
+  if (enabled && !(await isProStore(sourceAdmin))) {
+    return {
+      ok: false,
+      error: "Auto-sync is part of StoreBridge Pro. Upgrade on the Plan page.",
+    } as const;
+  }
+  const result = await setAutoSync(connection, enabled);
+  // Metaobject webhooks are per store (#149), so they follow the switch.
+  if (result.ok) {
+    waitUntil(refreshMetaobjectSubscriptions(connection.source.shop));
+  }
+  return result;
 };
 
 /** Every sync run on this connection (from any of the type pages),

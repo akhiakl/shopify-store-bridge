@@ -2,12 +2,14 @@ import "@shopify/shopify-app-react-router/adapters/node";
 import {
   ApiVersion,
   AppDistribution,
+  BillingInterval,
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
 import { DrizzleSessionStoragePostgres } from "@shopify/shopify-app-session-storage-drizzle";
 
 import db from "~/db.server";
 import { sessions } from "~/db/schema.server";
+import { PRO_PLAN, PRO_PRICE_USD, PRO_TRIAL_DAYS } from "~/utils/billing/plans";
 
 const storage = new DrizzleSessionStoragePostgres(db, sessions);
 
@@ -20,6 +22,18 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: storage,
   distribution: AppDistribution.AppStore,
+  billing: {
+    [PRO_PLAN]: {
+      trialDays: PRO_TRIAL_DAYS,
+      lineItems: [
+        {
+          amount: PRO_PRICE_USD,
+          currencyCode: "USD",
+          interval: BillingInterval.Every30Days,
+        },
+      ],
+    },
+  },
   future: {
     expiringOfflineAccessTokens: true,
   },

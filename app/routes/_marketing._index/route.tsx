@@ -9,6 +9,7 @@ import { login } from "~/shopify.server";
 import { FaqSection } from "./components/FaqSection";
 import { FeatureGrid } from "./components/FeatureGrid";
 import { HeroPreviewCard } from "./components/HeroPreviewCard";
+import { PricingSection } from "./components/PricingSection";
 import { StepsSection } from "./components/StepsSection";
 import { WhatSyncsSection } from "./components/WhatSyncsSection";
 
@@ -87,6 +88,7 @@ export default function MarketingHome() {
       <StepsSection />
       <FeatureGrid />
       <WhatSyncsSection />
+      <PricingSection />
       <FaqSection />
     </>
   );

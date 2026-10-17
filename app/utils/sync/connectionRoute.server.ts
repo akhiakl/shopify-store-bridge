@@ -4,8 +4,11 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { data } from "react-router";
 
 import { authenticate } from "~/shopify.server";
+import { isProStore } from "~/utils/billing/paidPlan.server";
+import { isFreeSelectionKey } from "~/utils/billing/plans";
 
 import { getConnectionAccess, sourceAdminFor } from "./connectionAccess.server";
+import { refreshMetaobjectSubscriptions } from "./metaobjectSubscriptions.server";
 import { driveSyncJob, enqueueSyncJob } from "./syncQueue.server";
 import {
   runStatusCheck,
@@ -73,9 +76,24 @@ export async function connectionPageAction(args: ActionFunctionArgs) {
     } as const;
   }
 
+  // The source's plan decides (#111): it's whose data is being shared.
+  if (
+    !selection.every(isFreeSelectionKey) &&
+    !(await isProStore(sourceAdmin))
+  ) {
+    return {
+      ok: false,
+      error: `Syncing this needs ${connection.source.shop} to be on StoreBridge Pro. The free plan covers metafields, metaobjects and collections.`,
+    } as const;
+  }
+
   // Runs in the background: the first run starts now, after the response
   // is sent, and hands off to further runs until the job is done.
   const job = await enqueueSyncJob(connection.id, selection);
   waitUntil(driveSyncJob(job.id));
+  // A new selection can add metaobject types for auto-sync to watch.
+  if (connection.autoSync) {
+    waitUntil(refreshMetaobjectSubscriptions(connection.source.shop));
+  }
   return { ok: true, jobId: job.id } as const;
 }

@@ -27,6 +27,18 @@ vi.mock("@vercel/functions", () => ({ waitUntil }));
 const { runStatusCheck } = vi.hoisted(() => ({ runStatusCheck: vi.fn() }));
 vi.mock("./syncStatus.server", () => ({ runStatusCheck }));
 
+const { refreshMetaobjectSubscriptions } = vi.hoisted(() => ({
+  refreshMetaobjectSubscriptions: vi.fn(),
+}));
+vi.mock("./metaobjectSubscriptions.server", () => ({
+  refreshMetaobjectSubscriptions,
+}));
+
+const { isProStore } = vi.hoisted(() => ({
+  isProStore: vi.fn(() => Promise.resolve(false)),
+}));
+vi.mock("~/utils/billing/paidPlan.server", () => ({ isProStore }));
+
 const { requireConnectionPage, connectionPageAction } =
   await import("./connectionRoute.server");
 
@@ -85,6 +97,42 @@ describe("requireConnectionPage", () => {
 });
 
 describe("connectionPageAction", () => {
+  it("refuses Pro-only types for a source store on the free plan", async () => {
+    getConnectionAccess.mockResolvedValue(
+      asSource({ ...approved, source: { shop: "source.myshopify.com" } }),
+    );
+
+    const result = await connectionPageAction(
+      args([
+        ["intent", "sync"],
+        ["selection", "collection:summer"],
+        ["selection", "menu:main-menu"],
+      ]),
+    );
+
+    expect(isProStore).toHaveBeenCalledWith(sourceAdmin);
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/StoreBridge Pro/),
+    });
+    expect(enqueueSyncJob).not.toHaveBeenCalled();
+  });
+
+  it("lets a Pro source sync any type", async () => {
+    getConnectionAccess.mockResolvedValue(asSource(approved));
+    isProStore.mockResolvedValueOnce(true);
+    enqueueSyncJob.mockResolvedValue({ id: "job-1" });
+
+    const result = await connectionPageAction(
+      args([
+        ["intent", "sync"],
+        ["selection", "menu:main-menu"],
+      ]),
+    );
+
+    expect(result).toEqual({ ok: true, jobId: "job-1" });
+  });
+
   it("queues a sync job for the connection", async () => {
     getConnectionAccess.mockResolvedValue(asSource(approved));
     enqueueSyncJob.mockResolvedValue({ id: "job-1" });
@@ -102,7 +150,31 @@ describe("connectionPageAction", () => {
     // The first run starts in the background, after the response.
     expect(driveSyncJob).toHaveBeenCalledWith("job-1");
     expect(waitUntil).toHaveBeenCalledTimes(1);
+    expect(refreshMetaobjectSubscriptions).not.toHaveBeenCalled();
     expect(result).toEqual({ ok: true, jobId: "job-1" });
+  });
+
+  it("refreshes the source's metaobject webhooks for an auto-sync connection", async () => {
+    getConnectionAccess.mockResolvedValue(
+      asSource({
+        ...approved,
+        autoSync: true,
+        source: { shop: "source.myshopify.com" },
+      }),
+    );
+    enqueueSyncJob.mockResolvedValue({ id: "job-1" });
+
+    await connectionPageAction(
+      args([
+        ["intent", "sync"],
+        ["selection", "metaobjectEntries:faq"],
+      ]),
+    );
+
+    expect(refreshMetaobjectSubscriptions).toHaveBeenCalledWith(
+      "source.myshopify.com",
+    );
+    expect(waitUntil).toHaveBeenCalledTimes(2);
   });
 
   it("rejects an empty selection without touching the sync engine", async () => {

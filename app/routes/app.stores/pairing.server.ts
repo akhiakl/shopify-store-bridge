@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 
 import db from "~/db.server";
 import { connections, sessions } from "~/db/schema.server";
@@ -64,9 +64,13 @@ type RequestPairingResult =
 export async function requestPairing({
   sourceShop,
   targetDomain,
+  connectionLimit,
 }: {
   sourceShop: string;
   targetDomain: string;
+  /** Most non-declined connections the source may have (the free plan's
+   * limit, #111); unlimited when absent. */
+  connectionLimit?: number;
 }): Promise<RequestPairingResult> {
   const targetShop = normalizeShopDomain(targetDomain);
   if (!targetShop) {
@@ -102,6 +106,23 @@ export async function requestPairing({
       eq(connections.targetStoreId, target.id),
     ),
   });
+  // Only a new or reopened (declined) connection adds one.
+  const adds = !existing || existing.status === "DECLINED";
+  if (connectionLimit !== undefined && adds) {
+    const active = await db.query.connections.findMany({
+      where: and(
+        eq(connections.sourceStoreId, source.id),
+        ne(connections.status, "DECLINED"),
+      ),
+      columns: { id: true },
+    });
+    if (active.length >= connectionLimit) {
+      return {
+        ok: false,
+        error: `The free plan includes ${connectionLimit} connected store. Upgrade to StoreBridge Pro on the Plan page to connect more.`,
+      };
+    }
+  }
   if (existing?.status === "APPROVED") {
     return { ok: false, error: `You're already connected to ${targetShop}.` };
   }

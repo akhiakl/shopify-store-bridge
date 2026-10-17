@@ -22,6 +22,7 @@ export default function App() {
             a Home link would just list it twice. */}
         <s-link href="/app/stores">Connected stores</s-link>
         <s-link href="/app/data-requests">Data requests</s-link>
+        <s-link href="/app/plan">Plan</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import type { DashboardData } from "~/utils/dashboard.server";
@@ -26,11 +27,20 @@ function connection(id: string, status: Connection["status"]): Connection {
   };
 }
 
+// The remove button submits through a fetcher, which needs a router.
+function renderList(connections: Connection[]) {
+  const Stub = createRoutesStub([
+    {
+      path: "/",
+      Component: () => <IncomingConnectionsList connections={connections} />,
+    },
+  ]);
+  render(<Stub initialEntries={["/"]} />);
+}
+
 describe("IncomingConnectionsList", () => {
   it("lets an approved connection open its pages to pull from the source", () => {
-    render(
-      <IncomingConnectionsList connections={[connection("a", "APPROVED")]} />,
-    );
+    renderList([connection("a", "APPROVED")]);
 
     expect(screen.getByText("a.myshopify.com")).toBeInTheDocument();
     expect(screen.getByText("Connected")).toHaveAttribute("tone", "success");
@@ -38,14 +48,14 @@ describe("IncomingConnectionsList", () => {
       "href",
       "/app/connections/a",
     );
+    expect(screen.getAllByText("Disconnect")[0]).toBeInTheDocument();
   });
 
   it("offers nothing to open for a declined one", () => {
-    render(
-      <IncomingConnectionsList connections={[connection("d", "DECLINED")]} />,
-    );
+    renderList([connection("d", "DECLINED")]);
 
     expect(screen.getByText("Declined")).toHaveAttribute("tone", "critical");
     expect(screen.queryByText("Sync from source")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Remove")[0]).toBeInTheDocument();
   });
 });

@@ -9,6 +9,7 @@ import {
 } from "./deliveryProfileInputs";
 import type { PlannedDeliveryProfile } from "./deliveryProfiles.server";
 import { createOne, readTopLevelErrors } from "./runMutation.server";
+import { usesMarketDrivenShipping } from "./shopFeatures.server";
 import type { SyncItemResult, SyncStep } from "./syncTarget.server";
 
 /** Scope read_locations. */
@@ -204,7 +205,8 @@ async function updateProfile(
  * replace the target's. Whatever can't sync (carrier-calculated rates,
  * locations or products missing on the target) is listed as SKIPPED rows;
  * a lookup or write error fails the profile and leaves the target as it
- * was, since the write is one mutation.
+ * was, since the write is one mutation. A target on market-driven shipping
+ * is skipped: Shopify deprecates merchant profile writes there.
  */
 export function deliveryProfileStep(profile: PlannedDeliveryProfile): SyncStep {
   return async (ctx) => {
@@ -216,6 +218,14 @@ export function deliveryProfileStep(profile: PlannedDeliveryProfile): SyncStep {
     ): SyncItemResult => ({ key, kind: "DEFINITION", status, errorMessage });
     try {
       const admin = ctx.targetAdmin;
+      if (await usesMarketDrivenShipping(admin)) {
+        return [
+          row(
+            "SKIPPED",
+            "This store sets shipping per market (market-driven shipping), so profiles can't be written to it. Sync from a store on market-driven shipping.",
+          ),
+        ];
+      }
       const groups = await resolveGroups(admin, profile, skips);
       const variantIds = await resolveVariants(admin, profile.products, skips);
       const list = await read<{

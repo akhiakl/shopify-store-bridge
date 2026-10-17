@@ -3,6 +3,8 @@ import { useLoaderData } from "react-router";
 
 import { AppVersion } from "~/components/AppVersion";
 import { authenticate } from "~/shopify.server";
+import { isProStore } from "~/utils/billing/paidPlan.server";
+import { FREE_CONNECTION_LIMIT } from "~/utils/billing/plans";
 import { getDashboardData } from "~/utils/dashboard.server";
 import { ConnectStoreForm } from "./components/ConnectStoreForm";
 import { IncomingConnectionsList } from "./components/IncomingConnectionsList";
@@ -13,6 +15,7 @@ import {
   regeneratePairingRequest,
   requestPairing,
 } from "./pairing.server";
+import { removeConnection } from "./removeConnection.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -36,9 +39,10 @@ function buildAuthorizeUrl(
 }
 
 /**
- * Handles the three form intents this route posts: inviting a target
+ * Handles the form intents this route posts: inviting a target
  * store to connect ("connect"), declining an incoming pairing
- * request ("decline"), and reissuing a lost/expired authorize link for a
+ * request ("decline"), removing a connection or invite ("remove"), and
+ * reissuing a lost/expired authorize link for a
  * still-pending request the source sent ("regenerate"): approving one
  * happens on app.stores.authorize instead, since it requires the one-time
  * token from the invite (see pairing.server.ts). `session.shop` (never
@@ -46,7 +50,7 @@ function buildAuthorizeUrl(
  * own behalf.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
 
@@ -54,6 +58,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const result = await requestPairing({
       sourceShop: session.shop,
       targetDomain: String(formData.get("targetDomain") ?? ""),
+      connectionLimit: (await isProStore(admin))
+        ? undefined
+        : FREE_CONNECTION_LIMIT,
     });
     if (!result.ok) return result;
 
@@ -69,6 +76,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (intent === "decline") {
     return declinePairingRequest({
+      connectionId: String(formData.get("connectionId") ?? ""),
+      shop: session.shop,
+    });
+  }
+
+  if (intent === "remove") {
+    return removeConnection({
       connectionId: String(formData.get("connectionId") ?? ""),
       shop: session.shop,
     });

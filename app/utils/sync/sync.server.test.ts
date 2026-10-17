@@ -14,6 +14,15 @@ vi.mock("./checkoutStyling.server", () => ({
   readCheckoutStyling,
 }));
 
+const { getMarketShipping, planMarketShipping } = vi.hoisted(() => ({
+  getMarketShipping: vi.fn(),
+  planMarketShipping: vi.fn(),
+}));
+vi.mock("./marketShipping.server", () => ({
+  getMarketShipping,
+  planMarketShipping,
+}));
+
 const { parseSelection, resolvePlan, getJobHistory } =
   await import("./sync.server");
 
@@ -174,6 +183,7 @@ describe("parseSelection", () => {
         "deliveryProfile:abc",
         "page:about:us",
         "blog:news",
+        "marketShipping:international",
         "checkoutStyling",
       ]),
     ).toEqual({
@@ -192,6 +202,7 @@ describe("parseSelection", () => {
       deliveryProfileIds: ["42"],
       pageHandles: ["about:us"],
       blogHandles: ["news"],
+      marketShippingHandles: ["international"],
       checkoutStyling: true,
     });
   });
@@ -314,6 +325,32 @@ describe("resolvePlan checkout styling", () => {
     await expect(
       resolvePlan(sourceAdmin() as never, selection),
     ).rejects.toThrow("no published checkout configuration");
+  });
+});
+
+describe("resolvePlan market shipping", () => {
+  it("plans selected markets still on the source, by handle", async () => {
+    getMarketShipping.mockResolvedValue({
+      marketDrivenShipping: true,
+      markets: [
+        { id: "gid://S/M/1", handle: "intl" },
+        { id: "gid://S/M/2", handle: "eu" },
+        { id: "gid://S/M/3", handle: "bare" },
+      ],
+    });
+    planMarketShipping.mockImplementation((_admin, id: string) =>
+      Promise.resolve(id === "gid://S/M/3" ? null : { handle: id }),
+    );
+
+    const plan = await resolvePlan(
+      sourceAdmin() as never,
+      parseSelection([
+        "marketShipping:intl",
+        "marketShipping:bare",
+        "marketShipping:gone",
+      ]),
+    );
+    expect(plan.marketShipping).toEqual([{ handle: "gid://S/M/1" }]);
   });
 });
 
