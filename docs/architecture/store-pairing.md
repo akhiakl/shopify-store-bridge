@@ -45,6 +45,19 @@ requestPairing ──► Connection{status: PENDING, authTokenHash: set}
 
 Once a token is used (or the request is declined), it's cleared: a stale/leaked link can't be replayed.
 
+## Removing a connection or invite
+
+`removeConnection` deletes the Connection row; its sync jobs cascade. The source can
+remove one in any status (cancel a pending invite, disconnect, clear a declined one). The
+target can disconnect or clear a declined one, but answers a pending request with decline,
+so the source sees the answer instead of the request vanishing. Synced data stays on both
+stores, and the pair can connect again with a new invite. The UI asks for confirmation
+first.
+
+A cancelled invite no longer counts toward the hourly invite limit, since the limit counts
+rows. That's accepted: cancelling also removes the request from the target's list, so it
+can't pile up there.
+
 ## Things intentionally _not_ built (YAGNI)
 
 - **Online-token/staff-identity tracking.** The app is 100% offline-token based (see `auth.md`); there's no record of _which staff member_ at a shop approved a pairing, only that some authenticated session at that shop did. Switching to online tokens to capture that was considered and explicitly deferred: a real architecture change, not a small addition, and nothing today needs per-staff-member granularity.

@@ -15,6 +15,7 @@ import {
   regeneratePairingRequest,
   requestPairing,
 } from "./pairing.server";
+import { removeConnection } from "./removeConnection.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -38,9 +39,10 @@ function buildAuthorizeUrl(
 }
 
 /**
- * Handles the three form intents this route posts: inviting a target
+ * Handles the form intents this route posts: inviting a target
  * store to connect ("connect"), declining an incoming pairing
- * request ("decline"), and reissuing a lost/expired authorize link for a
+ * request ("decline"), removing a connection or invite ("remove"), and
+ * reissuing a lost/expired authorize link for a
  * still-pending request the source sent ("regenerate"): approving one
  * happens on app.stores.authorize instead, since it requires the one-time
  * token from the invite (see pairing.server.ts). `session.shop` (never
@@ -74,6 +76,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (intent === "decline") {
     return declinePairingRequest({
+      connectionId: String(formData.get("connectionId") ?? ""),
+      shop: session.shop,
+    });
+  }
+
+  if (intent === "remove") {
+    return removeConnection({
       connectionId: String(formData.get("connectionId") ?? ""),
       shop: session.shop,
     });
