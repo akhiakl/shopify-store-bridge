@@ -188,8 +188,8 @@ importers:
         specifier: 7.18.2
         version: 7.18.2(react-router@7.18.2(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@7.2.0)(typescript@5.9.3)
       '@shopify/app-bridge-react':
-        specifier: ^4.2.13
-        version: 4.2.13(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^4.2.14
+        version: 4.2.14(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@shopify/shopify-app-react-router':
         specifier: ^3.0.1
         version: 3.0.2(react-dom@19.3.0(react@19.3.0))(react-router@7.18.2(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
@@ -2524,14 +2524,14 @@ packages:
     resolution: {integrity: sha512-NKv+SUggxhHNeYjWFR+LKxb2PVtTaGlm5YJ7/jIGBr8E2v3yuo2TCp9tpcKqbECEhiQVcQzwnyeamW4LhWp92g==}
     engines: {node: '>=22.0.0'}
 
-  '@shopify/app-bridge-react@4.2.13':
-    resolution: {integrity: sha512-9ArXhCNRefHZwVwu/DNll1FOQPiKwPhlGs9IwE9FWw39osG+e0SNImczW4B0WF1b92sdRsTgmFkqp3Vvmi3ARg==}
+  '@shopify/app-bridge-react@4.2.14':
+    resolution: {integrity: sha512-57vIBUUbn1VBxZtujiQ2BBVDwLwCYYO8D4/ZRk/MCIzRS8SKvjrguul973CYoxDTCVRr8cshVXX9KgWoiWsbIA==}
     peerDependencies:
       react: '*'
       react-dom: '*'
 
-  '@shopify/app-bridge-types@0.7.2':
-    resolution: {integrity: sha512-Fl4GnQXzJ3h43kvD/i8e1iWP+ynIxue0L1Eezf7GVoGiIYjvu3BqX3au+kHXGx7Us6nQ4Ku6lKdFZP+nAFepCQ==}
+  '@shopify/app-bridge-types@0.7.3':
+    resolution: {integrity: sha512-zhLsMVRNNjwwLmvHPLWfKr5tRtAsr+rN7J4b6DCFMwVku2Q+zbo2DnSLnmouLBcGZrb3r6+d9vmQ4IbdXZ/Hkg==}
 
   '@shopify/graphql-client@2.0.1':
     resolution: {integrity: sha512-rMWnql45haEQdVnz62azY6yKt67W2jNgyuYLb6cJc6GuQzEp3LNgIUuQRuroGrF0rklt/ZxqPWS2g013ci3lWQ==}
@@ -8356,13 +8356,13 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@shopify/app-bridge-react@4.2.13(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@shopify/app-bridge-react@4.2.14(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
-      '@shopify/app-bridge-types': 0.7.2
+      '@shopify/app-bridge-types': 0.7.3
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
 
-  '@shopify/app-bridge-types@0.7.2':
+  '@shopify/app-bridge-types@0.7.3':
     dependencies:
       '@standard-schema/spec': 1.1.0
 
